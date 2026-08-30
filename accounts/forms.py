@@ -31,4 +31,7 @@ class CustomSignupForm(SignupForm):
         user = super().save(request)
         user.role = self.cleaned_data['role']
         user.save(update_fields=['role'])
-        return user
+        return user    
+    
+    
+    
