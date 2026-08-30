@@ -17,8 +17,18 @@
                     {% endif %}
                     {% for field in form.visible_fields %}
                         <div class="mb-3">
-                            <label class="form-label">{{ field.label }}</label>
-                            {{ field }}
+                            {% if field.name == 'role' %}
+                                <label class="form-label d-block">{{ field.label }}</label>
+                                {% for option in field %}
+                                    <div class="form-check">
+                                        {{ option.tag }}
+                                        <label class="form-check-label" for="{{ option.id_for_label }}">{{ option.choice_label }}</label>
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <label class="form-label">{{ field.label }}</label>
+                                {{ field }}
+                            {% endif %}
                             {% if field.help_text %}
                                 <div class="form-text">{{ field.help_text }}</div>
                             {% endif %}
