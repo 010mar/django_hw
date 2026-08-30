@@ -1,0 +1,54 @@
+{% load dicts %}
+<style>
+    .heatmap-scroll { overflow-x: auto; }
+    .heatmap { border-collapse: separate; border-spacing: 3px; }
+    .heatmap-month { font-size: 11px; color: #6c757d; white-space: nowrap; }
+    .heatmap-weekday { font-size: 11px; color: #6c757d; padding-right: 6px; }
+    .heatmap-cell { width: 11px; height: 11px; border-radius: 2px; }
+    .heatmap-cell-0 { background: #ebedf0; }
+    .heatmap-cell-1 { background: #9be9a8; }
+    .heatmap-cell-2 { background: #40c463; }
+    .heatmap-cell-3 { background: #30a14e; }
+    .heatmap-cell-4 { background: #216e39; }
+    .heatmap-future { opacity: 0.25; }
+</style>
+
+{% if heatmap.columns %}
+    <div class="heatmap-scroll">
+        <table class="heatmap">
+            <tr>
+                <td></td>
+                {% for i in heatmap.column_indexes %}
+                    <td class="heatmap-month">
+                        {% with label=heatmap.month_label_at|get_item:i %}
+                            {% if label %}{{ label }}{% endif %}
+                        {% endwith %}
+                    </td>
+                {% endfor %}
+            </tr>
+            {% for week in heatmap.rows %}
+                <tr>
+                    <td class="heatmap-weekday">{{ heatmap.weekday_labels|get_item:forloop.counter0 }}</td>
+                    {% for cell in week %}
+                        <td>
+                            <div class="heatmap-cell heatmap-cell-{{ cell.level }}{% if cell.in_future %} heatmap-future{% endif %}"
+                                 title="{{ cell.date|date:'d.m.Y' }} — {{ cell.count }} {% if cell.count == 1 %}решённая задача{% elif cell.count|add:0 == 2 or cell.count == 3 or cell.count == 4 %}решённые задачи{% else %}решённых задач{% endif %}">
+                            </div>
+                        </td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </table>
+    </div>
+    <div class="d-flex align-items-center gap-2 mt-2 small text-muted">
+        <span>Меньше</span>
+        <span class="heatmap-cell heatmap-cell-0 d-inline-block"></span>
+        <span class="heatmap-cell heatmap-cell-1 d-inline-block"></span>
+        <span class="heatmap-cell heatmap-cell-2 d-inline-block"></span>
+        <span class="heatmap-cell heatmap-cell-3 d-inline-block"></span>
+        <span class="heatmap-cell heatmap-cell-4 d-inline-block"></span>
+        <span>Больше</span>
+    </div>
+{% else %}
+    <p class="text-muted">Пока нет решённых задач.</p>
+{% endif %}

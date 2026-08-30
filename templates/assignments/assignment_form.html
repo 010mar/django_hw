@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_create %}Создание задания{% else %}Редактирование задания{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <h2 class="mb-4">{% if is_create %}Создание задания{% else %}Редактирование задания{% endif %}</h2>
+        <form method="post" class="card card-body">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger">{{ form.non_field_errors.0 }}</div>
+            {% endif %}
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ form.title.label }}</label>
+                    {{ form.title }}
+                    {% if form.title.errors %}<div class="text-danger small mt-1">{{ form.title.errors.0 }}</div>{% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ form.deadline.label }}</label>
+                    {{ form.deadline }}
+                    {% if form.deadline.errors %}<div class="text-danger small mt-1">{{ form.deadline.errors.0 }}</div>{% endif %}
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">{{ form.description.label }}</label>
+                {{ form.description }}
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ form.class_group.label }}</label>
+                    {{ form.class_group }}
+                    {% if form.class_group.errors %}<div class="text-danger small mt-1">{{ form.class_group.errors.0 }}</div>{% endif %}
+                    <div class="form-text">Либо выберите класс, либо отметьте учеников вручную.</div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ form.lesson.label }}</label>
+                    {{ form.lesson }}
+                    <div class="form-text">Если выбрать урок, его задачи добавятся в задание.</div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ form.students.label }}</label>
+                    {{ form.students }}
+                    {% if form.students.errors %}<div class="text-danger small mt-1">{{ form.students.errors.0 }}</div>{% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">{{ form.tasks.label }}</label>
+                    {{ form.tasks }}
+                    {% if form.tasks.errors %}<div class="text-danger small mt-1">{{ form.tasks.errors.0 }}</div>{% endif %}
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Сохранить</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

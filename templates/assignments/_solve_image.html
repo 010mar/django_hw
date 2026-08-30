@@ -1,0 +1,11 @@
+<div class="card mb-4">
+    <div class="card-body">
+        <h6 class="mb-3">Загрузите решение (фото)</h6>
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="file" name="image" accept="image/*" class="form-control mb-3" required>
+            <button type="submit" class="btn btn-primary">Отправить на проверку</button>
+        </form>
+        <p class="text-muted small mb-0">Решение проверит учитель вручную.</p>
+    </div>
+</div>

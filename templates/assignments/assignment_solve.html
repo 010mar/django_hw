@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% load dicts %}
+
+{% block title %}{{ assignment.title }}{% endblock %}
+
+{% block content %}
+<h2 class="mb-1">{{ assignment.title }}</h2>
+{% if assignment.description %}
+    <p class="text-muted">{{ assignment.description }}</p>
+{% endif %}
+<p class="text-muted">
+    {% if assignment.deadline %}
+        {% if assignment.deadline < now %}
+            <span class="text-danger">Дедлайн прошёл ({{ assignment.deadline|date:'d.m.Y H:i' }})</span>
+        {% else %}
+            Дедлайн: {{ assignment.deadline|date:'d.m.Y H:i' }}
+        {% endif %}
+    {% else %}
+        Без дедлайна
+    {% endif %}
+</p>
+
+<div class="list-group">
+    {% for task in tasks %}
+        <a href="{% url 'solve_task' assignment.pk task.pk %}"
+           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+            <div>
+                <span class="badge bg-secondary me-1">{{ forloop.counter }}</span>
+                <span class="badge bg-secondary">{{ task.type_verbose }}</span>
+                <span class="badge bg-warning text-dark">{{ task.difficulty_verbose }}</span>
+                <strong class="ms-1">{{ task.title }}</strong>
+            </div>
+            {% with sub=submissions|get_item:task.pk %}
+                {% if sub %}
+                    {% if sub.is_solved %}
+                        <span class="badge bg-success">решено</span>
+                    {% elif sub.status == 'pending' %}
+                        <span class="badge bg-warning text-dark">на проверке</span>
+                    {% else %}
+                        <span class="badge bg-danger">не решено</span>
+                    {% endif %}
+                {% else %}
+                    <span class="badge bg-secondary">не начато</span>
+                {% endif %}
+            {% endwith %}
+        </a>
+    {% endfor %}
+</div>
+{% endblock %}

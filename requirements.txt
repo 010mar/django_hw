@@ -1,0 +1,8 @@
+Django>=5.2,<6
+django-allauth>=65,<66
+requests>=2.32
+PyJWT>=2.10
+cryptography>=45
+python-openid>=2.2.5
+Pillow>=11
+whitenoise>=6.9

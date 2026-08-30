@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block title %}Личный кабинет{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Здравствуйте, {{ user.get_full_name|default:user.username }}!</h2>
+<div class="alert alert-secondary">Ваша роль: <strong>{{ user.role_verbose }}</strong></div>
+
+{% if user.is_teacher %}
+    <div class="row g-3">
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5>Задачи</h5>
+                    <p class="text-muted">Создавайте задачи разных форматов с ответами и тестами.</p>
+                    <a href="{% url 'task_list' %}" class="btn btn-outline-primary">К задачам</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5>Уроки</h5>
+                    <p class="text-muted">Собирайте уроки из задач и задавайте их классу.</p>
+                    <a href="{% url 'lesson_list' %}" class="btn btn-outline-primary">К урокам</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5>Классы и задания</h5>
+                    <p class="text-muted">Ведите классы, назначайте домашние задания и проверяйте решения.</p>
+                    <a href="{% url 'assignment_list' %}" class="btn btn-outline-primary">К заданиям</a>
+                </div>
+            </div>
+        </div>
+    </div>
+{% elif user.is_student %}
+    <div class="card">
+        <div class="card-body">
+            <h5>Домашние задания</h5>
+            <p class="text-muted">Решайте назначенные задачи, следите за дедлайнами и результатами.</p>
+            <a href="{% url 'my_assignments' %}" class="btn btn-primary">К заданиям</a>
+        </div>
+    </div>
+{% elif user.is_parent %}
+    <div class="card">
+        <div class="card-body">
+            <h5>Успеваемость детей</h5>
+            <p class="text-muted">Смотрите статистику и прогресс своих детей по домашним заданиям.</p>
+            <a href="{% url 'parent_children' %}" class="btn btn-primary">К статистике</a>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

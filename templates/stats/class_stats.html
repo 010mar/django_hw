@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}Статистика класса {{ class_group.title }}{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Статистика класса {{ class_group.title }}</h2>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center">
+            <span class="text-muted">Средняя успеваемость по классу</span>
+            <span class="badge bg-primary fs-6">{{ class_percent }}%</span>
+        </div>
+    </div>
+</div>
+
+{% if rows %}
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                <th>Ученик</th>
+                <th class="text-center">Решено задач</th>
+                <th style="width: 40%;">Прогресс</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+                <tr>
+                    <td>
+                        <a href="{% url 'student_stats' row.student.pk %}">
+                            {{ row.student.get_full_name|default:row.student.username }}
+                        </a>
+                    </td>
+                    <td class="text-center">{{ row.solved }} из {{ row.total }}</td>
+                    <td>
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar {% if row.percent == 100 %}bg-success{% endif %}"
+                                 style="width: {{ row.percent }}%;"
+                                 role="progressbar">{{ row.percent }}%</div>
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <div class="alert alert-secondary">В классе пока нет учеников.</div>
+{% endif %}
+{% endblock %}

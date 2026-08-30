@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ task.title }}{% endblock %}
+
+{% block content %}
+<a href="{% url 'assignment_solve' assignment.pk %}" class="btn btn-outline-secondary btn-sm mb-3">← К заданию</a>
+
+<h2>{{ task.title }}</h2>
+<div class="mb-3">
+    <span class="badge bg-secondary">{{ task.type_verbose }}</span>
+    <span class="badge bg-warning text-dark">{{ task.difficulty_verbose }}</span>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="text-break">{{ task.body|linebreaks }}</div>
+        {% if task.image %}
+            <img src="{{ task.image.url }}" alt="Условие" class="img-fluid mt-3 rounded">
+        {% endif %}
+        {% if task.type == 'programming' %}
+            <hr>
+            <h6>Примеры тестов</h6>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <tbody>
+                    {% for test in task.test_cases.all %}
+                        {% if test.is_public %}
+                            <tr>
+                                <th class="align-top" style="width:120px">Вход</th>
+                                <td><pre class="mb-0">{{ test.input_data }}</pre></td>
+                            </tr>
+                            <tr>
+                                <th class="align-top">Вывод</th>
+                                <td><pre class="mb-0">{{ test.expected_output }}</pre></td>
+                            </tr>
+                        {% endif %}
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if task.type == 'text' %}
+    {% include 'assignments/_solve_text.html' %}
+{% elif task.type == 'image' %}
+    {% include 'assignments/_solve_image.html' %}
+{% else %}
+    {% include 'assignments/_solve_programming.html' %}
+{% endif %}
+
+{% if latest %}
+    <div class="card">
+        <div class="card-body">
+            <h6 class="mb-3">Последняя попытка (№{{ latest.attempt_number }}, {{ latest.created_at|date:'d.m.Y H:i' }})</h6>
+            <p>
+                Статус:
+                <span class="badge bg-{% if latest.is_solved %}success{% elif latest.status == 'pending' %}warning text-dark{% else %}danger{% endif %}">
+                    {{ latest.get_status_display }}
+                </span>
+            </p>
+            {% if latest.answer_text %}
+                <p>Ваш ответ: <code>{{ latest.answer_text }}</code></p>
+            {% endif %}
+            {% if latest.answer_option %}
+                <p>Ваш ответ: {{ latest.answer_option.text }}</p>
+            {% endif %}
+            {% if latest.code %}
+                <pre class="bg-light p-3 rounded">{{ latest.code }}</pre>
+            {% endif %}
+            {% if latest.details %}
+                <pre class="bg-light p-3 rounded">{{ latest.details }}</pre>
+            {% endif %}
+            {% if latest.image %}
+                <img src="{{ latest.image.url }}" alt="Ваше решение" class="img-fluid rounded border" style="max-height:300px">
+            {% endif %}
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,14 @@
+<div class="card mb-4">
+    <div class="card-body">
+        <h6 class="mb-3">Напишите решение на Python</h6>
+        <form method="post">
+            {% csrf_token %}
+            <textarea name="code" class="form-control font-monospace" rows="14" spellcheck="false" required
+                      placeholder="print('Hello, world!')">{{ latest.code|default:'' }}</textarea>
+            <div class="form-text mb-3">
+                Код запускается на всех тестах задачи. Время: {{ task.time_limit_ms }} мс.
+            </div>
+            <button type="submit" class="btn btn-primary">Проверить</button>
+        </form>
+    </div>
+</div>

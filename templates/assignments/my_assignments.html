@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% load dicts %}
+
+{% block title %}Мои задания{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Мои задания</h2>
+
+{% if assignments %}
+    <div class="list-group">
+        {% for assignment in assignments %}
+            <a href="{% url 'assignment_solve' assignment.pk %}"
+               class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>{{ assignment.title }}</strong>
+                    <div class="text-muted small">
+                        {% if assignment.deadline %}
+                            {% if assignment.deadline < now %}
+                                <span class="text-danger">дедлайн прошёл</span>
+                            {% else %}
+                                до {{ assignment.deadline|date:'d.m.Y H:i' }}
+                            {% endif %}
+                        {% else %}
+                            без дедлайна
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="text-end">
+                    {% with p=progress|get_item:assignment.pk %}
+                        <span class="badge bg-{% if p %}success{% else %}secondary{% endif %} rounded-pill">
+                            {{ p.solved }} из {{ p.total }} решено
+                        </span>
+                    {% endwith %}
+                </div>
+            </a>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="alert alert-secondary">Учитель ещё не назначил вам заданий.</div>
+{% endif %}
+{% endblock %}

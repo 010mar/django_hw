@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_create %}Создание задачи{% else %}Редактирование задачи{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <h2 class="mb-4">{% if is_create %}Создание задачи{% else %}Редактирование задачи{% endif %}</h2>
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="card mb-4">
+                <div class="card-body">
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">{{ form.non_field_errors.0 }}</div>
+                    {% endif %}
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{{ form.title.label }}</label>
+                            {{ form.title }}
+                            {% if form.title.errors %}<div class="text-danger small mt-1">{{ form.title.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">{{ form.type.label }}</label>
+                            {{ form.type }}
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">{{ form.difficulty.label }}</label>
+                            {{ form.difficulty }}
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.body.label }}</label>
+                        {{ form.body }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.image.label }}</label>
+                        {{ form.image }}
+                        <div class="form-text">{{ form.image.help_text }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="text-section" class="card mb-4 d-none">
+                <div class="card-body">
+                    <h5>Текстовая задача</h5>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{{ form.answer_mode.label }}</label>
+                            {{ form.answer_mode }}
+                        </div>
+                    </div>
+
+                    <div id="correct-section" class="d-none">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{{ form.correct_answer.label }}</label>
+                                {{ form.correct_answer }}
+                                <div class="form-text">{{ form.correct_answer.help_text }}</div>
+                                {% if form.correct_answer.errors %}
+                                    <div class="text-danger small mt-1">{{ form.correct_answer.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="options-section" class="d-none">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong>Варианты ответа</strong>
+                            <span class="text-muted small">Отметьте правильный вариант галочкой</span>
+                        </div>
+                        {{ option_formset.management_form }}
+                        <div class="table-responsive">
+                            <table class="table align-middle">
+                                <thead>
+                                <tr>
+                                    <th style="width:40px">Правильный</th>
+                                    <th>Текст ответа</th>
+                                    <th style="width:80px">Порядок</th>
+                                    <th style="width:40px">Удалить</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {% for form in option_formset %}
+                                    {{ form.id }}
+                                    <tr>
+                                        <td>{{ form.is_correct }}</td>
+                                        <td>{{ form.text }}</td>
+                                        <td>{{ form.order }}</td>
+                                        <td>{{ form.DELETE }}</td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="programming-section" class="card mb-4 d-none">
+                <div class="card-body">
+                    <h5>Задача на программирование</h5>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{{ form.language.label }}</label>
+                            {{ form.language }}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{{ form.time_limit_ms.label }}</label>
+                            {{ form.time_limit_ms }}
+                            {% if form.time_limit_ms.errors %}
+                                <div class="text-danger small mt-1">{{ form.time_limit_ms.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{{ form.memory_limit_mb.label }}</label>
+                            {{ form.memory_limit_mb }}
+                        </div>
+                    </div>
+                    <strong>Тесты</strong>
+                    <p class="text-muted small">Входные данные передаются в stdin, ожидаемый вывод сравнивается с stdout.</p>
+                    {{ case_formset.management_form }}
+                    <div class="table-responsive">
+                        <table class="table align-middle">
+                            <thead>
+                            <tr>
+                                <th>Входные данные</th>
+                                <th>Ожидаемый вывод</th>
+                                <th style="width:120px">Открытый</th>
+                                <th style="width:80px">Порядок</th>
+                                <th style="width:40px">Удалить</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for form in case_formset %}
+                                {{ form.id }}
+                                <tr>
+                                    <td>{{ form.input_data }}</td>
+                                    <td>{{ form.expected_output }}</td>
+                                    <td>{{ form.is_public }}</td>
+                                    <td>{{ form.order }}</td>
+                                    <td>{{ form.DELETE }}</td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mb-4">
+                <button type="submit" class="btn btn-primary">Сохранить</button>
+                <a href="{% if task %}{% url 'task_detail' task.pk %}{% else %}{% url 'task_list' %}{% endif %}"
+                   class="btn btn-outline-secondary">Отмена</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+(function () {
+    var type = document.getElementById('id_type');
+    var answerMode = document.getElementById('id_answer_mode');
+    var textSection = document.getElementById('text-section');
+    var correctSection = document.getElementById('correct-section');
+    var optionsSection = document.getElementById('options-section');
+    var programmingSection = document.getElementById('programming-section');
+
+    function update() {
+        var isText = type.value === 'text';
+        var isProgramming = type.value === 'programming';
+        textSection.classList.toggle('d-none', !isText);
+        programmingSection.classList.toggle('d-none', !isProgramming);
+        if (isText) {
+            var isShort = answerMode.value === 'short';
+            correctSection.classList.toggle('d-none', !isShort);
+            optionsSection.classList.toggle('d-none', isShort);
+        }
+    }
+
+    type.addEventListener('change', update);
+    answerMode.addEventListener('change', update);
+    update();
+})();
+</script>
+{% endblock %}

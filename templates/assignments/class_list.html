@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block title %}Мои классы{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Мои классы</h2>
+    <a href="{% url 'class_create' %}" class="btn btn-primary">Создать класс</a>
+</div>
+
+{% if classes %}
+    <div class="list-group">
+        {% for class_group in classes %}
+            <a href="{% url 'class_detail' class_group.pk %}"
+               class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                <strong>{{ class_group.title }}</strong>
+                <span class="badge bg-secondary rounded-pill">{{ class_group.students.count }} уч.</span>
+            </a>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="alert alert-secondary">Классов пока нет. Создайте класс, чтобы назначать задания.</div>
+{% endif %}
+{% endblock %}

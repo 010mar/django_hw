@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% load dicts %}
+
+{% block title %}{{ assignment.title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <h2>{{ assignment.title }}</h2>
+    <div class="d-flex gap-2">
+        <a href="{% url 'assignment_grade' assignment.pk %}" class="btn btn-outline-primary btn-sm">Проверить картинки</a>
+        <form method="post" action="{% url 'assignment_delete' assignment.pk %}"
+              onsubmit="return confirm('Удалить задание?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger btn-sm">Удалить</button>
+        </form>
+    </div>
+</div>
+<p class="text-muted">
+    {{ assignment.class_group|default:'Отдельные ученики' }} ·
+    {% if assignment.deadline %}дедлайн {{ assignment.deadline|date:'d.m.Y H:i' }}{% else %}без дедлайна{% endif %}
+</p>
+{% if assignment.description %}
+    <p>{{ assignment.description }}</p>
+{% endif %}
+
+<h5 class="mb-3">Результаты ({{ students.count }} учеников × {{ tasks|length }} задач)</h5>
+<div class="table-responsive">
+    <table class="table table-sm table-bordered align-middle">
+        <thead>
+        <tr>
+            <th style="min-width:160px">Ученик</th>
+            {% for task in tasks %}
+                <th class="text-center" title="{{ task.title }}">
+                    <span class="badge bg-secondary">{{ task.type_verbose|slice:":1" }}</span>
+                    {{ task.title|truncatechars:18 }}
+                </th>
+            {% endfor %}
+        </tr>
+        </thead>
+        <tbody>
+        {% for student in students %}
+            <tr>
+                <td>
+                    <a href="{% url 'student_stats' student.pk %}">{{ student.get_full_name|default:student.username }}</a>
+                </td>
+                {% for task in tasks %}
+                    <td class="text-center">
+                        {% with sub=latest|get_item:student.pk %}
+                            {% if sub and sub|get_item:task.pk %}
+                                {% with status=sub|get_item:task.pk %}
+                                    {% if status.is_solved %}
+                                        <span class="badge bg-success">✓</span>
+                                    {% elif status.status == 'pending' %}
+                                        <span class="badge bg-warning text-dark">?</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">✗</span>
+                                    {% endif %}
+                                {% endwith %}
+                            {% else %}
+                                <span class="text-muted">·</span>
+                            {% endif %}
+                        {% endwith %}
+                    </td>
+                {% endfor %}
+            </tr>
+        {% empty %}
+            <tr><td colspan="{{ tasks|length|add:1 }}" class="text-center text-muted py-4">Нет учеников.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+<a href="{% url 'assignment_list' %}" class="btn btn-outline-secondary">К списку заданий</a>
+{% endblock %}

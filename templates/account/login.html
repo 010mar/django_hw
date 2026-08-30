@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}Вход{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <h1 class="h4 mb-4">Вход в аккаунт</h1>
+                <form method="post" action="{% url 'account_login' %}">
+                    {% csrf_token %}
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
+                    <div class="mb-3">
+                        <label class="form-label">E-mail или логин</label>
+                        <input type="text" name="login" value="{{ form.login.value|default:'' }}"
+                               class="form-control" required autofocus>
+                        {% if form.login.errors %}
+                            <div class="text-danger small mt-1">{{ form.login.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Пароль</label>
+                        <input type="password" name="password" class="form-control" required>
+                        {% if form.password.errors %}
+                            <div class="text-danger small mt-1">{{ form.password.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    {{ redirect_field }}
+                    <button type="submit" class="btn btn-primary w-100">Войти</button>
+                </form>
+                <div class="text-center mt-3 small">
+                    <a href="{% url 'account_reset_password' %}">Забыли пароль?</a>
+                </div>
+            </div>
+        </div>
+
+        {% include 'socialaccount/snippets/provider_list.html' with process='login' %}
+
+        <p class="text-center mt-3 mb-0">
+            Нет аккаунта? <a href="{% url 'account_signup' %}">Зарегистрируйтесь</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,205 @@
+from django.contrib import messages
+from django.shortcuts import get_object_or_404, redirect, render
+
+from accounts.decorators import teacher_required
+
+from .forms import (
+    AddTaskForm,
+    AnswerOptionFormSet,
+    LessonForm,
+    TaskForm,
+    TestCaseFormSet,
+)
+from .models import AnswerOption, Lesson, LessonTask, Task, TestCase
+
+
+@teacher_required
+def task_list(request):
+    tasks = Task.objects.select_related('author').all()
+    return render(request, 'tasks/task_list.html', {'tasks': tasks})
+
+
+def _save_formsets(task, option_formset, case_formset):
+    for obj in option_formset.save(commit=False):
+        obj.task = task
+        obj.save()
+    for obj in option_formset.deleted_objects:
+        obj.delete()
+    for obj in case_formset.save(commit=False):
+        obj.task = task
+        obj.save()
+    for obj in case_formset.deleted_objects:
+        obj.delete()
+
+
+def _validate_formsets(task, option_formset, case_formset):
+    errors = []
+    real_options = [
+        d for d in option_formset.cleaned_data
+        if d and not d.get('DELETE') and (d.get('text') or '').strip()
+    ]
+    real_cases = [
+        d for d in case_formset.cleaned_data
+        if d and not d.get('DELETE') and (d.get('expected_output') or '').strip()
+    ]
+    if task.type == Task.Type.PROGRAMMING and not real_cases:
+        errors.append('Добавьте хотя бы один тест для задачи на программирование.')
+    if task.type == Task.Type.TEXT and task.answer_mode == Task.AnswerMode.CHOICE:
+        if not real_options:
+            errors.append('Добавьте хотя бы один вариант ответа.')
+        elif not any(d.get('is_correct') for d in real_options):
+            errors.append('Отметьте хотя бы один правильный вариант.')
+    return errors
+
+
+@teacher_required
+def task_create(request):
+    form = TaskForm(request.POST or None, request.FILES or None)
+    option_formset = AnswerOptionFormSet(
+        request.POST or None,
+        prefix='options',
+        queryset=AnswerOption.objects.none(),
+    )
+    case_formset = TestCaseFormSet(
+        request.POST or None,
+        prefix='cases',
+        queryset=TestCase.objects.none(),
+    )
+    if request.method == 'POST':
+        if form.is_valid() and option_formset.is_valid() and case_formset.is_valid():
+            task = form.save(commit=False)
+            task.author = request.user
+            formset_errors = _validate_formsets(task, option_formset, case_formset)
+            if not formset_errors:
+                task.save()
+                _save_formsets(task, option_formset, case_formset)
+                messages.success(request, 'Задача создана.')
+                return redirect('task_detail', pk=task.pk)
+            for error in formset_errors:
+                messages.error(request, error)
+    return render(request, 'tasks/task_form.html', {
+        'form': form,
+        'option_formset': option_formset,
+        'case_formset': case_formset,
+        'is_create': True,
+    })
+
+
+@teacher_required
+def task_detail(request, pk):
+    task = get_object_or_404(Task, pk=pk)
+    return render(request, 'tasks/task_detail.html', {'task': task})
+
+
+@teacher_required
+def task_edit(request, pk):
+    task = get_object_or_404(Task, pk=pk)
+    form = TaskForm(request.POST or None, request.FILES or None, instance=task)
+    option_formset = AnswerOptionFormSet(
+        request.POST or None,
+        prefix='options',
+        queryset=AnswerOption.objects.filter(task=task),
+    )
+    case_formset = TestCaseFormSet(
+        request.POST or None,
+        prefix='cases',
+        queryset=TestCase.objects.filter(task=task),
+    )
+    if request.method == 'POST':
+        if form.is_valid() and option_formset.is_valid() and case_formset.is_valid():
+            saved_task = form.save(commit=False)
+            formset_errors = _validate_formsets(saved_task, option_formset, case_formset)
+            if not formset_errors:
+                saved_task.save()
+                _save_formsets(saved_task, option_formset, case_formset)
+                messages.success(request, 'Задача обновлена.')
+                return redirect('task_detail', pk=task.pk)
+            for error in formset_errors:
+                messages.error(request, error)
+    return render(request, 'tasks/task_form.html', {
+        'form': form,
+        'option_formset': option_formset,
+        'case_formset': case_formset,
+        'is_create': False,
+        'task': task,
+    })
+
+
+@teacher_required
+def task_delete(request, pk):
+    task = get_object_or_404(Task, pk=pk)
+    if request.method == 'POST':
+        task.delete()
+        messages.success(request, 'Задача удалена.')
+    return redirect('task_list')
+
+
+@teacher_required
+def lesson_list(request):
+    lessons = Lesson.objects.filter(author=request.user).prefetch_related('entries')
+    return render(request, 'tasks/lesson_list.html', {'lessons': lessons})
+
+
+@teacher_required
+def lesson_create(request):
+    form = LessonForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        lesson = form.save(commit=False)
+        lesson.author = request.user
+        lesson.save()
+        messages.success(request, 'Урок создан.')
+        return redirect('lesson_detail', pk=lesson.pk)
+    return render(request, 'tasks/lesson_form.html', {'form': form, 'is_create': True})
+
+
+@teacher_required
+def lesson_detail(request, pk):
+    lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
+    add_task_form = AddTaskForm(lesson=lesson)
+    return render(request, 'tasks/lesson_detail.html', {
+        'lesson': lesson,
+        'add_task_form': add_task_form,
+    })
+
+
+@teacher_required
+def lesson_edit(request, pk):
+    lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
+    form = LessonForm(request.POST or None, instance=lesson)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Урок обновлён.')
+        return redirect('lesson_detail', pk=lesson.pk)
+    return render(request, 'tasks/lesson_form.html', {'form': form, 'is_create': False, 'lesson': lesson})
+
+
+@teacher_required
+def lesson_delete(request, pk):
+    lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
+    if request.method == 'POST':
+        lesson.delete()
+        messages.success(request, 'Урок удалён.')
+    return redirect('lesson_list')
+
+
+@teacher_required
+def lesson_add_task(request, pk):
+    lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
+    form = AddTaskForm(request.POST or None, lesson=lesson)
+    if form.is_valid():
+        LessonTask.objects.create(
+            lesson=lesson,
+            task=form.cleaned_data['task'],
+            order=form.cleaned_data['order'],
+        )
+        messages.success(request, 'Задача добавлена в урок.')
+    return redirect('lesson_detail', pk=pk)
+
+
+@teacher_required
+def lesson_remove_task(request, pk, task_id):
+    lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
+    if request.method == 'POST':
+        LessonTask.objects.filter(lesson=lesson, task_id=task_id).delete()
+        messages.success(request, 'Задача удалена из урока.')
+    return redirect('lesson_detail', pk=pk)

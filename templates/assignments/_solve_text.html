@@ -1,0 +1,22 @@
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            {% if task.answer_mode == 'choice' %}
+                <h6 class="mb-3">Выберите вариант ответа</h6>
+                {% for option in task.answer_options.all %}
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="answer_option"
+                               value="{{ option.pk }}" id="opt{{ option.pk }}" required>
+                        <label class="form-check-label" for="opt{{ option.pk }}">{{ option.text }}</label>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <h6 class="mb-3">Введите ответ</h6>
+                <input type="text" name="answer_text" class="form-control" maxlength="500" required
+                       placeholder="Краткий ответ">
+            {% endif %}
+            <button type="submit" class="btn btn-primary mt-3">Отправить</button>
+        </form>
+    </div>
+</div>

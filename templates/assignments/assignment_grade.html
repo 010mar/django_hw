@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block title %}Проверка — {{ assignment.title }}{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Проверка изображений — {{ assignment.title }}</h2>
+
+{% if submissions %}
+    {% for submission in submissions %}
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <strong>{{ submission.student.get_full_name|default:submission.student.username }}</strong>
+                        <span class="text-muted">— {{ submission.task.title }}</span>
+                    </div>
+                    <span class="badge bg-{% if submission.status == 'pending' %}warning text-dark{% elif submission.status == 'accepted' %}success{% else %}danger{% endif %}">
+                        {{ submission.get_status_display }}
+                    </span>
+                </div>
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        {% if submission.image %}
+                            <a href="{{ submission.image.url }}" target="_blank">
+                                <img src="{{ submission.image.url }}" alt="Решение" class="img-fluid rounded border">
+                            </a>
+                        {% else %}
+                            <p class="text-muted mb-0">Изображение отсутствует.</p>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <p class="text-muted small mb-2">Попытка №{{ submission.attempt_number }} · {{ submission.created_at|date:'d.m.Y H:i' }}</p>
+                        <div class="d-flex gap-2">
+                            <form method="post" action="{% url 'grade_submission' submission.pk %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="accepted">
+                                <button type="submit" class="btn btn-success">Зачесть</button>
+                            </form>
+                            <form method="post" action="{% url 'grade_submission' submission.pk %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="rejected">
+                                <button type="submit" class="btn btn-danger">Не зачесть</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+{% else %}
+    <div class="alert alert-secondary">Нет изображений для проверки.</div>
+{% endif %}
+<a href="{% url 'assignment_detail' assignment.pk %}" class="btn btn-outline-secondary">К заданию</a>
+{% endblock %}

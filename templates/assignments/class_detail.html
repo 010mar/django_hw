@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block title %}Класс {{ class_group.title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Класс {{ class_group.title }}</h2>
+    <div>
+        <a href="{% url 'class_stats' class_group.pk %}" class="btn btn-outline-primary btn-sm">Статистика класса</a>
+        <form method="post" action="{% url 'class_delete' class_group.pk %}" class="d-inline"
+              onsubmit="return confirm('Удалить класс?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger btn-sm">Удалить</button>
+        </form>
+    </div>
+</div>
+
+<p class="text-muted">
+    Чтобы изменить состав класса, используйте форму ниже или админку.
+</p>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="mb-3">Ученики ({{ class_group.students.count }})</h5>
+        <div class="list-group">
+            {% for student in class_group.students.all %}
+                <div class="list-group-item">
+                    <a href="{% url 'student_stats' student.pk %}">
+                        {{ student.get_full_name|default:student.username }}
+                    </a>
+                </div>
+            {% empty %}
+                <div class="text-muted">В классе пока нет учеников.</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <h5 class="mb-3">Изменить состав</h5>
+        <form method="post" action="{% url 'class_detail' class_group.pk %}">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label">Название</label>
+                <input type="text" name="title" value="{{ class_group.title }}" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Ученики</label>
+                <select name="students" multiple size="12" class="form-select">
+                    {% for student in all_students %}
+                        <option value="{{ student.pk }}" {% if student in class_group.students.all %}selected{% endif %}>
+                            {{ student.get_full_name|default:student.username }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Сохранить</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}Сервис домашних заданий{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center text-center py-5">
+    <div class="col-lg-8">
+        <h1 class="display-5 fw-bold mb-3">Домашние задания по информатике</h1>
+        <p class="lead text-muted mb-4">
+            Сервис для учителей, учеников и родителей: задачи разных форматов,
+            уроки, автоматическая проверка и статистика.
+        </p>
+        {% if not user.is_authenticated %}
+            <div class="d-flex gap-2 justify-content-center">
+                <a href="{% url 'account_signup' %}" class="btn btn-primary btn-lg">Зарегистрироваться</a>
+                <a href="{% url 'account_login' %}" class="btn btn-outline-primary btn-lg">Войти</a>
+            </div>
+        {% else %}
+            <a href="{% url 'home' %}" class="btn btn-primary btn-lg">Перейти в личный кабинет</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ task.title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <h2>{{ task.title }}</h2>
+    <div class="d-flex gap-2">
+        <a href="{% url 'task_edit' task.pk %}" class="btn btn-outline-primary btn-sm">Редактировать</a>
+        <form method="post" action="{% url 'task_delete' task.pk %}"
+              onsubmit="return confirm('Удалить задачу?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger btn-sm">Удалить</button>
+        </form>
+    </div>
+</div>
+<div class="mb-4">
+    <span class="badge bg-secondary">{{ task.type_verbose }}</span>
+    <span class="badge bg-warning text-dark">{{ task.difficulty_verbose }}</span>
+    {% if task.type == 'programming' %}
+        <span class="badge bg-info text-dark">{{ task.language }}</span>
+    {% endif %}
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h6 class="text-muted">Условие</h6>
+        <div class="text-break">{{ task.body|linebreaks }}</div>
+        {% if task.image %}
+            <img src="{{ task.image.url }}" alt="Иллюстрация" class="img-fluid mt-3 rounded">
+        {% endif %}
+    </div>
+</div>
+
+{% if task.type == 'text' %}
+    <div class="card mb-4">
+        <div class="card-body">
+            <h6 class="text-muted mb-3">
+                {% if task.answer_mode == 'choice' %}Варианты ответа{% else %}Краткий ответ{% endif %}
+            </h6>
+            {% if task.answer_mode == 'choice' %}
+                <ul class="list-group">
+                    {% for option in task.answer_options.all %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ option.text }}
+                            {% if option.is_correct %}
+                                <span class="badge bg-success">правильный</span>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>Правильный ответ: <code>{{ task.correct_answer }}</code></p>
+            {% endif %}
+        </div>
+    </div>
+{% endif %}
+
+{% if task.type == 'programming' %}
+    <div class="card mb-4">
+        <div class="card-body">
+            <h6 class="text-muted mb-3">Тесты ({{ task.test_cases.all|length }})</h6>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                    <tr>
+                        <th>Вход</th>
+                        <th>Ожидаемый вывод</th>
+                        <th>Открытый</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for test in task.test_cases.all %}
+                        <tr>
+                            <td><pre class="mb-0">{{ test.input_data }}</pre></td>
+                            <td><pre class="mb-0">{{ test.expected_output }}</pre></td>
+                            <td>{% if test.is_public %}да{% else %}нет{% endif %}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-muted small mb-0">
+                Лимит времени: {{ task.time_limit_ms }} мс, память: {{ task.memory_limit_mb }} МБ
+            </p>
+        </div>
+    </div>
+{% endif %}
+
+<a href="{% url 'task_list' %}" class="btn btn-outline-secondary">К списку задач</a>
+{% endblock %}
