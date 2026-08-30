@@ -27,6 +27,27 @@ class TaskBank(models.Model):
         return self.tasks.count()
 
 
+class Topic(models.Model):
+    bank = models.ForeignKey(
+        TaskBank,
+        on_delete=models.CASCADE,
+        related_name='topics',
+        verbose_name='База задач',
+    )
+    name = models.CharField(max_length=255, verbose_name='Название')
+    order = models.PositiveIntegerField(default=0, verbose_name='Порядок')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создана')
+
+    class Meta:
+        verbose_name = 'Тема'
+        verbose_name_plural = 'Темы'
+        ordering = ('order', 'name')
+        unique_together = ('bank', 'name')
+
+    def __str__(self):
+        return self.name
+
+
 class Task(models.Model):
     class Type(models.TextChoices):
         TEXT = 'text', 'Текстовая'
@@ -52,6 +73,14 @@ class Task(models.Model):
         blank=True,
         related_name='tasks',
         verbose_name='База задач',
+    )
+    topic = models.ForeignKey(
+        Topic,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tasks',
+        verbose_name='Тема',
     )
     type = models.CharField(
         max_length=16,

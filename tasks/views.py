@@ -10,13 +10,14 @@ from .forms import (
     TaskBankForm,
     TaskForm,
     TestCaseFormSet,
+    TopicForm,
 )
-from .models import AnswerOption, Lesson, LessonTask, Task, TaskBank, TestCase
+from .models import AnswerOption, Lesson, LessonTask, Task, TaskBank, TestCase, Topic
 
 
 @teacher_required
 def task_list(request):
-    tasks = Task.objects.filter(author=request.user).select_related('author', 'bank')
+    tasks = Task.objects.filter(author=request.user).select_related('author', 'bank', 'topic')
     bank_id = request.GET.get('bank')
     if bank_id:
         tasks = tasks.filter(bank_id=bank_id)
@@ -50,7 +51,41 @@ def bank_create(request):
 def bank_detail(request, pk):
     bank = get_object_or_404(TaskBank, pk=pk, author=request.user)
     tasks = bank.tasks.select_related('author').all()
-    return render(request, 'tasks/bank_detail.html', {'bank': bank, 'tasks': tasks})
+    topics = bank.topics.all()
+    untopiced = [t for t in tasks if not t.topic_id]
+    return render(request, 'tasks/bank_detail.html', {
+        'bank': bank,
+        'topics': topics,
+        'untopiced': untopiced,
+        'topic_form': TopicForm(),
+    })
+
+
+@teacher_required
+def topic_create(request, pk):
+    bank = get_object_or_404(TaskBank, pk=pk, author=request.user)
+    if request.method == 'POST':
+        form = TopicForm(request.POST)
+        if form.is_valid():
+            name = form.cleaned_data['name']
+            if any(t.name.strip().lower() == name.lower() for t in bank.topics.all()):
+                messages.error(request, 'Тема с таким названием уже есть в этой базе.')
+            else:
+                topic = form.save(commit=False)
+                topic.bank = bank
+                topic.save()
+                messages.success(request, 'Тема добавлена.')
+    return redirect('bank_detail', pk=bank.pk)
+
+
+@teacher_required
+def topic_delete(request, pk):
+    topic = get_object_or_404(Topic, pk=pk, bank__author=request.user)
+    bank_id = topic.bank_id
+    if request.method == 'POST':
+        topic.delete()
+        messages.success(request, 'Тема удалена.')
+    return redirect('bank_detail', pk=bank_id)
 
 
 @teacher_required
@@ -150,6 +185,7 @@ def task_create(request):
         'form': form,
         'option_formset': option_formset,
         'case_formset': case_formset,
+        'all_topics': Topic.objects.filter(bank__author=request.user).select_related('bank'),
         'is_create': True,
     })
 
@@ -189,6 +225,7 @@ def task_edit(request, pk):
         'form': form,
         'option_formset': option_formset,
         'case_formset': case_formset,
+        'all_topics': Topic.objects.filter(bank__author=request.user).select_related('bank'),
         'is_create': False,
         'task': task,
     })

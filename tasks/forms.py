@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import AnswerOption, Lesson, Task, TaskBank, TestCase
+from .models import AnswerOption, Lesson, Task, TaskBank, TestCase, Topic
 
 
 class TaskForm(forms.ModelForm):
@@ -8,6 +8,7 @@ class TaskForm(forms.ModelForm):
         model = Task
         fields = (
             'bank',
+            'topic',
             'title',
             'body',
             'type',
@@ -21,6 +22,7 @@ class TaskForm(forms.ModelForm):
         )
         widgets = {
             'bank': forms.Select(attrs={'class': 'form-select'}),
+            'topic': forms.Select(attrs={'class': 'form-select'}),
             'title': forms.TextInput(attrs={'class': 'form-control'}),
             'body': forms.Textarea(attrs={'class': 'form-control', 'rows': 5}),
             'type': forms.Select(attrs={'class': 'form-select'}),
@@ -37,8 +39,19 @@ class TaskForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         for name in ('language', 'time_limit_ms', 'memory_limit_mb', 'answer_mode'):
             self.fields[name].required = False
+        self.fields['topic'].required = False
         if user is not None:
             self.fields['bank'].queryset = TaskBank.objects.filter(author=user)
+        bank_id = None
+        if self.data:
+            bank_id = self.data.get('bank')
+        elif self.instance and self.instance.bank_id:
+            bank_id = self.instance.bank_id
+        elif self.initial.get('bank'):
+            bank_id = self.initial.get('bank')
+        self.fields['topic'].queryset = (
+            Topic.objects.filter(bank_id=bank_id) if bank_id else Topic.objects.none()
+        )
 
     def clean(self):
         cleaned = super().clean()
@@ -132,6 +145,21 @@ class TaskBankForm(forms.ModelForm):
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
+
+
+class TopicForm(forms.ModelForm):
+    class Meta:
+        model = Topic
+        fields = ('name',)
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Название темы',
+            }),
+        }
+
+    def clean_name(self):
+        return self.cleaned_data['name'].strip()
 
 
 class AddTaskForm(forms.Form):

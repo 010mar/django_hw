@@ -33,6 +33,18 @@
                             <label class="form-label">{{ form.type.label }}</label>
                             {{ form.type }}
                         </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">{{ form.topic.label }}</label>
+                            <select name="topic" id="id_topic" class="form-select">
+                                <option value="">Без темы</option>
+                                {% for t in all_topics %}
+                                    <option value="{{ t.pk }}" data-bank="{{ t.bank_id }}"
+                                            {% if form.topic.value == t.pk %}selected{% endif %}>
+                                        {{ t.name }}{% if all_topics|length > 1 %} ({{ t.bank.name }}){% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">{{ form.body.label }}</label>
@@ -171,6 +183,10 @@
     var optionsSection = document.getElementById('options-section');
     var programmingSection = document.getElementById('programming-section');
 
+    var bankSelect = document.getElementById('id_bank');
+    var topicSelect = document.getElementById('id_topic');
+    var topicOptions = Array.prototype.slice.call(topicSelect.options).slice(1);
+
     function update() {
         var isText = type.value === 'text';
         var isProgramming = type.value === 'programming';
@@ -183,9 +199,30 @@
         }
     }
 
+    function filterTopics() {
+        var bankId = bankSelect.value;
+        var keepValue = topicSelect.value;
+        topicOptions.forEach(function (opt) {
+            opt.style.display = (!bankId || opt.dataset.bank === bankId) ? '' : 'none';
+        });
+        var visible = topicOptions.filter(function (opt) {
+            return opt.style.display !== 'none';
+        });
+        var selected = topicOptions.filter(function (opt) {
+            return opt.value === keepValue;
+        });
+        if (selected.some(function (opt) { return opt.style.display !== 'none'; })) {
+            topicSelect.value = keepValue;
+        } else {
+            topicSelect.value = '';
+        }
+    }
+
     type.addEventListener('change', update);
     answerMode.addEventListener('change', update);
+    bankSelect.addEventListener('change', filterTopics);
     update();
+    filterTopics();
 })();
 </script>
 {% endblock %}

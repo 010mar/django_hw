@@ -25,6 +25,9 @@
             База: <a href="{% url 'bank_detail' task.bank.pk %}">{{ task.bank.name }}</a>
         </span>
     {% endif %}
+    {% if task.topic %}
+        <span class="badge bg-light text-dark border">Тема: {{ task.topic.name }}</span>
+    {% endif %}
 </div>
 
 <div class="card mb-4">

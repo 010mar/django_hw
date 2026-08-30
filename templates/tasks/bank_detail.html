@@ -19,34 +19,105 @@
     <p class="text-muted mb-3">{{ bank.description }}</p>
 {% endif %}
 
-<div class="table-responsive">
-    <table class="table table-striped table-hover align-middle">
-        <thead>
-        <tr>
-            <th>Название</th>
-            <th>Тип</th>
-            <th>Сложность</th>
-            <th>Создана</th>
-            <th></th>
-        </tr>
-        </thead>
-        <tbody>
-        {% for task in tasks %}
-            <tr>
-                <td><a href="{% url 'task_detail' task.pk %}">{{ task.title }}</a></td>
-                <td><span class="badge bg-secondary">{{ task.type_verbose }}</span></td>
-                <td><span class="badge bg-warning text-dark">{{ task.difficulty_verbose }}</span></td>
-                <td class="text-muted">{{ task.created_at|date:'d.m.Y' }}</td>
-                <td>
-                    <a href="{% url 'task_edit' task.pk %}" class="btn btn-sm btn-outline-primary">Изменить</a>
-                </td>
-            </tr>
+<div class="card mb-4">
+    <div class="card-body">
+        <h6 class="text-muted mb-3">Темы</h6>
+        <form method="post" action="{% url 'topic_create' bank.pk %}" class="d-flex gap-2 mb-3">
+            {% csrf_token %}
+            <div style="width: 280px;">{{ topic_form.name }}</div>
+            <button type="submit" class="btn btn-outline-primary btn-sm">Добавить тему</button>
+        </form>
+        {% for topic in topics %}
+            <span class="badge bg-light text-dark border me-1 mb-1">
+                {{ topic.name }} ({{ topic.tasks.count }})
+                <a href="{% url 'topic_delete' topic.pk %}"
+                   class="text-danger text-decoration-none ms-1"
+                   onclick="return confirm('Удалить тему «{{ topic.name }}»? Задачи при этом сохранятся.');">✕</a>
+            </span>
         {% empty %}
-            <tr><td colspan="5" class="text-center text-muted py-4">В этой базе пока нет задач.</td></tr>
+            <p class="text-muted small mb-0">Тем пока нет. Добавьте первую, чтобы разбить задачи по темам.</p>
         {% endfor %}
-        </tbody>
-    </table>
+    </div>
 </div>
+
+{% for topic in topics %}
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <strong>Тема: {{ topic.name }}</strong>
+            <span class="text-muted small">{{ topic.tasks.count }} зад.</span>
+        </div>
+        {% if topic.tasks.count %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover align-middle mb-0">
+                    <thead>
+                    <tr>
+                        <th>Название</th>
+                        <th>Тип</th>
+                        <th>Сложность</th>
+                        <th>Создана</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for task in topic.tasks.all %}
+                        <tr>
+                            <td><a href="{% url 'task_detail' task.pk %}">{{ task.title }}</a></td>
+                            <td><span class="badge bg-secondary">{{ task.type_verbose }}</span></td>
+                            <td><span class="badge bg-warning text-dark">{{ task.difficulty_verbose }}</span></td>
+                            <td class="text-muted">{{ task.created_at|date:'d.m.Y' }}</td>
+                            <td>
+                                <a href="{% url 'task_edit' task.pk %}" class="btn btn-sm btn-outline-primary">Изменить</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="card-body text-muted small">В этой теме пока нет задач.</div>
+        {% endif %}
+    </div>
+{% endfor %}
+
+{% if topics and untopiced %}
+    <div class="card mb-4">
+        <div class="card-header"><strong>Без темы</strong></div>
+        <div class="table-responsive">
+            <table class="table table-striped align-middle mb-0">
+                <thead>
+                <tr>
+                    <th>Название</th>
+                    <th>Тип</th>
+                    <th>Сложность</th>
+                    <th>Создана</th>
+                    <th></th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for task in untopiced %}
+                    <tr>
+                        <td><a href="{% url 'task_detail' task.pk %}">{{ task.title }}</a></td>
+                        <td><span class="badge bg-secondary">{{ task.type_verbose }}</span></td>
+                        <td><span class="badge bg-warning text-dark">{{ task.difficulty_verbose }}</span></td>
+                        <td class="text-muted">{{ task.created_at|date:'d.m.Y' }}</td>
+                        <td>
+                            <a href="{% url 'task_edit' task.pk %}" class="btn btn-sm btn-outline-primary">Изменить</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endif %}
+
+{% if not topics and not untopiced %}
+    <div class="card">
+        <div class="card-body text-center text-muted py-4">
+            В этой базе пока нет задач. Нажмите «Добавить задачу».
+        </div>
+    </div>
+{% endif %}
 
 <a href="{% url 'bank_list' %}" class="btn btn-outline-secondary">К списку баз</a>
 {% endblock %}

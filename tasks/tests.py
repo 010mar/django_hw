@@ -3,7 +3,7 @@ from django.test import TestCase as DjangoTestCase
 from django.urls import reverse
 
 from .forms import AddTaskForm, TaskForm
-from .models import AnswerOption, Lesson, LessonTask, Task, TaskBank
+from .models import AnswerOption, Lesson, LessonTask, Task, TaskBank, Topic
 from .models import TestCase as TaskTestCase
 
 User = get_user_model()
@@ -348,3 +348,95 @@ class TaskBankTests(DjangoTestCase):
         response = self.client.get(reverse('task_list'), {'bank': bank.pk})
         self.assertContains(response, 'В базе')
         self.assertNotContains(response, 'Вне базы')
+
+
+class TaskTopicTests(DjangoTestCase):
+    def setUp(self):
+        self.teacher = User.objects.create_user(
+            username='teacher', password='pass12345', role=User.Role.TEACHER,
+        )
+        self.other_teacher = User.objects.create_user(
+            username='other', password='pass12345', role=User.Role.TEACHER,
+        )
+        self.bank = TaskBank.objects.create(name='База', author=self.teacher)
+        self.client.force_login(self.teacher)
+
+    def test_create_topic(self):
+        response = self.client.post(reverse('topic_create', args=[self.bank.pk]), {
+            'name': 'Системы счисления',
+        })
+        self.assertRedirects(response, reverse('bank_detail', args=[self.bank.pk]))
+        topic = Topic.objects.get(bank=self.bank, name='Системы счисления')
+        self.assertEqual(topic.bank, self.bank)
+
+    def test_duplicate_topic_name_rejected(self):
+        Topic.objects.create(bank=self.bank, name='Логика')
+        self.client.post(reverse('topic_create', args=[self.bank.pk]), {
+            'name': 'логика',
+        })
+        self.assertEqual(Topic.objects.filter(bank=self.bank).count(), 1)
+        # тема с тем же названием (без учёта регистра) не добавлена
+
+    def test_delete_topic_keeps_tasks(self):
+        topic = Topic.objects.create(bank=self.bank, name='Логика')
+        task = Task.objects.create(title='Задача 1', author=self.teacher,
+                                   bank=self.bank, topic=topic)
+        self.client.post(reverse('topic_delete', args=[topic.pk]))
+        self.assertFalse(Topic.objects.filter(pk=topic.pk).exists())
+        task.refresh_from_db()
+        self.assertIsNone(task.topic)
+
+    def test_cannot_create_topic_in_other_bank(self):
+        other_bank = TaskBank.objects.create(name='Чужое', author=self.other_teacher)
+        response = self.client.post(reverse('topic_create', args=[other_bank.pk]), {
+            'name': 'Тема',
+        })
+        self.assertEqual(response.status_code, 404)
+
+    def test_bank_detail_groups_tasks_by_topic(self):
+        topic = Topic.objects.create(bank=self.bank, name='Логика')
+        Topic.objects.create(bank=self.bank, name='Кодирование')
+        Task.objects.create(title='Задача в теме', author=self.teacher,
+                            bank=self.bank, topic=topic)
+        Task.objects.create(title='Задача без темы', author=self.teacher,
+                            bank=self.bank)
+        response = self.client.get(reverse('bank_detail', args=[self.bank.pk]))
+        self.assertContains(response, 'Логика')
+        self.assertContains(response, 'Кодирование')
+        self.assertContains(response, 'Задача в теме')
+        self.assertContains(response, 'Задача без темы')
+
+    def test_save_task_with_topic(self):
+        topic = Topic.objects.create(bank=self.bank, name='Логика')
+        response = self.client.post(reverse('task_create'), {
+            'bank': str(self.bank.pk),
+            'topic': str(topic.pk),
+            'title': 'Задача с темой',
+            'type': 'text',
+            'difficulty': 'easy',
+            'answer_mode': 'short',
+            'correct_answer': '42',
+            'options-TOTAL_FORMS': '0',
+            'options-INITIAL_FORMS': '0',
+            'options-MIN_NUM_FORMS': '0',
+            'options-MAX_NUM_FORMS': '1000',
+            'cases-TOTAL_FORMS': '0',
+            'cases-INITIAL_FORMS': '0',
+            'cases-MIN_NUM_FORMS': '0',
+            'cases-MAX_NUM_FORMS': '1000',
+        })
+        task = Task.objects.get(title='Задача с темой')
+        self.assertEqual(task.topic, topic)
+
+    def test_topic_queryset_limited_to_bank(self):
+        topic_in_bank = Topic.objects.create(bank=self.bank, name='В моей базе')
+        other_bank = TaskBank.objects.create(name='Другая', author=self.teacher)
+        topic_in_other = Topic.objects.create(bank=other_bank, name='В другой базе')
+        form = TaskForm(user=self.teacher, data={
+            'bank': str(self.bank.pk),
+            'title': 'X',
+            'type': 'text',
+            'difficulty': 'easy',
+        })
+        self.assertIn(topic_in_bank, form.fields['topic'].queryset)
+        self.assertNotIn(topic_in_other, form.fields['topic'].queryset)
