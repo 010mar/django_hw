@@ -24,6 +24,7 @@
                         <span class="nav-link text-muted">{{ user.role_verbose }}</span>
                     </li>
                     {% if user.is_teacher %}
+                        <li class="nav-item"><a class="nav-link" href="{% url 'bank_list' %}">Базы задач</a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'lesson_list' %}">Мои уроки</a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'task_list' %}">Мои задачи</a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'class_list' %}">Классы</a></li>

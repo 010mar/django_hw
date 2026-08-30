@@ -2,8 +2,8 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase as DjangoTestCase
 from django.urls import reverse
 
-from .forms import AddTaskForm
-from .models import AnswerOption, Lesson, LessonTask, Task
+from .forms import AddTaskForm, TaskForm
+from .models import AnswerOption, Lesson, LessonTask, Task, TaskBank
 from .models import TestCase as TaskTestCase
 
 User = get_user_model()
@@ -245,3 +245,106 @@ class TaskCrudViewTests(DjangoTestCase):
         for url_name in ('task_create', 'task_list'):
             response = self.client.get(reverse(url_name))
             self.assertRedirects(response, reverse('home'))
+
+
+class TaskBankTests(DjangoTestCase):
+    def setUp(self):
+        self.teacher = User.objects.create_user(
+            username='teacher', password='pass12345', role=User.Role.TEACHER,
+        )
+        self.other_teacher = User.objects.create_user(
+            username='other', password='pass12345', role=User.Role.TEACHER,
+        )
+        self.student = User.objects.create_user(
+            username='student', password='pass12345', role=User.Role.STUDENT,
+        )
+
+    def test_create_bank(self):
+        self.client.force_login(self.teacher)
+        response = self.client.post(reverse('bank_create'), {
+            'name': 'ОГЭ по информатике',
+            'description': 'Для 9 класса',
+        })
+        bank = TaskBank.objects.get(name='ОГЭ по информатике')
+        self.assertRedirects(response, reverse('bank_detail', args=[bank.pk]))
+        self.assertEqual(bank.author, self.teacher)
+
+    def test_only_own_banks_in_list(self):
+        TaskBank.objects.create(name='Моя база', author=self.teacher)
+        TaskBank.objects.create(name='Чужая база', author=self.other_teacher)
+        self.client.force_login(self.teacher)
+        response = self.client.get(reverse('bank_list'))
+        self.assertContains(response, 'Моя база')
+        self.assertNotContains(response, 'Чужая база')
+
+    def test_edit_bank(self):
+        bank = TaskBank.objects.create(name='База', author=self.teacher)
+        self.client.force_login(self.teacher)
+        response = self.client.post(reverse('bank_edit', args=[bank.pk]), {
+            'name': 'Новое имя',
+            'description': 'Описание',
+        })
+        self.assertRedirects(response, reverse('bank_detail', args=[bank.pk]))
+        bank.refresh_from_db()
+        self.assertEqual(bank.name, 'Новое имя')
+
+    def test_delete_bank(self):
+        bank = TaskBank.objects.create(name='База', author=self.teacher)
+        self.client.force_login(self.teacher)
+        response = self.client.post(reverse('bank_delete', args=[bank.pk]))
+        self.assertRedirects(response, reverse('bank_list'))
+        self.assertFalse(TaskBank.objects.filter(pk=bank.pk).exists())
+
+    def test_cannot_access_other_teachers_bank(self):
+        bank = TaskBank.objects.create(name='Чужая база', author=self.other_teacher)
+        self.client.force_login(self.teacher)
+        response = self.client.get(reverse('bank_detail', args=[bank.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_bank_list_requires_teacher(self):
+        self.client.force_login(self.student)
+        response = self.client.get(reverse('bank_list'))
+        self.assertRedirects(response, reverse('home'))
+
+    def test_save_task_into_bank(self):
+        bank = TaskBank.objects.create(name='Моя база', author=self.teacher)
+        self.client.force_login(self.teacher)
+        form = TaskForm(user=self.teacher)
+        self.assertEqual(set(form.fields['bank'].queryset), {bank})
+        response = self.client.post(
+            reverse('task_create'),
+            {
+                'bank': str(bank.pk),
+                'title': 'Задача из базы',
+                'type': 'text',
+                'difficulty': 'easy',
+                'answer_mode': 'short',
+                'correct_answer': '42',
+                'options-TOTAL_FORMS': '0',
+                'options-INITIAL_FORMS': '0',
+                'options-MIN_NUM_FORMS': '0',
+                'options-MAX_NUM_FORMS': '1000',
+                'cases-TOTAL_FORMS': '0',
+                'cases-INITIAL_FORMS': '0',
+                'cases-MIN_NUM_FORMS': '0',
+                'cases-MAX_NUM_FORMS': '1000',
+            },
+        )
+        task = Task.objects.get(title='Задача из базы')
+        self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
+        self.assertEqual(task.bank, bank)
+
+    def test_bank_name_preselect(self):
+        bank = TaskBank.objects.create(name='Моя база', author=self.teacher)
+        self.client.force_login(self.teacher)
+        form = TaskForm(user=self.teacher, initial={'bank': bank.pk})
+        self.assertEqual(form['bank'].value(), bank.pk)
+
+    def test_task_list_filter_by_bank(self):
+        bank = TaskBank.objects.create(name='Моя база', author=self.teacher)
+        in_bank = Task.objects.create(title='В базе', author=self.teacher, bank=bank)
+        Task.objects.create(title='Вне базы', author=self.teacher)
+        self.client.force_login(self.teacher)
+        response = self.client.get(reverse('task_list'), {'bank': bank.pk})
+        self.assertContains(response, 'В базе')
+        self.assertNotContains(response, 'Вне базы')

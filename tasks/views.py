@@ -7,27 +7,87 @@ from .forms import (
     AddTaskForm,
     AnswerOptionFormSet,
     LessonForm,
+    TaskBankForm,
     TaskForm,
     TestCaseFormSet,
 )
-from .models import AnswerOption, Lesson, LessonTask, Task, TestCase
+from .models import AnswerOption, Lesson, LessonTask, Task, TaskBank, TestCase
 
 
 @teacher_required
 def task_list(request):
-    tasks = Task.objects.select_related('author').all()
-    return render(request, 'tasks/task_list.html', {'tasks': tasks})
+    tasks = Task.objects.filter(author=request.user).select_related('author', 'bank')
+    bank_id = request.GET.get('bank')
+    if bank_id:
+        tasks = tasks.filter(bank_id=bank_id)
+    banks = TaskBank.objects.filter(author=request.user)
+    return render(request, 'tasks/task_list.html', {
+        'tasks': tasks,
+        'banks': banks,
+        'current_bank': bank_id,
+    })
+
+
+@teacher_required
+def bank_list(request):
+    banks = TaskBank.objects.filter(author=request.user)
+    return render(request, 'tasks/bank_list.html', {'banks': banks})
+
+
+@teacher_required
+def bank_create(request):
+    form = TaskBankForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        bank = form.save(commit=False)
+        bank.author = request.user
+        bank.save()
+        messages.success(request, 'База задач создана.')
+        return redirect('bank_detail', pk=bank.pk)
+    return render(request, 'tasks/bank_form.html', {'form': form, 'is_create': True})
+
+
+@teacher_required
+def bank_detail(request, pk):
+    bank = get_object_or_404(TaskBank, pk=pk, author=request.user)
+    tasks = bank.tasks.select_related('author').all()
+    return render(request, 'tasks/bank_detail.html', {'bank': bank, 'tasks': tasks})
+
+
+@teacher_required
+def bank_edit(request, pk):
+    bank = get_object_or_404(TaskBank, pk=pk, author=request.user)
+    form = TaskBankForm(request.POST or None, instance=bank)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'База задач обновлена.')
+        return redirect('bank_detail', pk=bank.pk)
+    return render(request, 'tasks/bank_form.html', {
+        'form': form,
+        'is_create': False,
+        'bank': bank,
+    })
+
+
+@teacher_required
+def bank_delete(request, pk):
+    bank = get_object_or_404(TaskBank, pk=pk, author=request.user)
+    if request.method == 'POST':
+        bank.delete()
+        messages.success(request, 'База задач удалена.')
+    return redirect('bank_list')
 
 
 def _save_formsets(task, option_formset, case_formset):
     for obj in option_formset.save(commit=False):
-        obj.task = task
-        obj.save()
+        if obj.text.strip():
+            obj.task = task
+            obj.save()
     for obj in option_formset.deleted_objects:
         obj.delete()
     for obj in case_formset.save(commit=False):
-        obj.task = task
-        obj.save()
+        if obj.expected_output.strip():
+            obj.task = task
+            obj.save()
     for obj in case_formset.deleted_objects:
         obj.delete()
 
@@ -54,7 +114,16 @@ def _validate_formsets(task, option_formset, case_formset):
 
 @teacher_required
 def task_create(request):
-    form = TaskForm(request.POST or None, request.FILES or None)
+    initial_bank = request.GET.get('bank') or None
+    if initial_bank and not TaskBank.objects.filter(
+            pk=initial_bank, author=request.user).exists():
+        initial_bank = None
+    form = TaskForm(
+        request.POST or None,
+        request.FILES or None,
+        user=request.user,
+        initial={'bank': initial_bank} if initial_bank else None,
+    )
     option_formset = AnswerOptionFormSet(
         request.POST or None,
         prefix='options',
@@ -87,14 +156,14 @@ def task_create(request):
 
 @teacher_required
 def task_detail(request, pk):
-    task = get_object_or_404(Task, pk=pk)
+    task = get_object_or_404(Task, pk=pk, author=request.user)
     return render(request, 'tasks/task_detail.html', {'task': task})
 
 
 @teacher_required
 def task_edit(request, pk):
-    task = get_object_or_404(Task, pk=pk)
-    form = TaskForm(request.POST or None, request.FILES or None, instance=task)
+    task = get_object_or_404(Task, pk=pk, author=request.user)
+    form = TaskForm(request.POST or None, request.FILES or None, instance=task, user=request.user)
     option_formset = AnswerOptionFormSet(
         request.POST or None,
         prefix='options',
@@ -127,7 +196,7 @@ def task_edit(request, pk):
 
 @teacher_required
 def task_delete(request, pk):
-    task = get_object_or_404(Task, pk=pk)
+    task = get_object_or_404(Task, pk=pk, author=request.user)
     if request.method == 'POST':
         task.delete()
         messages.success(request, 'Задача удалена.')
@@ -155,7 +224,7 @@ def lesson_create(request):
 @teacher_required
 def lesson_detail(request, pk):
     lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
-    add_task_form = AddTaskForm(lesson=lesson)
+    add_task_form = AddTaskForm(lesson=lesson, user=request.user)
     return render(request, 'tasks/lesson_detail.html', {
         'lesson': lesson,
         'add_task_form': add_task_form,
@@ -185,7 +254,7 @@ def lesson_delete(request, pk):
 @teacher_required
 def lesson_add_task(request, pk):
     lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
-    form = AddTaskForm(request.POST or None, lesson=lesson)
+    form = AddTaskForm(request.POST or None, lesson=lesson, user=request.user)
     if form.is_valid():
         LessonTask.objects.create(
             lesson=lesson,

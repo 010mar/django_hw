@@ -3,6 +3,11 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path('banks/', views.bank_list, name='bank_list'),
+    path('banks/new/', views.bank_create, name='bank_create'),
+    path('banks/<int:pk>/', views.bank_detail, name='bank_detail'),
+    path('banks/<int:pk>/edit/', views.bank_edit, name='bank_edit'),
+    path('banks/<int:pk>/delete/', views.bank_delete, name='bank_delete'),
     path('tasks/', views.task_list, name='task_list'),
     path('tasks/new/', views.task_create, name='task_create'),
     path('tasks/<int:pk>/', views.task_detail, name='task_detail'),

@@ -5,7 +5,19 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>Задачи</h2>
-    <a href="{% url 'task_create' %}" class="btn btn-primary">Создать задачу</a>
+    <div class="d-flex gap-2">
+        <form method="get" class="d-flex gap-2">
+            <select name="bank" class="form-select" onchange="this.form.submit()">
+                <option value="">Все базы</option>
+                {% for bank in banks %}
+                    <option value="{{ bank.pk }}" {% if current_bank == bank.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ bank.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </form>
+        <a href="{% url 'task_create' %}" class="btn btn-primary">Создать задачу</a>
+    </div>
 </div>
 
 <div class="table-responsive">
@@ -13,9 +25,9 @@
         <thead>
         <tr>
             <th>Название</th>
+            <th>База</th>
             <th>Тип</th>
             <th>Сложность</th>
-            <th>Автор</th>
             <th>Создана</th>
             <th></th>
         </tr>
@@ -24,9 +36,15 @@
         {% for task in tasks %}
             <tr>
                 <td><a href="{% url 'task_detail' task.pk %}">{{ task.title }}</a></td>
+                <td>
+                    {% if task.bank %}
+                        <a href="{% url 'bank_detail' task.bank.pk %}">{{ task.bank.name }}</a>
+                    {% else %}
+                        <span class="text-muted">—</span>
+                    {% endif %}
+                </td>
                 <td><span class="badge bg-secondary">{{ task.type_verbose }}</span></td>
                 <td><span class="badge bg-warning text-dark">{{ task.difficulty_verbose }}</span></td>
-                <td>{{ task.author|default:'—' }}</td>
                 <td class="text-muted">{{ task.created_at|date:'d.m.Y' }}</td>
                 <td>
                     <a href="{% url 'task_edit' task.pk %}" class="btn btn-sm btn-outline-primary">Изменить</a>

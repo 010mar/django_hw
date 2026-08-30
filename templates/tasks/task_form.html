@@ -20,12 +20,18 @@
                             {% if form.title.errors %}<div class="text-danger small mt-1">{{ form.title.errors.0 }}</div>{% endif %}
                         </div>
                         <div class="col-md-3 mb-3">
-                            <label class="form-label">{{ form.type.label }}</label>
-                            {{ form.type }}
+                            <label class="form-label">{{ form.bank.label }}</label>
+                            {{ form.bank }}
                         </div>
                         <div class="col-md-3 mb-3">
                             <label class="form-label">{{ form.difficulty.label }}</label>
                             {{ form.difficulty }}
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">{{ form.type.label }}</label>
+                            {{ form.type }}
                         </div>
                     </div>
                     <div class="mb-3">

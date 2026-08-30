@@ -20,6 +20,11 @@
     {% if task.type == 'programming' %}
         <span class="badge bg-info text-dark">{{ task.language }}</span>
     {% endif %}
+    {% if task.bank %}
+        <span class="badge bg-light text-dark border">
+            База: <a href="{% url 'bank_detail' task.bank.pk %}">{{ task.bank.name }}</a>
+        </span>
+    {% endif %}
 </div>
 
 <div class="card mb-4">

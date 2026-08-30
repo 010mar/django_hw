@@ -2,6 +2,31 @@ from django.conf import settings
 from django.db import models
 
 
+class TaskBank(models.Model):
+    name = models.CharField(max_length=255, verbose_name='Название')
+    description = models.TextField(blank=True, verbose_name='Описание')
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='task_banks',
+        verbose_name='Автор',
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создана')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Обновлена')
+
+    class Meta:
+        verbose_name = 'База задач'
+        verbose_name_plural = 'Базы задач'
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def task_count(self) -> int:
+        return self.tasks.count()
+
+
 class Task(models.Model):
     class Type(models.TextChoices):
         TEXT = 'text', 'Текстовая'
@@ -20,6 +45,14 @@ class Task(models.Model):
     class Language(models.TextChoices):
         PYTHON = 'python', 'Python'
 
+    bank = models.ForeignKey(
+        TaskBank,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tasks',
+        verbose_name='База задач',
+    )
     type = models.CharField(
         max_length=16,
         choices=Type.choices,

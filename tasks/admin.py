@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AnswerOption, Lesson, LessonTask, Task, TestCase
+from .models import AnswerOption, Lesson, LessonTask, Task, TaskBank, TestCase
 
 
 class AnswerOptionInline(admin.TabularInline):
@@ -18,15 +18,26 @@ class LessonTaskInline(admin.TabularInline):
     extra = 1
 
 
+@admin.register(TaskBank)
+class TaskBankAdmin(admin.ModelAdmin):
+    list_display = ('name', 'author', 'task_count', 'created_at')
+    search_fields = ('name', 'description')
+    list_select_related = ('author',)
+
+    @admin.display(description='Задач')
+    def task_count(self, obj):
+        return obj.task_count
+
+
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ('title', 'type', 'difficulty', 'author', 'created_at')
+    list_display = ('title', 'bank', 'type', 'difficulty', 'author', 'created_at')
     list_filter = ('type', 'difficulty', 'language')
     search_fields = ('title', 'body')
-    list_select_related = ('author',)
+    list_select_related = ('author', 'bank')
     fieldsets = (
         (None, {
-            'fields': ('title', 'body', 'type', 'difficulty', 'image', 'author'),
+            'fields': ('title', 'body', 'type', 'difficulty', 'image', 'bank', 'author'),
         }),
         ('Текстовая задача', {
             'fields': ('answer_mode', 'correct_answer'),

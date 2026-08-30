@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block title %}Мои базы задач{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Базы задач</h2>
+    <a href="{% url 'bank_create' %}" class="btn btn-primary">Создать базу</a>
+</div>
+
+<div class="row g-3">
+    {% for bank in banks %}
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <a href="{% url 'bank_detail' bank.pk %}" class="text-decoration-none">{{ bank.name }}</a>
+                    </h5>
+                    <p class="text-muted mb-1">
+                        Задач: {{ bank.task_count }}
+                    </p>
+                    {% if bank.description %}
+                        <p class="text-muted small mb-3">{{ bank.description|truncatechars:120 }}</p>
+                    {% endif %}
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'bank_detail' bank.pk %}" class="btn btn-sm btn-outline-primary">Открыть</a>
+                        <a href="{% url 'bank_edit' bank.pk %}" class="btn btn-sm btn-outline-secondary">Изменить</a>
+                        <form method="post" action="{% url 'bank_delete' bank.pk %}"
+                              onsubmit="return confirm('Удалить базу задач «{{ bank.name }}»?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Удалить</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% empty %}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center text-muted py-4">
+                    У вас пока нет баз задач.
+                    <a href="{% url 'bank_create' %}">Создайте первую</a>.
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}

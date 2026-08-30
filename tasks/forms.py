@@ -1,12 +1,13 @@
 from django import forms
 
-from .models import AnswerOption, Lesson, Task, TestCase
+from .models import AnswerOption, Lesson, Task, TaskBank, TestCase
 
 
 class TaskForm(forms.ModelForm):
     class Meta:
         model = Task
         fields = (
+            'bank',
             'title',
             'body',
             'type',
@@ -19,6 +20,7 @@ class TaskForm(forms.ModelForm):
             'memory_limit_mb',
         )
         widgets = {
+            'bank': forms.Select(attrs={'class': 'form-select'}),
             'title': forms.TextInput(attrs={'class': 'form-control'}),
             'body': forms.Textarea(attrs={'class': 'form-control', 'rows': 5}),
             'type': forms.Select(attrs={'class': 'form-select'}),
@@ -31,10 +33,12 @@ class TaskForm(forms.ModelForm):
             'memory_limit_mb': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         for name in ('language', 'time_limit_ms', 'memory_limit_mb', 'answer_mode'):
             self.fields[name].required = False
+        if user is not None:
+            self.fields['bank'].queryset = TaskBank.objects.filter(author=user)
 
     def clean(self):
         cleaned = super().clean()
@@ -51,22 +55,63 @@ class TaskForm(forms.ModelForm):
         return cleaned
 
 
-class AnswerOptionFormSet(forms.modelformset_factory(
+class BaseTaskFormSet(forms.BaseModelFormSet):
+    def clean(self):
+        super().clean()
+        idx = 0
+        for form in self.forms:
+            cd = form.cleaned_data
+            if cd and not cd.get('DELETE') and not cd.get('order'):
+                cd['order'] = idx
+                idx += 1
+
+
+class AnswerOptionForm(forms.ModelForm):
+    class Meta:
+        model = AnswerOption
+        fields = ('text', 'is_correct', 'order')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['text'].required = False
+        self.fields['order'].required = False
+        self.fields['is_correct'].widget.attrs.setdefault('class', 'form-check-input')
+        self.fields['text'].widget = forms.TextInput(attrs={'class': 'form-control'})
+        self.fields['order'].widget = forms.NumberInput(attrs={'class': 'form-control'})
+
+
+AnswerOptionFormSet = forms.modelformset_factory(
     AnswerOption,
-    fields=('text', 'is_correct', 'order'),
+    form=AnswerOptionForm,
     extra=3,
     can_delete=True,
-)):
-    pass
+    formset=BaseTaskFormSet,
+)
 
 
-class TestCaseFormSet(forms.modelformset_factory(
+class TestCaseForm(forms.ModelForm):
+    class Meta:
+        model = TestCase
+        fields = ('input_data', 'expected_output', 'is_public', 'order')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['input_data'].required = False
+        self.fields['expected_output'].required = False
+        self.fields['order'].required = False
+        self.fields['is_public'].widget.attrs.setdefault('class', 'form-check-input')
+        self.fields['input_data'].widget = forms.Textarea(attrs={'class': 'form-control', 'rows': 2})
+        self.fields['expected_output'].widget = forms.Textarea(attrs={'class': 'form-control', 'rows': 2})
+        self.fields['order'].widget = forms.NumberInput(attrs={'class': 'form-control'})
+
+
+TestCaseFormSet = forms.modelformset_factory(
     TestCase,
-    fields=('input_data', 'expected_output', 'is_public', 'order'),
+    form=TestCaseForm,
     extra=2,
     can_delete=True,
-)):
-    pass
+    formset=BaseTaskFormSet,
+)
 
 
 class LessonForm(forms.ModelForm):
@@ -75,6 +120,16 @@ class LessonForm(forms.ModelForm):
         fields = ('title', 'description')
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+
+class TaskBankForm(forms.ModelForm):
+    class Meta:
+        model = TaskBank
+        fields = ('name', 'description')
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
 
@@ -92,8 +147,12 @@ class AddTaskForm(forms.Form):
         widget=forms.NumberInput(attrs={'class': 'form-control'}),
     )
 
-    def __init__(self, *args, lesson=None, **kwargs):
+    def __init__(self, *args, lesson=None, user=None, **kwargs):
         super().__init__(*args, **kwargs)
+        tasks = Task.objects.all()
+        if user is not None:
+            tasks = tasks.filter(author=user)
         if lesson:
             taken_ids = lesson.entries.values_list('task_id', flat=True)
-            self.fields['task'].queryset = Task.objects.exclude(id__in=taken_ids)
+            tasks = tasks.exclude(id__in=taken_ids)
+        self.fields['task'].queryset = tasks
