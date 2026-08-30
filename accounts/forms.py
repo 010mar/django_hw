@@ -16,8 +16,9 @@ class CustomSignupForm(SignupForm):
         choices=User.Role.choices,
         label='Я регистрируюсь как',
         initial=User.Role.STUDENT,
-        widget=forms.RadioSelect(attrs={'class': 'form-check-input'}),
+        widget=forms.RadioSelect(),
     )
+    field_order = ['email', 'username', 'password1', 'password2', 'role']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
