@@ -16,8 +16,8 @@
                         </div>
                     {% endif %}
                     <div class="mb-3">
-                        <label class="form-label">E-mail или логин</label>
-                        <input type="text" name="login" value="{{ form.login.value|default:'' }}"
+                        <label class="form-label">E-mail</label>
+                        <input type="email" name="login" value="{{ form.login.value|default:'' }}"
                                class="form-control" required autofocus>
                         {% if form.login.errors %}
                             <div class="text-danger small mt-1">{{ form.login.errors.0 }}</div>
