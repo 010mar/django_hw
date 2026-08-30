@@ -5,12 +5,13 @@ from .models import ParentLink, User
 
 
 class AuthFlowTests(TestCase):
-    def test_signup_with_role(self):
+    def test_signup_with_role_student(self):
         response = Client().post(
             reverse('account_signup'),
             {
                 'email': 'ivan@example.com',
-                'username': 'ivan',
+                'first_name': 'Иван',
+                'last_name': 'Иванов',
                 'password1': 'supersecret99',
                 'password2': 'supersecret99',
                 'role': User.Role.STUDENT,
@@ -18,8 +19,25 @@ class AuthFlowTests(TestCase):
             follow=True,
         )
         self.assertEqual(response.status_code, 200)
-        user = User.objects.get(username='ivan')
+        user = User.objects.get(email='ivan@example.com')
         self.assertEqual(user.role, User.Role.STUDENT)
+
+    def test_signup_with_role_teacher(self):
+        response = Client().post(
+            reverse('account_signup'),
+            {
+                'email': 'petr@example.com',
+                'first_name': 'Пётр',
+                'last_name': 'Петров',
+                'password1': 'supersecret99',
+                'password2': 'supersecret99',
+                'role': User.Role.TEACHER,
+            },
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        user = User.objects.get(email='petr@example.com')
+        self.assertEqual(user.role, User.Role.TEACHER)
 
     def test_signup_form_has_role_field(self):
         response = Client().get(reverse('account_signup'))
