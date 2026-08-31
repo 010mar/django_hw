@@ -107,7 +107,7 @@ class Task(models.Model):
     answer_mode = models.CharField(
         max_length=8,
         choices=AnswerMode.choices,
-        default=AnswerMode.CHOICE,
+        default=AnswerMode.SHORT,
         verbose_name='Тип ответа',
         help_text='Только для текстовых задач',
     )
