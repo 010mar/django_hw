@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.decorators import teacher_required
@@ -192,6 +193,27 @@ def task_create(request):
         if form.is_valid() and option_formset.is_valid() and case_formset.is_valid():
             task = form.save(commit=False)
             task.author = request.user
+            topic = form.cleaned_data.get('topic')
+            if topic:
+                last_num = (
+                    Task.objects
+                    .filter(topic=topic)
+                    .exclude(task_number='')
+                    .values_list('task_number', flat=True)
+                )
+                max_seq = 0
+                prefix = f'{topic.order}_'
+                for num in last_num:
+                    if num.startswith(prefix):
+                        try:
+                            seq = int(num[len(prefix):])
+                            max_seq = max(max_seq, seq)
+                        except ValueError:
+                            pass
+                task.task_number = f'{prefix}{max_seq + 1}'
+            else:
+                task.task_number = ''
+            task.title = task.task_number or 'Без номера'
             formset_errors = _validate_formsets(task, option_formset, case_formset)
             if not formset_errors:
                 task.save()
@@ -207,6 +229,33 @@ def task_create(request):
         'all_topics': Topic.objects.filter(bank__author=request.user).select_related('bank'),
         'is_create': True,
     })
+
+
+@teacher_required
+def task_number_preview(request):
+    topic_id = request.GET.get('topic_id')
+    if not topic_id:
+        return JsonResponse({'task_number': ''})
+    try:
+        topic = Topic.objects.get(pk=topic_id, bank__author=request.user)
+    except Topic.DoesNotExist:
+        return JsonResponse({'task_number': ''})
+    last_num = (
+        Task.objects
+        .filter(topic=topic)
+        .exclude(task_number='')
+        .values_list('task_number', flat=True)
+    )
+    max_seq = 0
+    prefix = f'{topic.order}_'
+    for num in last_num:
+        if num.startswith(prefix):
+            try:
+                seq = int(num[len(prefix):])
+                max_seq = max(max_seq, seq)
+            except ValueError:
+                pass
+    return JsonResponse({'task_number': f'{prefix}{max_seq + 1}'})
 
 
 @teacher_required

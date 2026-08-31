@@ -13,38 +13,39 @@
                     {% if form.non_field_errors %}
                         <div class="alert alert-danger">{{ form.non_field_errors.0 }}</div>
                     {% endif %}
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">{{ form.title.label }}</label>
-                            {{ form.title }}
-                            {% if form.title.errors %}<div class="text-danger small mt-1">{{ form.title.errors.0 }}</div>{% endif %}
-                        </div>
-                        <div class="col-md-3 mb-3">
-                            <label class="form-label">{{ form.bank.label }}</label>
-                            {{ form.bank }}
-                        </div>
-                        <div class="col-md-3 mb-3">
-                            <label class="form-label">{{ form.difficulty.label }}</label>
-                            {{ form.difficulty }}
-                        </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.bank.label }}</label>
+                        {{ form.bank }}
                     </div>
-                    <div class="row">
-                        <div class="col-md-3 mb-3">
-                            <label class="form-label">{{ form.type.label }}</label>
-                            {{ form.type }}
-                        </div>
-                        <div class="col-md-3 mb-3">
-                            <label class="form-label">{{ form.topic.label }}</label>
-                            <select name="topic" id="id_topic" class="form-select">
-                                <option value="">Без темы</option>
-                                {% for t in all_topics %}
-                                    <option value="{{ t.pk }}" data-bank="{{ t.bank_id }}"
-                                            {% if form.topic.value == t.pk %}selected{% endif %}>
-                                        {{ t.name }}{% if all_topics|length > 1 %} ({{ t.bank.name }}){% endif %}
-                                    </option>
-                                {% endfor %}
-                            </select>
-                        </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.topic.label }}</label>
+                        <select name="topic" id="id_topic" class="form-select">
+                            <option value="">Без темы</option>
+                            {% for t in all_topics %}
+                                <option value="{{ t.pk }}" data-bank="{{ t.bank_id }}"
+                                        {% if form.topic.value == t.pk %}selected{% endif %}>
+                                    {{ t.name }}{% if all_topics|length > 1 %} ({{ t.bank.name }}){% endif %}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Номер задачи</label>
+                        <input type="text" id="id_task_number_display" class="form-control" readonly
+                               placeholder="Выберите тему для генерации номера">
+                        <div class="form-text">Генерируется автоматически: номер_темы_порядковый_номер</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.source.label }}</label>
+                        {{ form.source }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.difficulty.label }}</label>
+                        {{ form.difficulty }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.type.label }}</label>
+                        {{ form.type }}
                     </div>
                     <div class="mb-3">
                         <label class="form-label">{{ form.body.label }}</label>
@@ -186,6 +187,7 @@
     var bankSelect = document.getElementById('id_bank');
     var topicSelect = document.getElementById('id_topic');
     var topicOptions = Array.prototype.slice.call(topicSelect.options).slice(1);
+    var taskNumberDisplay = document.getElementById('id_task_number_display');
 
     function update() {
         var isText = type.value === 'text';
@@ -216,11 +218,27 @@
         } else {
             topicSelect.value = '';
         }
+        fetchTaskNumber();
+    }
+
+    function fetchTaskNumber() {
+        var topicId = topicSelect.value;
+        if (!topicId) {
+            taskNumberDisplay.value = '';
+            taskNumberDisplay.placeholder = 'Выберите тему для генерации номера';
+            return;
+        }
+        fetch('/tasks/number_preview/?topic_id=' + topicId)
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                taskNumberDisplay.value = data.task_number;
+            });
     }
 
     type.addEventListener('change', update);
     answerMode.addEventListener('change', update);
     bankSelect.addEventListener('change', filterTopics);
+    topicSelect.addEventListener('change', fetchTaskNumber);
     update();
     filterTopics();
 })();

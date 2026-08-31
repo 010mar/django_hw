@@ -66,6 +66,13 @@ class Task(models.Model):
     class Language(models.TextChoices):
         PYTHON = 'python', 'Python'
 
+    class Source(models.TextChoices):
+        AUTHOR = 'author', 'Авторская'
+        KOMPEGE = 'kompege', 'Kompege'
+        YANDEX = 'yandex', 'Yandex'
+        KPOLYAKOV = 'kpolyakov', 'Kpolyakov'
+        OTHER = 'other', 'Другое'
+
     bank = models.ForeignKey(
         TaskBank,
         on_delete=models.SET_NULL,
@@ -81,6 +88,18 @@ class Task(models.Model):
         blank=True,
         related_name='tasks',
         verbose_name='Тема',
+    )
+    task_number = models.CharField(
+        max_length=32,
+        blank=True,
+        verbose_name='Номер задачи',
+        help_text='Генерируется автоматически: номер_темы_порядковый_номер',
+    )
+    source = models.CharField(
+        max_length=16,
+        choices=Source.choices,
+        default=Source.AUTHOR,
+        verbose_name='Источник задачи',
     )
     type = models.CharField(
         max_length=16,

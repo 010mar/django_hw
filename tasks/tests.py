@@ -142,10 +142,10 @@ class TaskCrudViewTests(DjangoTestCase):
 
     def test_create_choice_task(self):
         data = {
-            'title': 'Какой бит?',
             'type': 'text',
             'difficulty': 'easy',
             'answer_mode': 'choice',
+            'source': 'author',
         }
         data.update(self._formset_data('options', [
             {'text': '8', 'is_correct': 'on', 'order': '1'},
@@ -153,59 +153,62 @@ class TaskCrudViewTests(DjangoTestCase):
         ]))
         data.update(self._formset_data('cases', []))
         response = self.client.post(reverse('task_create'), data)
-        task = Task.objects.get(title='Какой бит?')
+        task = Task.objects.latest('pk')
         self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
         self.assertEqual(task.answer_options.filter(is_correct=True).count(), 1)
+        self.assertEqual(task.type, Task.Type.TEXT)
 
     def test_create_programming_task(self):
         data = {
-            'title': 'A+B',
             'type': 'programming',
             'difficulty': 'medium',
             'time_limit_ms': '2000',
             'memory_limit_mb': '128',
+            'source': 'author',
         }
         data.update(self._formset_data('options', []))
         data.update(self._formset_data('cases', [
             {'input_data': '1 2\n', 'expected_output': '3\n', 'is_public': 'on', 'order': '1'},
         ]))
         response = self.client.post(reverse('task_create'), data)
-        task = Task.objects.get(title='A+B')
+        task = Task.objects.latest('pk')
         self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
         self.assertEqual(task.test_cases.count(), 1)
+        self.assertEqual(task.type, Task.Type.PROGRAMMING)
 
     def test_create_short_answer_task(self):
         data = {
-            'title': 'Сколько бит?',
             'type': 'text',
             'difficulty': 'easy',
             'answer_mode': 'short',
             'correct_answer': '8',
+            'source': 'author',
         }
         data.update(self._formset_data('options', []))
         data.update(self._formset_data('cases', []))
         response = self.client.post(reverse('task_create'), data)
-        task = Task.objects.get(title='Сколько бит?')
+        task = Task.objects.latest('pk')
         self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
+        self.assertEqual(task.correct_answer, '8')
 
     def test_programming_task_requires_case(self):
         data = {
-            'title': 'Пусто',
             'type': 'programming',
             'difficulty': 'easy',
+            'source': 'author',
         }
         data.update(self._formset_data('options', []))
         data.update(self._formset_data('cases', []))
         response = self.client.post(reverse('task_create'), data)
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(Task.objects.filter(title='Пусто').exists())
+        self.assertFalse(Task.objects.filter(type=Task.Type.PROGRAMMING, author=self.teacher).exists())
 
     def test_choice_task_requires_correct_option(self):
         data = {
-            'title': 'Без правильного',
             'type': 'text',
             'difficulty': 'easy',
             'answer_mode': 'choice',
+            'source': 'author',
         }
         data.update(self._formset_data('options', [
             {'text': '8', 'is_correct': '', 'order': '1'},
@@ -213,25 +216,24 @@ class TaskCrudViewTests(DjangoTestCase):
         data.update(self._formset_data('cases', []))
         response = self.client.post(reverse('task_create'), data)
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(Task.objects.filter(title='Без правильного').exists())
+        self.assertFalse(Task.objects.filter(type=Task.Type.TEXT, answer_mode=Task.AnswerMode.CHOICE, author=self.teacher).exists())
 
     def test_edit_task(self):
         task = Task.objects.create(
             title='Старое название', type=Task.Type.TEXT, author=self.teacher,
         )
         data = {
-            'title': 'Новое название',
             'type': 'text',
             'difficulty': 'hard',
             'answer_mode': 'short',
             'correct_answer': '42',
+            'source': 'author',
         }
         data.update(self._formset_data('options', []))
         data.update(self._formset_data('cases', []))
         response = self.client.post(reverse('task_edit', args=[task.pk]), data)
         self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
         task.refresh_from_db()
-        self.assertEqual(task.title, 'Новое название')
         self.assertEqual(task.difficulty, Task.Difficulty.HARD)
 
     def test_delete_task(self):
@@ -315,11 +317,11 @@ class TaskBankTests(DjangoTestCase):
             reverse('task_create'),
             {
                 'bank': str(bank.pk),
-                'title': 'Задача из базы',
                 'type': 'text',
                 'difficulty': 'easy',
                 'answer_mode': 'short',
                 'correct_answer': '42',
+                'source': 'author',
                 'options-TOTAL_FORMS': '0',
                 'options-INITIAL_FORMS': '0',
                 'options-MIN_NUM_FORMS': '0',
@@ -330,7 +332,7 @@ class TaskBankTests(DjangoTestCase):
                 'cases-MAX_NUM_FORMS': '1000',
             },
         )
-        task = Task.objects.get(title='Задача из базы')
+        task = Task.objects.latest('pk')
         self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
         self.assertEqual(task.bank, bank)
 
@@ -411,11 +413,11 @@ class TaskTopicTests(DjangoTestCase):
         response = self.client.post(reverse('task_create'), {
             'bank': str(self.bank.pk),
             'topic': str(topic.pk),
-            'title': 'Задача с темой',
             'type': 'text',
             'difficulty': 'easy',
             'answer_mode': 'short',
             'correct_answer': '42',
+            'source': 'author',
             'options-TOTAL_FORMS': '0',
             'options-INITIAL_FORMS': '0',
             'options-MIN_NUM_FORMS': '0',
@@ -425,8 +427,9 @@ class TaskTopicTests(DjangoTestCase):
             'cases-MIN_NUM_FORMS': '0',
             'cases-MAX_NUM_FORMS': '1000',
         })
-        task = Task.objects.get(title='Задача с темой')
+        task = Task.objects.latest('pk')
         self.assertEqual(task.topic, topic)
+        self.assertEqual(task.task_number, f'{topic.order}_1')
 
     def test_topic_queryset_limited_to_bank(self):
         topic_in_bank = Topic.objects.create(bank=self.bank, name='В моей базе')
@@ -434,9 +437,9 @@ class TaskTopicTests(DjangoTestCase):
         topic_in_other = Topic.objects.create(bank=other_bank, name='В другой базе')
         form = TaskForm(user=self.teacher, data={
             'bank': str(self.bank.pk),
-            'title': 'X',
             'type': 'text',
             'difficulty': 'easy',
+            'source': 'author',
         })
         self.assertIn(topic_in_bank, form.fields['topic'].queryset)
         self.assertNotIn(topic_in_other, form.fields['topic'].queryset)
