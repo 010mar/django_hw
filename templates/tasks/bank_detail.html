@@ -101,7 +101,14 @@
                     <td><span class="badge bg-warning text-dark">{{ task.difficulty_verbose }}</span></td>
                     <td class="text-muted">{{ task.created_at|date:'d.m.Y' }}</td>
                     <td>
-                        <a href="{% url 'task_edit' task.pk %}" class="btn btn-sm btn-outline-primary">Изменить</a>
+                        <div class="d-flex gap-1">
+                            <a href="{% url 'task_edit' task.pk %}" class="btn btn-sm btn-outline-primary">Изменить</a>
+                            <form method="post" action="{% url 'task_delete' task.pk %}" class="d-inline"
+                                  onsubmit="return confirm('Удалить задачу «{{ task.title }}»?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Удалить</button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
             {% endfor %}
