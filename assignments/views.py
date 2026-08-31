@@ -1,6 +1,8 @@
 from django.contrib import messages
 from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from accounts.decorators import teacher_required
 from sandbox.runner import get_runner
@@ -34,8 +36,7 @@ def class_create(request):
         class_group = form.save(commit=False)
         class_group.teacher = request.user
         class_group.save()
-        form.save_m2m()
-        messages.success(request, 'Класс создан.')
+        messages.success(request, 'Класс создан. Теперь добавьте учеников.')
         return redirect('class_detail', pk=class_group.pk)
     return render(request, 'assignments/class_form.html', {'form': form, 'is_create': True})
 
@@ -49,11 +50,57 @@ def class_detail(request, pk):
             form.save()
             messages.success(request, 'Класс обновлён.')
         return redirect('class_detail', pk=class_group.pk)
-    all_students = get_user_model().objects.filter(role='student').order_by('last_name', 'first_name')
+    invite_url = request.build_absolute_uri(f'/classes/join/{class_group.invite_token}/')
     return render(request, 'assignments/class_detail.html', {
         'class_group': class_group,
-        'all_students': all_students,
+        'invite_url': invite_url,
     })
+
+
+@require_POST
+@teacher_required
+def class_add_student(request, pk):
+    class_group = get_object_or_404(ClassGroup, pk=pk, teacher=request.user)
+    username = request.POST.get('username', '').strip()
+    if not username:
+        messages.error(request, 'Введите логин ученика.')
+        return redirect('class_detail', pk=class_group.pk)
+    User = get_user_model()
+    try:
+        student = User.objects.get(username=username, role=User.Role.STUDENT)
+    except User.DoesNotExist:
+        messages.error(request, f'Ученик с логином «{username}» не найден.')
+        return redirect('class_detail', pk=class_group.pk)
+    if class_group.students.filter(pk=student.pk).exists():
+        messages.warning(request, f'{student.username} уже в этом классе.')
+    else:
+        class_group.students.add(student)
+        messages.success(request, f'{student.username} добавлен в класс.')
+    return redirect('class_detail', pk=class_group.pk)
+
+
+@require_POST
+@teacher_required
+def class_remove_student(request, pk, user_id):
+    class_group = get_object_or_404(ClassGroup, pk=pk, teacher=request.user)
+    class_group.students.remove(user_id)
+    messages.success(request, 'Ученик удалён из класса.')
+    return redirect('class_detail', pk=class_group.pk)
+
+
+@login_required
+def class_join(request, token):
+    class_group = get_object_or_404(ClassGroup, invite_token=token)
+    user = request.user
+    if not user.is_student:
+        messages.error(request, 'Только ученики могут вступать в классы.')
+        return redirect('home')
+    if class_group.students.filter(pk=user.pk).exists():
+        messages.info(request, f'Вы уже в классе «{class_group.title}».')
+    else:
+        class_group.students.add(user)
+        messages.success(request, f'Вы вступили в класс «{class_group.title}».')
+    return redirect('my_assignments')
 
 
 @teacher_required

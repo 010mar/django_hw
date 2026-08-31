@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.db import models
 
@@ -20,6 +22,10 @@ class ClassGroup(models.Model):
         limit_choices_to={'role': 'student'},
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создан')
+    invite_token = models.UUIDField(
+        default=uuid.uuid4,
+        verbose_name='Токен приглашения',
+    )
 
     class Meta:
         verbose_name = 'Класс'

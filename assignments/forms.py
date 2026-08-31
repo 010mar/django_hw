@@ -8,10 +8,9 @@ from .models import Assignment, ClassGroup
 class ClassForm(forms.ModelForm):
     class Meta:
         model = ClassGroup
-        fields = ('title', 'students')
+        fields = ('title',)
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control'}),
-            'students': forms.SelectMultiple(attrs={'class': 'form-select', 'size': 12}),
         }
 
 
