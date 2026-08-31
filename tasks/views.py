@@ -50,13 +50,32 @@ def bank_create(request):
 @teacher_required
 def bank_detail(request, pk):
     bank = get_object_or_404(TaskBank, pk=pk, author=request.user)
+
+    task_number = request.GET.get('task_number', '').strip()
+    if task_number:
+        try:
+            task = Task.objects.get(pk=int(task_number), bank=bank, author=request.user)
+            return redirect('task_detail', pk=task.pk)
+        except (ValueError, Task.DoesNotExist):
+            pass
+
     tasks = bank.tasks.select_related('author').all()
     topics = bank.topics.all()
-    untopiced = [t for t in tasks if not t.topic_id]
+
+    topic_id = request.GET.get('topic_id', '').strip()
+    current_topic = None
+    if topic_id:
+        try:
+            current_topic = topics.get(pk=int(topic_id))
+            tasks = tasks.filter(topic=current_topic)
+        except (ValueError, Topic.DoesNotExist):
+            pass
+
     return render(request, 'tasks/bank_detail.html', {
         'bank': bank,
         'topics': topics,
-        'untopiced': untopiced,
+        'tasks': tasks,
+        'current_topic': current_topic,
         'topic_form': TopicForm(),
     })
 
