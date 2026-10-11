@@ -201,6 +201,7 @@ def grade_submission(request, submission_id):
     return redirect('assignment_grade', pk=submission.assignment_id)
 
 
+@login_required
 def my_assignments(request):
     assignments = _visible_assignments(request.user).prefetch_related('tasks', 'class_group')
     progress = {}
@@ -220,6 +221,7 @@ def my_assignments(request):
     })
 
 
+@login_required
 def assignment_solve(request, pk):
     assignment = get_object_or_404(_visible_assignments(request.user), pk=pk)
     submissions = {
@@ -236,6 +238,7 @@ def assignment_solve(request, pk):
     })
 
 
+@login_required
 def solve_task(request, assignment_id, task_id):
     assignment = get_object_or_404(_visible_assignments(request.user), pk=assignment_id)
     task = get_object_or_404(Task, pk=task_id, assignments=assignment)

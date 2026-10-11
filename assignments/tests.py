@@ -190,3 +190,20 @@ class AssignmentCreateViewTests(DjangoTestCase):
         })
         self.assertEqual(response.status_code, 200)
         self.assertFalse(Assignment.objects.filter(title='Без класса').exists())
+
+
+class AnonymousAccessTests(DjangoTestCase):
+    def test_my_assignments_requires_login(self):
+        response = self.client.get(reverse('my_assignments'))
+        self.assertRedirects(
+            response,
+            f'{reverse("account_login")}?next={reverse("my_assignments")}',
+        )
+
+    def test_solve_views_require_login(self):
+        for url in (
+            reverse('assignment_solve', args=[1]),
+            reverse('solve_task', args=[1, 1]),
+        ):
+            response = self.client.get(url)
+            self.assertRedirects(response, f'{reverse("account_login")}?next={url}')
