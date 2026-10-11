@@ -153,8 +153,12 @@ class HeatmapTests(TestCase):
         for week in result['columns']:
             self.assertEqual(len(week), 7)
         last_week = result['columns'][-1]
-        self.assertTrue(last_week[-1]['in_future'])
+        if today.weekday() < 6:
+            self.assertTrue(last_week[-1]['in_future'])
+        else:
+            self.assertFalse(last_week[-1]['in_future'])
         today_cells = [c for c in last_week if c['date'] == today]
+        self.assertTrue(today_cells)
         self.assertFalse(today_cells[0]['in_future'])
 
     def test_levels(self):
