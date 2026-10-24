@@ -1,9 +1,18 @@
+from io import BytesIO
+import os
+import shutil
+import tempfile
+
+from PIL import Image as PILImage
+
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase as DjangoTestCase
+from django.test import override_settings
 from django.urls import reverse
 
 from .forms import AddTaskForm, TaskForm
-from .models import AnswerOption, Lesson, LessonTask, Task, TaskBank, Topic
+from .models import AnswerOption, Lesson, LessonTask, Task, TaskBank, TaskImage, Topic
 from .models import TestCase as TaskTestCase
 
 User = get_user_model()
@@ -443,3 +452,134 @@ class TaskTopicTests(DjangoTestCase):
         })
         self.assertIn(topic_in_bank, form.fields['topic'].queryset)
         self.assertNotIn(topic_in_other, form.fields['topic'].queryset)
+
+
+class TaskImageTests(DjangoTestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls._media_root = tempfile.mkdtemp()
+        cls._override = override_settings(MEDIA_ROOT=cls._media_root)
+        cls._override.enable()
+        super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        cls._override.disable()
+        shutil.rmtree(cls._media_root, ignore_errors=True)
+
+    def setUp(self):
+        self.teacher = User.objects.create_user(
+            username='teacher', password='pass12345', role=User.Role.TEACHER,
+        )
+        self.student = User.objects.create_user(
+            username='student', password='pass12345', role=User.Role.STUDENT,
+        )
+        self.other_teacher = User.objects.create_user(
+            username='other', password='pass12345', role=User.Role.TEACHER,
+        )
+
+    def _image(self, name='tiny.png'):
+        buffer = BytesIO()
+        PILImage.new('RGB', (4, 4), 'white').save(buffer, format='PNG')
+        return SimpleUploadedFile(name, buffer.getvalue(), content_type='image/png')
+
+    def _formset_data(self, prefix, rows):
+        data = {
+            f'{prefix}-TOTAL_FORMS': str(len(rows)),
+            f'{prefix}-INITIAL_FORMS': '0',
+            f'{prefix}-MIN_NUM_FORMS': '0',
+            f'{prefix}-MAX_NUM_FORMS': '1000',
+        }
+        for i, row in enumerate(rows):
+            for key, value in row.items():
+                data[f'{prefix}-{i}-{key}'] = value
+        return data
+
+    def _task_data(self, body):
+        data = {
+            'type': 'text',
+            'difficulty': 'easy',
+            'answer_mode': 'short',
+            'correct_answer': '42',
+            'source': 'author',
+            'body': body,
+        }
+        data.update(self._formset_data('options', []))
+        data.update(self._formset_data('cases', []))
+        return data
+
+    def test_upload_requires_teacher(self):
+        self.client.force_login(self.student)
+        response = self.client.post(
+            reverse('task_image_upload'), {'image': self._image()},
+        )
+        self.assertRedirects(response, reverse('home'))
+        self.assertEqual(TaskImage.objects.count(), 0)
+
+    def test_upload_creates_image(self):
+        self.client.force_login(self.teacher)
+        response = self.client.post(
+            reverse('task_image_upload'), {'image': self._image()},
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        image = TaskImage.objects.get(token=payload['token'])
+        self.assertEqual(image.author, self.teacher)
+        self.assertIsNone(image.task)
+        self.assertTrue(payload['url'].startswith('/media/'))
+
+    def test_upload_rejects_non_image(self):
+        self.client.force_login(self.teacher)
+        upload = SimpleUploadedFile('notes.txt', b'hello', content_type='text/plain')
+        response = self.client.post(reverse('task_image_upload'), {'image': upload})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(TaskImage.objects.count(), 0)
+
+    def test_create_task_links_inline_image(self):
+        image = TaskImage.objects.create(author=self.teacher, image=self._image())
+        self.client.force_login(self.teacher)
+        response = self.client.post(
+            reverse('task_create'),
+            self._task_data(f'Найдите ответ\n[[img:{image.token}]]\n'),
+        )
+        task = Task.objects.latest('pk')
+        self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
+        image.refresh_from_db()
+        self.assertEqual(image.task, task)
+        detail = self.client.get(reverse('task_detail', args=[task.pk]))
+        self.assertContains(detail, '<img')
+        self.assertContains(detail, image.image.url)
+
+    def test_edit_task_removes_unused_image(self):
+        task = Task.objects.create(title='Условие', author=self.teacher)
+        image = TaskImage.objects.create(
+            task=task, author=self.teacher, image=self._image(),
+        )
+        file_path = image.image.path
+        task.body = f'Старое условие [[img:{image.token}]]'
+        task.save()
+        self.client.force_login(self.teacher)
+        response = self.client.post(
+            reverse('task_edit', args=[task.pk]),
+            self._task_data('Новое условие без картинки'),
+        )
+        self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
+        self.assertFalse(TaskImage.objects.filter(pk=image.pk).exists())
+        self.assertFalse(os.path.exists(file_path))
+
+    def test_cannot_link_other_teachers_image(self):
+        image = TaskImage.objects.create(
+            author=self.other_teacher, image=self._image(),
+        )
+        self.client.force_login(self.teacher)
+        response = self.client.post(
+            reverse('task_create'),
+            self._task_data(f'Текст [[img:{image.token}]]'),
+        )
+        task = Task.objects.latest('pk')
+        self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
+        image.refresh_from_db()
+        self.assertIsNone(image.task)
+        detail = self.client.get(reverse('task_detail', args=[task.pk]))
+        self.assertNotContains(detail, image.image.url)

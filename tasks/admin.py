@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AnswerOption, Lesson, LessonTask, Task, TaskBank, TestCase, Topic
+from .models import AnswerOption, Lesson, LessonTask, Task, TaskBank, TaskImage, TestCase, Topic
 
 
 class AnswerOptionInline(admin.TabularInline):
@@ -70,6 +70,13 @@ class TaskAdmin(admin.ModelAdmin):
         }),
     )
     inlines = [AnswerOptionInline, TestCaseInline]
+
+
+@admin.register(TaskImage)
+class TaskImageAdmin(admin.ModelAdmin):
+    list_display = ('token', 'task', 'author', 'created_at')
+    search_fields = ('token',)
+    list_select_related = ('task', 'author')
 
 
 @admin.register(Lesson)

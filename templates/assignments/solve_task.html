@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load task_filters %}
 
 {% block title %}{{ task.title }}{% endblock %}
 
@@ -13,7 +14,7 @@
 
 <div class="card mb-4">
     <div class="card-body">
-        <div class="text-break">{{ task.body|linebreaks }}</div>
+        <div class="text-break">{{ task.body|render_task_body:task }}</div>
         {% if task.image %}
             <img src="{{ task.image.url }}" alt="Условие" class="img-fluid mt-3 rounded">
         {% endif %}

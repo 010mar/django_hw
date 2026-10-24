@@ -1,3 +1,4 @@
+from PIL import Image
 from django.contrib import messages
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -13,7 +14,19 @@ from .forms import (
     TestCaseFormSet,
     TopicForm,
 )
-from .models import AnswerOption, Lesson, LessonTask, Task, TaskBank, TestCase, Topic
+from .models import (
+    IMAGE_TOKEN_PATTERN,
+    AnswerOption,
+    Lesson,
+    LessonTask,
+    Task,
+    TaskBank,
+    TaskImage,
+    TestCase,
+    Topic,
+)
+
+MAX_INLINE_IMAGE_SIZE = 10 * 1024 * 1024
 
 
 @teacher_required
@@ -147,6 +160,28 @@ def _save_formsets(task, option_formset, case_formset):
         obj.delete()
 
 
+def _inline_images_for_request(request, task=None):
+    if request.method == 'POST':
+        tokens = set(IMAGE_TOKEN_PATTERN.findall(request.POST.get('body', '')))
+        return TaskImage.objects.filter(author=request.user, token__in=tokens)
+    if task is not None:
+        return task.inline_images.all()
+    return TaskImage.objects.none()
+
+
+def _sync_task_images(task):
+    tokens = set(IMAGE_TOKEN_PATTERN.findall(task.body or ''))
+    for image in task.inline_images.all():
+        if str(image.token) not in tokens:
+            image.delete()
+    if tokens:
+        TaskImage.objects.filter(
+            token__in=tokens,
+            author=task.author,
+            task__isnull=True,
+        ).update(task=task)
+
+
 def _validate_formsets(task, option_formset, case_formset):
     errors = []
     real_options = [
@@ -217,6 +252,7 @@ def task_create(request):
             formset_errors = _validate_formsets(task, option_formset, case_formset)
             if not formset_errors:
                 task.save()
+                _sync_task_images(task)
                 _save_formsets(task, option_formset, case_formset)
                 messages.success(request, 'Задача создана.')
                 return redirect('task_detail', pk=task.pk)
@@ -227,6 +263,7 @@ def task_create(request):
         'option_formset': option_formset,
         'case_formset': case_formset,
         'all_topics': Topic.objects.filter(bank__author=request.user).select_related('bank'),
+        'inline_images': _inline_images_for_request(request),
         'is_create': True,
     })
 
@@ -259,6 +296,34 @@ def task_number_preview(request):
 
 
 @teacher_required
+def task_image_upload(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Метод не поддерживается.'}, status=405)
+    upload = request.FILES.get('image')
+    if upload is None:
+        return JsonResponse({'error': 'Файл не передан.'}, status=400)
+    if upload.size > MAX_INLINE_IMAGE_SIZE:
+        return JsonResponse(
+            {'error': 'Изображение не должно превышать 10 МБ.'},
+            status=400,
+        )
+    try:
+        image = Image.open(upload)
+        image.verify()
+    except Exception:
+        return JsonResponse(
+            {'error': 'Не удалось распознать изображение.'},
+            status=400,
+        )
+    upload.seek(0)
+    task_image = TaskImage.objects.create(author=request.user, image=upload)
+    return JsonResponse({
+        'token': str(task_image.token),
+        'url': task_image.image.url,
+    })
+
+
+@teacher_required
 def task_detail(request, pk):
     task = get_object_or_404(Task, pk=pk, author=request.user)
     return render(request, 'tasks/task_detail.html', {'task': task})
@@ -284,6 +349,7 @@ def task_edit(request, pk):
             formset_errors = _validate_formsets(saved_task, option_formset, case_formset)
             if not formset_errors:
                 saved_task.save()
+                _sync_task_images(saved_task)
                 _save_formsets(saved_task, option_formset, case_formset)
                 messages.success(request, 'Задача обновлена.')
                 return redirect('task_detail', pk=task.pk)
@@ -294,6 +360,7 @@ def task_edit(request, pk):
         'option_formset': option_formset,
         'case_formset': case_formset,
         'all_topics': Topic.objects.filter(bank__author=request.user).select_related('bank'),
+        'inline_images': _inline_images_for_request(request, task),
         'is_create': False,
         'task': task,
     })

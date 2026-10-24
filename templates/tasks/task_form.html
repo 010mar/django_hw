@@ -48,8 +48,33 @@
                         {{ form.type }}
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">{{ form.body.label }}</label>
+                        <label class="form-label" for="{{ form.body.id_for_label }}">{{ form.body.label }}</label>
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    id="insert-inline-image">Вставить изображение</button>
+                            <span class="text-muted small" id="inline-image-status"></span>
+                            <input type="file" id="inline-image-input" accept="image/*" multiple class="d-none">
+                        </div>
                         {{ form.body }}
+                        <div class="form-text">
+                            Картинку можно вставить кнопкой или вставить из буфера обмена (Ctrl+V).
+                        </div>
+                        {% if form.body.errors %}
+                            <div class="text-danger small mt-1">{{ form.body.errors.0 }}</div>
+                        {% endif %}
+                        <div class="d-flex flex-wrap gap-2 mt-2" id="inline-image-list">
+                            {% for img in inline_images %}
+                                <div class="inline-image-item position-relative border rounded p-1"
+                                     data-token="{{ img.token }}">
+                                    <img src="{{ img.image.url }}" alt="Изображение к условию"
+                                         class="rounded"
+                                         style="height:80px;width:auto;max-width:120px;object-fit:cover;">
+                                    <button type="button"
+                                            class="btn-close position-absolute top-0 end-0 bg-white m-1 inline-image-remove"
+                                            aria-label="Удалить"></button>
+                                </div>
+                            {% endfor %}
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">{{ form.image.label }}</label>
@@ -241,6 +266,135 @@
     topicSelect.addEventListener('change', fetchTaskNumber);
     update();
     filterTopics();
+})();
+</script>
+
+<script>
+(function () {
+    var body = document.getElementById('id_body');
+    var fileInput = document.getElementById('inline-image-input');
+    var trigger = document.getElementById('insert-inline-image');
+    var list = document.getElementById('inline-image-list');
+    var status = document.getElementById('inline-image-status');
+    var csrfInput = document.querySelector('form [name="csrfmiddlewaretoken"]');
+    if (!body || !fileInput || !trigger || !list) {
+        return;
+    }
+    var uploadUrl = "{% url 'task_image_upload' %}";
+    var csrfToken = csrfInput ? csrfInput.value : '';
+
+    function insertAtCursor(token) {
+        var start = body.selectionStart || 0;
+        var end = body.selectionEnd || 0;
+        var value = body.value;
+        var prefix = value.slice(0, start);
+        var suffix = value.slice(end);
+        var before = prefix && prefix.slice(-1) !== '\n' ? '\n' : '';
+        var after = suffix && suffix.slice(0, 1) !== '\n' ? '\n' : '';
+        var marker = '[[img:' + token + ']]';
+        body.value = prefix + before + marker + after + suffix;
+        var position = (prefix + before + marker).length;
+        body.selectionStart = position;
+        body.selectionEnd = position;
+        body.focus();
+        body.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function addThumbnail(token, url) {
+        var item = document.createElement('div');
+        item.className = 'inline-image-item position-relative border rounded p-1';
+        item.dataset.token = token;
+        var img = document.createElement('img');
+        img.src = url;
+        img.alt = 'Изображение к условию';
+        img.className = 'rounded';
+        img.style.height = '80px';
+        img.style.width = 'auto';
+        img.style.maxWidth = '120px';
+        img.style.objectFit = 'cover';
+        var remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'btn-close position-absolute top-0 end-0 bg-white m-1 inline-image-remove';
+        remove.setAttribute('aria-label', 'Удалить');
+        item.appendChild(img);
+        item.appendChild(remove);
+        list.appendChild(item);
+    }
+
+    function removeMarker(token) {
+        var pattern = new RegExp('\\[\\[img:' + token + '\\]\\]\\n?', 'g');
+        body.value = body.value.replace(pattern, '');
+        body.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function upload(file) {
+        if (!file || file.type.indexOf('image/') !== 0) {
+            status.textContent = 'Выберите файл изображения.';
+            return;
+        }
+        status.textContent = 'Загрузка…';
+        var data = new FormData();
+        data.append('image', file);
+        fetch(uploadUrl, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            body: data,
+            credentials: 'same-origin'
+        })
+            .then(function (response) {
+                return response.json().then(function (json) {
+                    return { ok: response.ok, data: json };
+                });
+            })
+            .then(function (result) {
+                if (!result.ok) {
+                    status.textContent = result.data.error || 'Не удалось загрузить изображение.';
+                    return;
+                }
+                insertAtCursor(result.data.token);
+                addThumbnail(result.data.token, result.data.url);
+                status.textContent = '';
+            })
+            .catch(function () {
+                status.textContent = 'Ошибка загрузки. Попробуйте ещё раз.';
+            });
+    }
+
+    trigger.addEventListener('click', function () {
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('change', function () {
+        Array.prototype.forEach.call(fileInput.files || [], upload);
+        fileInput.value = '';
+    });
+
+    list.addEventListener('click', function (event) {
+        var button = event.target.closest('.inline-image-remove');
+        if (!button) {
+            return;
+        }
+        var item = button.closest('.inline-image-item');
+        if (!item) {
+            return;
+        }
+        removeMarker(item.dataset.token);
+        item.remove();
+    });
+
+    body.addEventListener('paste', function (event) {
+        var items = (event.clipboardData && event.clipboardData.items) || [];
+        var files = [];
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].kind === 'file' && items[i].type.indexOf('image/') === 0) {
+                files.push(items[i].getAsFile());
+            }
+        }
+        if (files.length) {
+            event.preventDefault();
+            files.forEach(upload);
+        }
+    });
 })();
 </script>
 {% endblock %}

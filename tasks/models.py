@@ -1,5 +1,12 @@
+import re
+import uuid
+
 from django.conf import settings
 from django.db import models
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
+
+IMAGE_TOKEN_PATTERN = re.compile(r'\[\[img:([0-9a-fA-F-]{36})\]\]')
 
 
 class TaskBank(models.Model):
@@ -181,6 +188,52 @@ class Task(models.Model):
 
     def is_short_answer_correct(self, answer: str) -> bool:
         return self.correct_answer.strip().lower() == (answer or '').strip().lower()
+
+
+class TaskImage(models.Model):
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='inline_images',
+        verbose_name='Задача',
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='uploaded_task_images',
+        verbose_name='Автор',
+    )
+    token = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+        verbose_name='Токен',
+    )
+    image = models.ImageField(
+        upload_to='tasks/inline/%Y/%m/',
+        verbose_name='Изображение',
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Загружено')
+
+    class Meta:
+        verbose_name = 'Изображение к условию'
+        verbose_name_plural = 'Изображения к условию'
+        ordering = ('created_at',)
+
+    def __str__(self):
+        return f'Изображение {self.token}'
+
+    @property
+    def marker(self) -> str:
+        return f'[[img:{self.token}]]'
+
+
+@receiver(post_delete, sender=TaskImage)
+def delete_task_image_file(sender, instance, **kwargs):
+    if instance.image:
+        instance.image.delete(save=False)
 
 
 class AnswerOption(models.Model):
