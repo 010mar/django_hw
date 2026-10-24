@@ -242,7 +242,8 @@ def task_create(request):
                     if num.startswith(prefix):
                         try:
                             seq = int(num[len(prefix):])
-                            max_seq = max(max_seq, seq)
+                            if seq >= 1:
+                                max_seq = max(max_seq, seq)
                         except ValueError:
                             pass
                 task.task_number = f'{prefix}{max_seq + 1}'
@@ -289,7 +290,8 @@ def task_number_preview(request):
         if num.startswith(prefix):
             try:
                 seq = int(num[len(prefix):])
-                max_seq = max(max_seq, seq)
+                if seq >= 1:
+                    max_seq = max(max_seq, seq)
             except ValueError:
                 pass
     return JsonResponse({'task_number': f'{prefix}{max_seq + 1}'})
