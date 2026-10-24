@@ -54,6 +54,8 @@ class TaskForm(forms.ModelForm):
                     )
                 )
             )
+                )
+            )
         bank_id = None
         if self.data:
             bank_id = self.data.get('bank')
