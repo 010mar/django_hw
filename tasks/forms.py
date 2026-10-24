@@ -54,6 +54,8 @@ class TaskForm(forms.ModelForm):
                     )
                 )
             )
+            self.fields['bank'].empty_label = None
+            self.fields['bank'].required = True
                 )
             )
         bank_id = None
