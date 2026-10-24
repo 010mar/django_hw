@@ -1,5 +1,6 @@
 from PIL import Image
 from django.contrib import messages
+from django.db.models import Max
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
@@ -106,6 +107,8 @@ def topic_create(request, pk):
             else:
                 topic = form.save(commit=False)
                 topic.bank = bank
+                last_order = bank.topics.aggregate(Max('order'))['order__max'] or 0
+                topic.order = last_order + 1
                 topic.save()
                 messages.success(request, 'Тема добавлена.')
     return redirect('bank_detail', pk=bank.pk)

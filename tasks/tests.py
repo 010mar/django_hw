@@ -135,6 +135,8 @@ class TaskCrudViewTests(DjangoTestCase):
         self.student = User.objects.create_user(
             username='student', password='pass12345', role=User.Role.STUDENT,
         )
+        self.bank = TaskBank.objects.create(name='Информатика ЕГЭ', author=self.teacher)
+        self.topic = Topic.objects.create(bank=self.bank, name='Логика', order=1)
         self.client.force_login(self.teacher)
 
     def _formset_data(self, prefix, rows):
@@ -149,6 +151,12 @@ class TaskCrudViewTests(DjangoTestCase):
                 data[f'{prefix}-{i}-{key}'] = value
         return data
 
+    def _base_data(self):
+        return {
+            'bank': str(self.bank.pk),
+            'topic': str(self.topic.pk),
+        }
+
     def test_create_choice_task(self):
         data = {
             'type': 'text',
@@ -156,6 +164,7 @@ class TaskCrudViewTests(DjangoTestCase):
             'answer_mode': 'choice',
             'source': 'author',
         }
+        data.update(self._base_data())
         data.update(self._formset_data('options', [
             {'text': '8', 'is_correct': 'on', 'order': '1'},
             {'text': '16', 'is_correct': '', 'order': '2'},
@@ -175,6 +184,7 @@ class TaskCrudViewTests(DjangoTestCase):
             'memory_limit_mb': '128',
             'source': 'author',
         }
+        data.update(self._base_data())
         data.update(self._formset_data('options', []))
         data.update(self._formset_data('cases', [
             {'input_data': '1 2\n', 'expected_output': '3\n', 'is_public': 'on', 'order': '1'},
@@ -193,6 +203,7 @@ class TaskCrudViewTests(DjangoTestCase):
             'correct_answer': '8',
             'source': 'author',
         }
+        data.update(self._base_data())
         data.update(self._formset_data('options', []))
         data.update(self._formset_data('cases', []))
         response = self.client.post(reverse('task_create'), data)
@@ -206,6 +217,7 @@ class TaskCrudViewTests(DjangoTestCase):
             'difficulty': 'easy',
             'source': 'author',
         }
+        data.update(self._base_data())
         data.update(self._formset_data('options', []))
         data.update(self._formset_data('cases', []))
         response = self.client.post(reverse('task_create'), data)
@@ -219,6 +231,7 @@ class TaskCrudViewTests(DjangoTestCase):
             'answer_mode': 'choice',
             'source': 'author',
         }
+        data.update(self._base_data())
         data.update(self._formset_data('options', [
             {'text': '8', 'is_correct': '', 'order': '1'},
         ]))
@@ -238,12 +251,45 @@ class TaskCrudViewTests(DjangoTestCase):
             'correct_answer': '42',
             'source': 'author',
         }
+        data.update(self._base_data())
         data.update(self._formset_data('options', []))
         data.update(self._formset_data('cases', []))
         response = self.client.post(reverse('task_edit', args=[task.pk]), data)
         self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
         task.refresh_from_db()
         self.assertEqual(task.difficulty, Task.Difficulty.HARD)
+
+    def test_create_requires_topic(self):
+        data = {
+            'bank': str(self.bank.pk),
+            'type': 'text',
+            'difficulty': 'easy',
+            'answer_mode': 'short',
+            'correct_answer': '8',
+            'source': 'author',
+        }
+        data.update(self._formset_data('options', []))
+        data.update(self._formset_data('cases', []))
+        response = self.client.post(reverse('task_create'), data)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Task.objects.filter(author=self.teacher).exists())
+
+    def test_first_task_number_starts_at_one(self):
+        data = {
+            'type': 'text',
+            'difficulty': 'easy',
+            'answer_mode': 'short',
+            'correct_answer': '8',
+            'source': 'author',
+        }
+        data.update(self._base_data())
+        data.update(self._formset_data('options', []))
+        data.update(self._formset_data('cases', []))
+        response = self.client.post(reverse('task_create'), data)
+        task = Task.objects.latest('pk')
+        self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
+        self.assertEqual(task.task_number, '1_1')
+
 
     def test_delete_task(self):
         task = Task.objects.create(title='Удаляемая', author=self.teacher)
@@ -318,7 +364,8 @@ class TaskBankTests(DjangoTestCase):
         self.assertRedirects(response, reverse('home'))
 
     def test_save_task_into_bank(self):
-        bank = TaskBank.objects.create(name='Моя база', author=self.teacher)
+        bank = TaskBank.objects.create(name='Информатика ЕГЭ', author=self.teacher)
+        topic = Topic.objects.create(bank=bank, name='Логика', order=1)
         self.client.force_login(self.teacher)
         form = TaskForm(user=self.teacher)
         self.assertEqual(set(form.fields['bank'].queryset), {bank})
@@ -326,6 +373,7 @@ class TaskBankTests(DjangoTestCase):
             reverse('task_create'),
             {
                 'bank': str(bank.pk),
+                'topic': str(topic.pk),
                 'type': 'text',
                 'difficulty': 'easy',
                 'answer_mode': 'short',
@@ -346,10 +394,18 @@ class TaskBankTests(DjangoTestCase):
         self.assertEqual(task.bank, bank)
 
     def test_bank_name_preselect(self):
-        bank = TaskBank.objects.create(name='Моя база', author=self.teacher)
+        bank = TaskBank.objects.create(name='Информатика ЕГЭ', author=self.teacher)
         self.client.force_login(self.teacher)
         form = TaskForm(user=self.teacher, initial={'bank': bank.pk})
         self.assertEqual(form['bank'].value(), bank.pk)
+
+    def test_bank_queryset_limited_to_ege_and_oge(self):
+        ege = TaskBank.objects.create(name='Информатика ЕГЭ', author=self.teacher)
+        oge = TaskBank.objects.create(name='Информатика ОГЭ', author=self.teacher)
+        TaskBank.objects.create(name='Другая база', author=self.teacher)
+        form = TaskForm(user=self.teacher)
+        self.assertEqual(list(form.fields['bank'].queryset), [ege, oge])
+
 
     def test_task_list_filter_by_bank(self):
         bank = TaskBank.objects.create(name='Моя база', author=self.teacher)
@@ -369,7 +425,7 @@ class TaskTopicTests(DjangoTestCase):
         self.other_teacher = User.objects.create_user(
             username='other', password='pass12345', role=User.Role.TEACHER,
         )
-        self.bank = TaskBank.objects.create(name='База', author=self.teacher)
+        self.bank = TaskBank.objects.create(name='Информатика ЕГЭ', author=self.teacher)
         self.client.force_login(self.teacher)
 
     def test_create_topic(self):
@@ -379,6 +435,16 @@ class TaskTopicTests(DjangoTestCase):
         self.assertRedirects(response, reverse('bank_detail', args=[self.bank.pk]))
         topic = Topic.objects.get(bank=self.bank, name='Системы счисления')
         self.assertEqual(topic.bank, self.bank)
+        self.assertEqual(topic.order, 1)
+
+    def test_new_topic_order_increments(self):
+        Topic.objects.create(bank=self.bank, name='Логика', order=1)
+        self.client.post(reverse('topic_create', args=[self.bank.pk]), {
+            'name': 'Алгоритмы',
+        })
+        topic = Topic.objects.get(bank=self.bank, name='Алгоритмы')
+        self.assertEqual(topic.order, 2)
+
 
     def test_duplicate_topic_name_rejected(self):
         Topic.objects.create(bank=self.bank, name='Логика')
@@ -418,7 +484,7 @@ class TaskTopicTests(DjangoTestCase):
         self.assertContains(response, 'Задача без темы')
 
     def test_save_task_with_topic(self):
-        topic = Topic.objects.create(bank=self.bank, name='Логика')
+        topic = Topic.objects.create(bank=self.bank, name='Логика', order=1)
         response = self.client.post(reverse('task_create'), {
             'bank': str(self.bank.pk),
             'topic': str(topic.pk),
@@ -438,7 +504,35 @@ class TaskTopicTests(DjangoTestCase):
         })
         task = Task.objects.latest('pk')
         self.assertEqual(task.topic, topic)
-        self.assertEqual(task.task_number, f'{topic.order}_1')
+        self.assertEqual(task.task_number, '1_1')
+
+    def test_task_number_sequence_per_topic(self):
+        topic = Topic.objects.create(bank=self.bank, name='Логика', order=1)
+        Task.objects.create(
+            title='1_1', author=self.teacher, bank=self.bank, topic=topic,
+            task_number='1_1',
+        )
+        response = self.client.post(reverse('task_create'), {
+            'bank': str(self.bank.pk),
+            'topic': str(topic.pk),
+            'type': 'text',
+            'difficulty': 'easy',
+            'answer_mode': 'short',
+            'correct_answer': '42',
+            'source': 'author',
+            'options-TOTAL_FORMS': '0',
+            'options-INITIAL_FORMS': '0',
+            'options-MIN_NUM_FORMS': '0',
+            'options-MAX_NUM_FORMS': '1000',
+            'cases-TOTAL_FORMS': '0',
+            'cases-INITIAL_FORMS': '0',
+            'cases-MIN_NUM_FORMS': '0',
+            'cases-MAX_NUM_FORMS': '1000',
+        })
+        task = Task.objects.latest('pk')
+        self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
+        self.assertEqual(task.task_number, '1_2')
+
 
     def test_topic_queryset_limited_to_bank(self):
         topic_in_bank = Topic.objects.create(bank=self.bank, name='В моей базе')
@@ -478,6 +572,8 @@ class TaskImageTests(DjangoTestCase):
         self.other_teacher = User.objects.create_user(
             username='other', password='pass12345', role=User.Role.TEACHER,
         )
+        self.bank = TaskBank.objects.create(name='Информатика ЕГЭ', author=self.teacher)
+        self.topic = Topic.objects.create(bank=self.bank, name='Логика', order=1)
 
     def _image(self, name='tiny.png'):
         buffer = BytesIO()
@@ -498,6 +594,8 @@ class TaskImageTests(DjangoTestCase):
 
     def _task_data(self, body):
         data = {
+            'bank': str(self.bank.pk),
+            'topic': str(self.topic.pk),
             'type': 'text',
             'difficulty': 'easy',
             'answer_mode': 'short',
