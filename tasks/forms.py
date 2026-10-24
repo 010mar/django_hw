@@ -1,4 +1,5 @@
 from django import forms
+from django.db.models import Case, When
 
 from .models import AnswerOption, Lesson, Task, TaskBank, TestCase, Topic
 
@@ -39,9 +40,20 @@ class TaskForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         for name in ('language', 'time_limit_ms', 'memory_limit_mb', 'answer_mode'):
             self.fields[name].required = False
-        self.fields['topic'].required = False
+        self.fields['topic'].required = True
+        self.fields['topic'].empty_label = None
         if user is not None:
-            self.fields['bank'].queryset = TaskBank.objects.filter(author=user)
+            self.fields['bank'].queryset = (
+                TaskBank.objects.filter(
+                    author=user,
+                    name__in=['Информатика ЕГЭ', 'Информатика ОГЭ'],
+                ).order_by(
+                    Case(
+                        When(name='Информатика ЕГЭ', then=0),
+                        When(name='Информатика ОГЭ', then=1),
+                    )
+                )
+            )
         bank_id = None
         if self.data:
             bank_id = self.data.get('bank')
@@ -49,9 +61,14 @@ class TaskForm(forms.ModelForm):
             bank_id = self.instance.bank_id
         elif self.initial.get('bank'):
             bank_id = self.initial.get('bank')
-        self.fields['topic'].queryset = (
-            Topic.objects.filter(bank_id=bank_id) if bank_id else Topic.objects.none()
-        )
+        if bank_id and user is not None:
+            self.fields['topic'].queryset = Topic.objects.filter(
+                bank_id=bank_id, bank__author=user
+            )
+        elif bank_id:
+            self.fields['topic'].queryset = Topic.objects.filter(bank_id=bank_id)
+        else:
+            self.fields['topic'].queryset = Topic.objects.none()
 
     def clean(self):
         cleaned = super().clean()
