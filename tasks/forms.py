@@ -56,8 +56,6 @@ class TaskForm(forms.ModelForm):
             )
             self.fields['bank'].empty_label = None
             self.fields['bank'].required = True
-                )
-            )
         bank_id = None
         if self.data:
             bank_id = self.data.get('bank')
