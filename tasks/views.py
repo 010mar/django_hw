@@ -1,6 +1,6 @@
 from PIL import Image
 from django.contrib import messages
-from django.db.models import Max
+from django.db.models import Max, Prefetch
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
@@ -9,6 +9,8 @@ from accounts.decorators import teacher_required
 from .forms import (
     AddTaskForm,
     AnswerOptionFormSet,
+    CourseForm,
+    CourseModuleForm,
     LessonForm,
     TaskBankForm,
     TaskForm,
@@ -18,6 +20,8 @@ from .forms import (
 from .models import (
     IMAGE_TOKEN_PATTERN,
     AnswerOption,
+    Course,
+    CourseModule,
     Lesson,
     LessonTask,
     Task,
@@ -422,9 +426,12 @@ def lesson_edit(request, pk):
 @teacher_required
 def lesson_delete(request, pk):
     lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
+    course_id = lesson.module.course_id if lesson.module_id else None
     if request.method == 'POST':
         lesson.delete()
         messages.success(request, 'Урок удалён.')
+    if course_id:
+        return redirect('course_detail', pk=course_id)
     return redirect('lesson_list')
 
 
@@ -449,3 +456,124 @@ def lesson_remove_task(request, pk, task_id):
         LessonTask.objects.filter(lesson=lesson, task_id=task_id).delete()
         messages.success(request, 'Задача удалена из урока.')
     return redirect('lesson_detail', pk=pk)
+
+
+@teacher_required
+def course_list(request):
+    courses = (
+        Course.objects
+        .filter(author=request.user)
+        .prefetch_related('modules__lessons')
+    )
+    return render(request, 'tasks/course_list.html', {'courses': courses})
+
+
+@teacher_required
+def course_create(request):
+    form = CourseForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        course = form.save(commit=False)
+        course.author = request.user
+        course.save()
+        messages.success(request, 'Курс создан.')
+        return redirect('course_detail', pk=course.pk)
+    return render(request, 'tasks/course_form.html', {'form': form, 'is_create': True})
+
+
+@teacher_required
+def course_detail(request, pk):
+    course = get_object_or_404(Course, pk=pk, author=request.user)
+    modules = course.modules.prefetch_related(
+        Prefetch('lessons', queryset=Lesson.objects.order_by('order', 'created_at'))
+    )
+    return render(request, 'tasks/course_detail.html', {
+        'course': course,
+        'modules': modules,
+        'module_form': CourseModuleForm(),
+    })
+
+
+@teacher_required
+def course_edit(request, pk):
+    course = get_object_or_404(Course, pk=pk, author=request.user)
+    form = CourseForm(request.POST or None, instance=course)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Курс обновлён.')
+        return redirect('course_detail', pk=course.pk)
+    return render(request, 'tasks/course_form.html', {
+        'form': form,
+        'course': course,
+        'is_create': False,
+    })
+
+
+@teacher_required
+def course_delete(request, pk):
+    course = get_object_or_404(Course, pk=pk, author=request.user)
+    if request.method == 'POST':
+        course.delete()
+        messages.success(request, 'Курс удалён.')
+    return redirect('course_list')
+
+
+@teacher_required
+def module_create(request, pk):
+    course = get_object_or_404(Course, pk=pk, author=request.user)
+    if request.method == 'POST':
+        form = CourseModuleForm(request.POST)
+        if form.is_valid():
+            module = form.save(commit=False)
+            module.course = course
+            module.order = (
+                course.modules.aggregate(Max('order'))['order__max'] or 0
+            ) + 1
+            module.save()
+            messages.success(request, 'Модуль добавлен.')
+        else:
+            messages.error(request, 'Не удалось добавить модуль. Проверьте название и дату.')
+    return redirect('course_detail', pk=course.pk)
+
+
+@teacher_required
+def module_edit(request, pk):
+    module = get_object_or_404(CourseModule, pk=pk, course__author=request.user)
+    form = CourseModuleForm(request.POST or None, instance=module)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Модуль обновлён.')
+        return redirect('course_detail', pk=module.course_id)
+    return render(request, 'tasks/module_form.html', {
+        'form': form,
+        'module': module,
+        'course': module.course,
+    })
+
+
+@teacher_required
+def module_delete(request, pk):
+    module = get_object_or_404(CourseModule, pk=pk, course__author=request.user)
+    course_id = module.course_id
+    if request.method == 'POST':
+        module.delete()
+        messages.success(request, 'Модуль удалён.')
+    return redirect('course_detail', pk=course_id)
+
+
+@teacher_required
+def module_lesson_create(request, pk):
+    module = get_object_or_404(CourseModule, pk=pk, course__author=request.user)
+    if request.method == 'POST':
+        form = LessonForm(request.POST)
+        if form.is_valid():
+            lesson = form.save(commit=False)
+            lesson.module = module
+            lesson.author = request.user
+            lesson.order = (
+                module.lessons.aggregate(Max('order'))['order__max'] or 0
+            ) + 1
+            lesson.save()
+            messages.success(request, 'Урок добавлен.')
+        else:
+            messages.error(request, 'Укажите название урока.')
+    return redirect('course_detail', pk=module.course_id)

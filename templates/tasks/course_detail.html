@@ -1,0 +1,382 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ course.title }}{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<style>
+    .course-shell {
+        display: flex;
+        background: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .course-sidebar {
+        flex: 0 0 20%;
+        max-width: 20%;
+        padding: 18px 16px;
+        border-right: 1px solid #e9ecef;
+        font-size: 14px;
+    }
+    .course-main {
+        flex: 1 1 80%;
+        min-width: 0;
+        padding: 24px 28px 32px;
+    }
+    .course-cover {
+        width: 72px;
+        height: 72px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #f7b267, #f4845f);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 28px;
+        font-weight: 600;
+        margin-bottom: 12px;
+    }
+    .course-name {
+        font-size: 16px;
+        font-weight: 600;
+        line-height: 1.25;
+        margin-bottom: 8px;
+    }
+    .course-level {
+        display: inline-block;
+        background: #e8f4fb;
+        color: #1a73e8;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: .04em;
+        padding: 2px 6px;
+        border-radius: 3px;
+    }
+    .course-nav-group {
+        margin-top: 14px;
+    }
+    .course-nav-heading {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #495057;
+        font-weight: 600;
+        padding: 6px 0;
+    }
+    .course-nav a,
+    .course-nav-disabled {
+        display: block;
+        padding: 6px 8px 6px 28px;
+        color: #212529;
+        text-decoration: none;
+        border-radius: 4px;
+    }
+    .course-nav a:hover {
+        background: #f1f3f5;
+    }
+    .course-nav a.active {
+        color: #1a7f37;
+        font-weight: 500;
+    }
+    .course-nav-disabled {
+        color: #adb5bd;
+        cursor: default;
+    }
+    .course-nav-root {
+        display: flex !important;
+        align-items: center;
+        gap: 8px;
+        padding-left: 0 !important;
+    }
+    .course-nav-sep {
+        border-top: 1px solid #e9ecef;
+        margin: 14px 0;
+    }
+    .course-search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 0 !important;
+        border-top: 1px solid #e9ecef;
+    }
+    .course-create-class {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 0 !important;
+        border-top: 1px solid #e9ecef;
+        color: #212529 !important;
+        text-decoration: none;
+    }
+    .course-main h1 {
+        font-size: 28px;
+        font-weight: 500;
+        margin-bottom: 6px;
+    }
+    .course-description {
+        color: #6c757d;
+        margin-bottom: 0;
+    }
+    .course-module {
+        border: 1px solid #dee2e6;
+        margin-bottom: 16px;
+        background: #fff;
+    }
+    .course-module-head {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        padding: 16px;
+    }
+    .course-module-number {
+        min-width: 28px;
+        text-align: right;
+        color: #6c757d;
+        font-size: 22px;
+        line-height: 1.3;
+    }
+    .course-module-title {
+        font-size: 18px;
+        font-weight: 500;
+        margin-bottom: 2px;
+    }
+    .course-module-desc {
+        color: #6c757d;
+        font-size: 14px;
+    }
+    .course-module-date {
+        color: #6c757d;
+        font-size: 13px;
+        margin-top: 4px;
+    }
+    .course-module-meta {
+        color: #6c757d;
+        font-size: 13px;
+        white-space: nowrap;
+        padding-top: 4px;
+    }
+    .course-lesson {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        padding: 12px 16px 12px 56px;
+        border-top: 1px solid #f1f3f5;
+    }
+    .course-lesson-index {
+        min-width: 32px;
+        color: #adb5bd;
+        font-size: 13px;
+    }
+    .course-lesson-title {
+        color: #212529;
+        font-weight: 600;
+        text-decoration: none;
+    }
+    .course-lesson-title:hover {
+        color: #1a73e8;
+    }
+    .course-lesson-meta {
+        color: #868e96;
+        font-size: 12px;
+        margin-top: 2px;
+    }
+    .course-lesson-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-left: auto;
+    }
+    .course-lesson-actions .btn {
+        white-space: nowrap;
+    }
+    .course-add-lesson {
+        padding: 12px 16px 14px 56px;
+        border-top: 1px solid #f1f3f5;
+    }
+    .course-add-lesson .btn-link {
+        text-decoration: none;
+    }
+    .course-empty {
+        padding: 16px 16px 16px 56px;
+        color: #868e96;
+        font-size: 14px;
+    }
+    @media (max-width: 767.98px) {
+        .course-shell {
+            flex-direction: column;
+        }
+        .course-sidebar,
+        .course-main {
+            flex-basis: auto;
+            max-width: 100%;
+        }
+        .course-sidebar {
+            border-right: 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="course-shell">
+    <aside class="course-sidebar">
+        <div class="course-cover">{{ course.title|slice:':1'|upper }}</div>
+        <div class="course-name">{{ course.title }}</div>
+        <span class="course-level">БАЗОВЫЙ</span>
+
+        <nav class="course-nav">
+            <div class="course-nav-group">
+                <div class="course-nav-heading">
+                    <i class="bi bi-collection"></i>
+                    Курс
+                    <i class="bi bi-chevron-down ms-auto"></i>
+                </div>
+                <a href="#course-description">Описание</a>
+                <a href="{% url 'course_detail' course.pk %}" class="active">Содержание</a>
+                <span class="course-nav-disabled">Чек-лист</span>
+            </div>
+
+            <div class="course-nav-group">
+                <div class="course-nav-heading">
+                    <i class="bi bi-chat-dots"></i>
+                    Общение с учащимися
+                    <i class="bi bi-chevron-down ms-auto"></i>
+                </div>
+                <a href="{% url 'assignment_list' %}">Проверка решений</a>
+                <span class="course-nav-disabled">Новости</span>
+                <span class="course-nav-disabled">Комментарии</span>
+                <span class="course-nav-disabled">Отзывы</span>
+            </div>
+
+            <div class="course-nav-group">
+                <a href="{% url 'class_list' %}" class="course-nav-root">
+                    <i class="bi bi-bar-chart"></i> Аналитика
+                </a>
+                <a href="{% url 'course_edit' course.pk %}" class="course-nav-root">
+                    <i class="bi bi-gear"></i> Настройки
+                </a>
+            </div>
+
+            <div class="course-nav-sep"></div>
+            <span class="course-nav-disabled course-search">
+                <i class="bi bi-search"></i> Искать в курсе
+            </span>
+            <a href="{% url 'class_create' %}" class="course-create-class">
+                <i class="bi bi-plus-lg"></i> Создать класс
+            </a>
+        </nav>
+    </aside>
+
+    <section class="course-main">
+        <div class="d-flex justify-content-between align-items-start mb-4">
+            <div>
+                <h1>Программа курса</h1>
+                <p class="course-description" id="course-description">
+                    {% if course.description %}{{ course.description|linebreaksbr }}{% else %}Описание не заполнено.{% endif %}
+                </p>
+            </div>
+            <a href="{% url 'course_edit' course.pk %}" class="btn btn-outline-secondary btn-sm">Настройки курса</a>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="text-muted small">
+                {{ course.modules.count }} модулей · {{ course.lesson_count }} уроков
+            </div>
+            <button class="btn btn-primary btn-sm" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#module-add-form">
+                + Добавить модуль
+            </button>
+        </div>
+
+        <div class="collapse mb-3" id="module-add-form">
+            <form method="post" action="{% url 'module_create' course.pk %}" class="card card-body">
+                {% csrf_token %}
+                <div class="row g-2">
+                    <div class="col-md-5">{{ module_form.title }}</div>
+                    <div class="col-md-4">{{ module_form.start_date }}</div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-primary w-100">Добавить модуль</button>
+                    </div>
+                    <div class="col-12">{{ module_form.description }}</div>
+                </div>
+            </form>
+        </div>
+
+        {% for module in modules %}
+            <section class="course-module">
+                <div class="course-module-head">
+                    <div class="course-module-number">{{ forloop.counter }}</div>
+                    <div class="flex-grow-1">
+                        <div class="course-module-title">{{ module.title }}</div>
+                        {% if module.description %}
+                            <div class="course-module-desc">{{ module.description|linebreaksbr }}</div>
+                        {% endif %}
+                        {% if module.start_date %}
+                            <div class="course-module-date">Начало модуля: {{ module.start_date|date:'d.m.Y' }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="course-module-meta">Уроков: {{ module.lessons.count }}</div>
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'module_edit' module.pk %}" class="btn btn-light border btn-sm">Редактировать</a>
+                        <form method="post" action="{% url 'module_delete' module.pk %}"
+                              onsubmit="return confirm('Удалить модуль и все его уроки?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Удалить модуль">&times;</button>
+                        </form>
+                    </div>
+                </div>
+
+                {% for lesson in module.lessons.all %}
+                    <div class="course-lesson">
+                        <div class="course-lesson-index">{{ forloop.parentloop.counter }}.{{ forloop.counter }}</div>
+                        <div class="flex-grow-1">
+                            <a href="{% url 'lesson_detail' lesson.pk %}" class="course-lesson-title">{{ lesson.title }}</a>
+                            <div class="course-lesson-meta">
+                                {% if lesson.author %}{{ lesson.author.get_full_name|default:lesson.author.username }}{% endif %}
+                                · {{ lesson.entries.count }} задач
+                            </div>
+                        </div>
+                        <div class="course-lesson-actions">
+                            <a href="{% url 'lesson_edit' lesson.pk %}" class="btn btn-light border btn-sm">Редактировать</a>
+                            <form method="post" action="{% url 'lesson_delete' lesson.pk %}"
+                                  onsubmit="return confirm('Удалить урок?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Удалить урок">&times;</button>
+                            </form>
+                        </div>
+                    </div>
+                {% empty %}
+                    <div class="course-empty">В модуле пока нет уроков.</div>
+                {% endfor %}
+
+                <div class="course-add-lesson">
+                    <button class="btn btn-link px-0" type="button"
+                            data-bs-toggle="collapse" data-bs-target="#add-lesson-{{ module.pk }}">
+                        + Добавить урок
+                    </button>
+                    <div class="collapse mt-2" id="add-lesson-{{ module.pk }}">
+                        <form method="post" action="{% url 'module_lesson_create' module.pk %}" class="row g-2">
+                            {% csrf_token %}
+                            <div class="col-md-5">
+                                <input type="text" name="title" class="form-control"
+                                       placeholder="Название урока" required>
+                            </div>
+                            <div class="col-md-5">
+                                <input type="text" name="description" class="form-control"
+                                       placeholder="Описание (необязательно)">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-primary w-100">Добавить</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </section>
+        {% empty %}
+            <div class="alert alert-secondary">В курсе пока нет модулей. Добавьте первый модуль.</div>
+        {% endfor %}
+    </section>
+</div>
+{% endblock %}

@@ -19,7 +19,8 @@
             {% endfor %}
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-primary">Сохранить</button>
-                <a href="{% url 'lesson_list' %}" class="btn btn-outline-secondary">Отмена</a>
+                <a href="{% if lesson.module %}{% url 'course_detail' lesson.module.course_id %}{% else %}{% url 'lesson_list' %}{% endif %}"
+                   class="btn btn-outline-secondary">Отмена</a>
             </div>
         </form>
     </div>

@@ -3,6 +3,9 @@
 {% block title %}{{ lesson.title }}{% endblock %}
 
 {% block content %}
+{% if lesson.module %}
+    <a href="{% url 'course_detail' lesson.module.course_id %}" class="btn btn-link px-0 mb-2">← К программе курса</a>
+{% endif %}
 <div class="d-flex justify-content-between align-items-center mb-2">
     <h2>{{ lesson.title }}</h2>
     <div class="d-flex gap-2">

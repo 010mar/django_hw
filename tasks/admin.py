@@ -1,6 +1,17 @@
 from django.contrib import admin
 
-from .models import AnswerOption, Lesson, LessonTask, Task, TaskBank, TaskImage, TestCase, Topic
+from .models import (
+    AnswerOption,
+    Course,
+    CourseModule,
+    Lesson,
+    LessonTask,
+    Task,
+    TaskBank,
+    TaskImage,
+    TestCase,
+    Topic,
+)
 
 
 class AnswerOptionInline(admin.TabularInline):
@@ -21,6 +32,20 @@ class LessonTaskInline(admin.TabularInline):
 class TopicInline(admin.TabularInline):
     model = Topic
     extra = 1
+
+
+@admin.register(Course)
+class CourseAdmin(admin.ModelAdmin):
+    list_display = ('title', 'author', 'created_at')
+    search_fields = ('title', 'description')
+    list_select_related = ('author',)
+
+
+@admin.register(CourseModule)
+class CourseModuleAdmin(admin.ModelAdmin):
+    list_display = ('title', 'course', 'start_date', 'order')
+    search_fields = ('title', 'course__title')
+    list_select_related = ('course',)
 
 
 @admin.register(TaskBank)

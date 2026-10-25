@@ -281,9 +281,71 @@ class TestCase(models.Model):
         return f'{self.task.title} — тест {self.pk}'
 
 
+class Course(models.Model):
+    title = models.CharField(max_length=255, verbose_name='Название')
+    description = models.TextField(blank=True, verbose_name='Описание')
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='courses',
+        verbose_name='Автор',
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создан')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Обновлён')
+
+    class Meta:
+        verbose_name = 'Курс'
+        verbose_name_plural = 'Курсы'
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def lesson_count(self) -> int:
+        return sum(module.lessons.count() for module in self.modules.all())
+
+
+class CourseModule(models.Model):
+    course = models.ForeignKey(
+        Course,
+        on_delete=models.CASCADE,
+        related_name='modules',
+        verbose_name='Курс',
+    )
+    title = models.CharField(max_length=255, verbose_name='Название')
+    description = models.TextField(blank=True, verbose_name='Описание')
+    start_date = models.DateField(null=True, blank=True, verbose_name='Начало модуля')
+    order = models.PositiveIntegerField(default=0, verbose_name='Порядок')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создан')
+
+    class Meta:
+        verbose_name = 'Модуль курса'
+        verbose_name_plural = 'Модули курса'
+        ordering = ('order', 'id')
+
+    def __str__(self):
+        return f'{self.course.title} — {self.title}'
+
+    @property
+    def lesson_count(self) -> int:
+        return self.lessons.count()
+
+
 class Lesson(models.Model):
+    module = models.ForeignKey(
+        CourseModule,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='lessons',
+        verbose_name='Модуль',
+    )
     title = models.CharField(max_length=255, verbose_name='Название урока')
     description = models.TextField(blank=True, verbose_name='Описание')
+    order = models.PositiveIntegerField(default=0, verbose_name='Порядок')
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

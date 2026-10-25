@@ -1,7 +1,16 @@
 from django import forms
 from django.db.models import Case, When
 
-from .models import AnswerOption, Lesson, Task, TaskBank, TestCase, Topic
+from .models import (
+    AnswerOption,
+    Course,
+    CourseModule,
+    Lesson,
+    Task,
+    TaskBank,
+    TestCase,
+    Topic,
+)
 
 
 class TaskForm(forms.ModelForm):
@@ -144,6 +153,41 @@ TestCaseFormSet = forms.modelformset_factory(
     can_delete=True,
     formset=BaseTaskFormSet,
 )
+
+
+class CourseForm(forms.ModelForm):
+    class Meta:
+        model = Course
+        fields = ('title', 'description')
+        widgets = {
+            'title': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Название курса',
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Описание курса',
+            }),
+        }
+
+
+class CourseModuleForm(forms.ModelForm):
+    class Meta:
+        model = CourseModule
+        fields = ('title', 'description', 'start_date')
+        widgets = {
+            'title': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Название модуля',
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 2,
+                'placeholder': 'Дополнительное описание',
+            }),
+            'start_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+        }
 
 
 class LessonForm(forms.ModelForm):
