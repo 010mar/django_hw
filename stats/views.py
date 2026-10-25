@@ -5,7 +5,7 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.decorators import teacher_required
-from assignments.models import ClassGroup, Submission
+from assignments.models import ClassGroup
 
 from .heatmap import build_heatmap
 from . import services
@@ -80,7 +80,6 @@ def class_stats(request, pk):
             'total': total,
             'percent': round(solved / total * 100) if total else 0,
         })
-    totals = [row['total'] for row in rows if row['total']]
     class_percent = (
         round(sum(row['percent'] for row in rows) / len(rows))
         if rows else 0

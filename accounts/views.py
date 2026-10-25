@@ -8,7 +8,4 @@ def landing(request):
 
 @login_required
 def home(request):
-    context = {
-        'user_role': request.user.role,
-    }
-    return render(request, 'home.html', context)
+    return render(request, 'home.html')

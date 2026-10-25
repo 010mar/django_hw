@@ -409,7 +409,7 @@ class TaskBankTests(DjangoTestCase):
 
     def test_task_list_filter_by_bank(self):
         bank = TaskBank.objects.create(name='Моя база', author=self.teacher)
-        in_bank = Task.objects.create(title='В базе', author=self.teacher, bank=bank)
+        Task.objects.create(title='В базе', author=self.teacher, bank=bank)
         Task.objects.create(title='Вне базы', author=self.teacher)
         self.client.force_login(self.teacher)
         response = self.client.get(reverse('task_list'), {'bank': bank.pk})
@@ -485,7 +485,7 @@ class TaskTopicTests(DjangoTestCase):
 
     def test_save_task_with_topic(self):
         topic = Topic.objects.create(bank=self.bank, name='Логика', order=1)
-        response = self.client.post(reverse('task_create'), {
+        self.client.post(reverse('task_create'), {
             'bank': str(self.bank.pk),
             'topic': str(topic.pk),
             'type': 'text',
