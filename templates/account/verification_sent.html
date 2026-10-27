@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block title %}Проверьте почту{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-body p-4 text-center">
+                <h1 class="h4 mb-3">Подтвердите адрес электронной почты</h1>
+                <p class="mb-2">
+                    Мы отправили на вашу почту письмо со ссылкой для подтверждения регистрации.
+                </p>
+                <p class="text-muted mb-0">
+                    Если письма нет, проверьте папку «Спам». Ссылка действует 3 дня.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,3 +1,9 @@
+import re
+from urllib.parse import urlparse
+
+from allauth.account.models import EmailAddress
+from django.core import mail
+from django.core.cache import cache
 from django.test import Client, TestCase
 from django.urls import reverse
 
@@ -44,8 +50,11 @@ class AuthFlowTests(TestCase):
         self.assertContains(response, 'Я регистрируюсь как')
 
     def test_login_by_email(self):
-        User.objects.create_user(
+        user = User.objects.create_user(
             username='petr', email='petr@example.com', password='pass12345'
+        )
+        EmailAddress.objects.create(
+            user=user, email='petr@example.com', verified=True, primary=True
         )
         client = Client()
         response = client.post(
@@ -69,6 +78,71 @@ class AuthFlowTests(TestCase):
         client.force_login(user)
         response = client.get(reverse('home'))
         self.assertContains(response, 'Учитель')
+
+
+class EmailVerificationTests(TestCase):
+    def setUp(self):
+        cache.clear()
+
+    def signup(self, email='new@example.com'):
+        return self.client.post(
+            reverse('account_signup'),
+            {
+                'email': email,
+                'first_name': 'Новый',
+                'last_name': 'Ученик',
+                'password1': 'supersecret99',
+                'password2': 'supersecret99',
+                'role': User.Role.STUDENT,
+            },
+        )
+
+    def confirmation_path(self):
+        self.assertEqual(len(mail.outbox), 1)
+        match = re.search(r'https?://\S+', mail.outbox[0].body)
+        self.assertIsNotNone(match)
+        return urlparse(match.group(0)).path
+
+    def test_signup_sends_confirmation_email(self):
+        response = self.signup('signup@example.com')
+        self.assertRedirects(response, reverse('account_email_verification_sent'))
+        user = User.objects.get(email='signup@example.com')
+        address = EmailAddress.objects.get(user=user)
+        self.assertFalse(address.verified)
+        self.assertNotIn('_auth_user_id', self.client.session)
+        self.assertIn('Подтвердите адрес', mail.outbox[0].subject)
+        self.assertIn('/accounts/confirm-email/', mail.outbox[0].body)
+
+    def test_unverified_user_cannot_login(self):
+        user = User.objects.create_user(
+            username='unverified',
+            email='unverified@example.com',
+            password='pass12345',
+        )
+        EmailAddress.objects.create(
+            user=user,
+            email='unverified@example.com',
+            verified=False,
+            primary=True,
+        )
+        response = self.client.post(
+            reverse('account_login'),
+            {'login': 'unverified@example.com', 'password': 'pass12345'},
+            follow=True,
+        )
+        self.assertFalse(response.context['user'].is_authenticated)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('/accounts/confirm-email/', mail.outbox[0].body)
+
+    def test_confirmation_link_verifies_email_and_logs_in(self):
+        self.signup('confirm@example.com')
+        path = self.confirmation_path()
+        response = self.client.get(path)
+        self.assertContains(response, 'Подтвердить')
+        response = self.client.post(path)
+        self.assertRedirects(response, reverse('home'))
+        self.assertTrue(EmailAddress.objects.get(email='confirm@example.com').verified)
+        self.assertIn('_auth_user_id', self.client.session)
 
 
 class ParentLinkTests(TestCase):

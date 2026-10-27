@@ -6,3 +6,4 @@ cryptography>=45
 python-openid>=2.2.5
 Pillow>=11
 whitenoise>=6.9
+python-dotenv>=1.0

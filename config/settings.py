@@ -1,7 +1,18 @@
 import os
+import socket
 from pathlib import Path
 
+from django.core.mail import utils as mail_utils
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+if load_dotenv:
+    load_dotenv(BASE_DIR / '.env')
 
 SECRET_KEY = os.environ.get(
     'DJANGO_SECRET_KEY',
@@ -112,7 +123,29 @@ AUTHENTICATION_BACKENDS = [
 
 SITE_ID = 1
 
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = os.environ.get('DJANGO_EMAIL_BACKEND', '')
+if not EMAIL_BACKEND:
+    EMAIL_BACKEND = (
+        'django.core.mail.backends.smtp.EmailBackend'
+        if os.environ.get('DJANGO_EMAIL_HOST')
+        else 'django.core.mail.backends.console.EmailBackend'
+    )
+EMAIL_HOST = os.environ.get('DJANGO_EMAIL_HOST', '')
+EMAIL_PORT = int(os.environ.get('DJANGO_EMAIL_PORT', '587'))
+EMAIL_HOST_USER = os.environ.get('DJANGO_EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('DJANGO_EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_SSL = os.environ.get('DJANGO_EMAIL_USE_SSL', 'False') == 'True'
+EMAIL_USE_TLS = os.environ.get('DJANGO_EMAIL_USE_TLS', 'True') == 'True' and not EMAIL_USE_SSL
+DEFAULT_FROM_EMAIL = os.environ.get(
+    'DJANGO_DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'noreply@example.com'
+)
+
+_raw_fqdn = socket.getfqdn()
+_mail_fqdn = _raw_fqdn.strip('.')
+if not _mail_fqdn or '..' in _mail_fqdn:
+    _mail_fqdn = 'localhost'
+if _mail_fqdn != _raw_fqdn:
+    mail_utils.DNS_NAME._fqdn = _mail_fqdn
 
 LOGIN_REDIRECT_URL = 'home'
 LOGIN_URL = 'account_login'
@@ -120,7 +153,9 @@ LOGOUT_REDIRECT_URL = 'home'
 
 ACCOUNT_LOGIN_METHODS = {'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'first_name*', 'last_name*', 'password1*', 'password2*']
-ACCOUNT_EMAIL_VERIFICATION = 'none'
+ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
+ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 3
+ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_LOGOUT_ON_GET = True
 ACCOUNT_SIGNUP_REDIRECT_URL = 'home'

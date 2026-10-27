@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block title %}Подтверждение почты{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <h1 class="h4 mb-4">Подтверждение почты</h1>
+                {% if confirmation %}
+                    {% if can_confirm %}
+                        <p class="mb-4">
+                            Подтвердите, что адрес
+                            <strong>{{ confirmation.email_address.email }}</strong>
+                            принадлежит вашему аккаунту.
+                        </p>
+                        <form method="post" action="{% url 'account_confirm_email' confirmation.key %}">
+                            {% csrf_token %}
+                            {{ redirect_field }}
+                            <button type="submit" class="btn btn-primary w-100">Подтвердить</button>
+                        </form>
+                    {% else %}
+                        <div class="alert alert-warning mb-0">
+                            Этот адрес уже подтверждён другим аккаунтом.
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="alert alert-warning">
+                        Ссылка подтверждения устарела или недействительна.
+                    </div>
+                    <p class="mb-2">
+                        Войдите в аккаунт — мы отправим новое письмо для подтверждения.
+                    </p>
+                    <a class="btn btn-primary w-100" href="{% url 'account_login' %}">Войти</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
