@@ -1,6 +1,7 @@
 import os
 
 from django.contrib import messages
+from django.db import connection
 from django.db.models import Max, Prefetch
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -192,6 +193,18 @@ def _save_attachments(task, files):
             task=task,
             file=upload,
             original_name=os.path.basename(upload.name)[:255],
+        )
+
+
+def _reset_task_sequence_if_empty():
+    if Task.objects.exists():
+        return
+    if connection.vendor != 'sqlite':
+        return
+    with connection.cursor() as cursor:
+        cursor.execute(
+            'DELETE FROM sqlite_sequence WHERE name = %s',
+            [Task._meta.db_table],
         )
 
 
@@ -426,6 +439,7 @@ def task_delete(request, pk):
     task = get_object_or_404(Task, pk=pk, author=request.user)
     if request.method == 'POST':
         task.delete()
+        _reset_task_sequence_if_empty()
         messages.success(request, 'Задача удалена.')
     return redirect('task_list')
 

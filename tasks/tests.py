@@ -305,6 +305,12 @@ class TaskCrudViewTests(DjangoTestCase):
         self.assertRedirects(response, reverse('task_list'))
         self.assertFalse(Task.objects.filter(pk=task.pk).exists())
 
+    def test_ids_restart_after_deleting_last_task(self):
+        task = Task.objects.create(title='Удаляемая', author=self.teacher)
+        self.client.post(reverse('task_delete', args=[task.pk]))
+        new_task = Task.objects.create(title='Новая', author=self.teacher)
+        self.assertEqual(new_task.pk, 1)
+
     def test_crud_requires_teacher(self):
         self.client.force_login(self.student)
         for url_name in ('task_create', 'task_list'):
