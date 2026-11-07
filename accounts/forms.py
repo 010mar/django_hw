@@ -34,7 +34,10 @@ class CustomSignupForm(SignupForm):
         widget=forms.TextInput(attrs={'class': 'form-control'}),
     )
     role = forms.ChoiceField(
-        choices=User.Role.choices,
+        choices=[
+            (User.Role.STUDENT, User.Role.STUDENT.label),
+            (User.Role.PARENT, User.Role.PARENT.label),
+        ],
         label='Я регистрируюсь как',
         initial=User.Role.STUDENT,
         widget=forms.RadioSelect(),

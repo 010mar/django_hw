@@ -32,7 +32,24 @@ class AuthFlowTests(TestCase):
         user = User.objects.get(email='ivan@example.com')
         self.assertEqual(user.role, User.Role.STUDENT)
 
-    def test_signup_with_role_teacher(self):
+    def test_signup_with_role_parent(self):
+        response = Client().post(
+            reverse('account_signup'),
+            {
+                'email': 'olga@example.com',
+                'first_name': 'Ольга',
+                'last_name': 'Орлова',
+                'password1': 'supersecret99',
+                'password2': 'supersecret99',
+                'role': User.Role.PARENT,
+            },
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        user = User.objects.get(email='olga@example.com')
+        self.assertEqual(user.role, User.Role.PARENT)
+
+    def test_signup_rejects_teacher_role(self):
         response = Client().post(
             reverse('account_signup'),
             {
@@ -43,15 +60,19 @@ class AuthFlowTests(TestCase):
                 'password2': 'supersecret99',
                 'role': User.Role.TEACHER,
             },
-            follow=True,
         )
         self.assertEqual(response.status_code, 200)
-        user = User.objects.get(email='petr@example.com')
-        self.assertEqual(user.role, User.Role.TEACHER)
+        self.assertFalse(User.objects.filter(email='petr@example.com').exists())
 
     def test_signup_form_has_role_field(self):
         response = Client().get(reverse('account_signup'))
         self.assertContains(response, 'Я регистрируюсь как')
+
+    def test_signup_form_role_choices(self):
+        response = Client().get(reverse('account_signup'))
+        form = response.context['form']
+        roles = {value for value, _label in form.fields['role'].choices}
+        self.assertEqual(roles, {User.Role.STUDENT, User.Role.PARENT})
 
     def test_login_by_email(self):
         user = User.objects.create_user(
