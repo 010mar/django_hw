@@ -44,10 +44,17 @@
                 </ul>
                 <ul class="navbar-nav">
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" data-bs-toggle="dropdown">
+                            {% if user.avatar %}
+                                <img src="{{ user.avatar.url }}" alt=""
+                                     class="rounded-circle" width="24" height="24"
+                                     style="object-fit: cover;">
+                            {% endif %}
                             {{ user.get_full_name|default:user.username }}
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{% url 'profile' %}">Профиль</a></li>
+                            <li><hr class="dropdown-divider"></li>
                             <li>
                                 <form method="post" action="{% url 'account_logout' %}">
                                     {% csrf_token %}

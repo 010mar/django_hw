@@ -1,11 +1,15 @@
+import io
 import re
+import tempfile
 from urllib.parse import urlparse
 
 from allauth.account.models import EmailAddress
 from django.core import mail
 from django.core.cache import cache
-from django.test import Client, TestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
+from PIL import Image
 
 from .models import ParentLink, User
 
@@ -224,3 +228,124 @@ class PasswordResetTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Ссылка недействительна')
+
+
+class ProfileTests(TestCase):
+    def setUp(self):
+        self.teacher = User.objects.create_user(
+            username='teacher1', email='teacher1@example.com',
+            password='pass12345', role=User.Role.TEACHER,
+        )
+        self.parent = User.objects.create_user(
+            username='parent2', email='parent2@example.com',
+            password='pass12345', role=User.Role.PARENT,
+        )
+        self.student = User.objects.create_user(
+            username='student1', email='student1@example.com',
+            password='pass12345', first_name='Гриша', last_name='Петров',
+            role=User.Role.STUDENT,
+        )
+
+    def test_profile_requires_login(self):
+        response = self.client.get(reverse('profile'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_profile_updates_names(self):
+        self.client.force_login(self.student)
+        response = self.client.post(
+            reverse('profile'),
+            {'first_name': 'Григорий', 'last_name': 'Петров'},
+        )
+        self.assertRedirects(response, reverse('profile'))
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.first_name, 'Григорий')
+
+    def test_profile_avatar_upload(self):
+        buffer = io.BytesIO()
+        Image.new('RGB', (1, 1), 'red').save(buffer, format='PNG')
+        avatar = SimpleUploadedFile(
+            'avatar.png', buffer.getvalue(), content_type='image/png'
+        )
+        self.client.force_login(self.student)
+        with tempfile.TemporaryDirectory() as media_root, override_settings(
+            MEDIA_ROOT=media_root
+        ):
+            response = self.client.post(
+                reverse('profile'),
+                {
+                    'first_name': 'Гриша',
+                    'last_name': 'Петров',
+                    'avatar': avatar,
+                },
+            )
+            self.assertRedirects(response, reverse('profile'))
+            self.student.refresh_from_db()
+            self.assertTrue(self.student.avatar)
+
+    def test_profile_page_has_account_links(self):
+        self.client.force_login(self.student)
+        response = self.client.get(reverse('profile'))
+        self.assertContains(response, reverse('account_email'))
+        self.assertContains(response, reverse('account_change_password'))
+
+    def test_parent_can_link_and_unlink_child(self):
+        self.client.force_login(self.parent)
+        response = self.client.post(
+            reverse('add_child'), {'email': 'student1@example.com'}
+        )
+        self.assertRedirects(response, reverse('profile'))
+        link = ParentLink.objects.get(parent=self.parent, child=self.student)
+        response = self.client.post(reverse('remove_child', args=[link.pk]))
+        self.assertRedirects(response, reverse('profile'))
+        self.assertFalse(ParentLink.objects.exists())
+
+    def test_non_parent_cannot_link_child(self):
+        self.client.force_login(self.teacher)
+        response = self.client.post(
+            reverse('add_child'), {'email': 'student1@example.com'}
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(ParentLink.objects.exists())
+
+    def test_parent_link_rejects_unknown_email(self):
+        self.client.force_login(self.parent)
+        response = self.client.post(
+            reverse('add_child'), {'email': 'nobody@example.com'}, follow=True
+        )
+        self.assertContains(response, 'не найден')
+        self.assertFalse(ParentLink.objects.exists())
+
+    def test_profile_shows_children_for_parent(self):
+        ParentLink.objects.create(parent=self.parent, child=self.student)
+        self.client.force_login(self.parent)
+        response = self.client.get(reverse('profile'))
+        self.assertContains(response, 'Гриша Петров')
+        self.assertContains(response, 'student1@example.com')
+
+    def test_email_management_page_is_styled(self):
+        self.client.force_login(self.student)
+        response = self.client.get(reverse('account_email'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Адреса электронной почты')
+        self.assertContains(response, 'form-control')
+
+    def test_password_change_page_is_styled(self):
+        self.client.force_login(self.student)
+        response = self.client.get(reverse('account_change_password'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Смена пароля')
+        self.assertContains(response, 'form-control')
+
+    def test_password_change_updates_password(self):
+        self.client.force_login(self.student)
+        response = self.client.post(
+            reverse('account_change_password'),
+            {
+                'oldpassword': 'pass12345',
+                'password1': 'newpass12345',
+                'password2': 'newpass12345',
+            },
+        )
+        self.assertRedirects(response, reverse('account_change_password'))
+        self.student.refresh_from_db()
+        self.assertTrue(self.student.check_password('newpass12345'))

@@ -14,6 +14,12 @@ class User(AbstractUser):
         default=Role.STUDENT,
         verbose_name='Роль',
     )
+    avatar = models.ImageField(
+        upload_to='avatars/',
+        blank=True,
+        null=True,
+        verbose_name='Аватар',
+    )
 
     @property
     def role_verbose(self) -> str:

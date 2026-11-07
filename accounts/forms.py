@@ -1,11 +1,17 @@
 import random
 from typing import ClassVar
 
-from allauth.account.forms import ResetPasswordForm, ResetPasswordKeyForm, SignupForm
+from allauth.account.forms import (
+    AddEmailForm,
+    ChangePasswordForm,
+    ResetPasswordForm,
+    ResetPasswordKeyForm,
+    SignupForm,
+)
 from django import forms
 from django.utils.text import slugify
 
-from .models import User
+from .models import ParentLink, User
 
 BOOTSTRAP_INPUT_CLASSES = {
     'email': 'form-control',
@@ -82,3 +88,65 @@ class CustomResetPasswordKeyForm(ResetPasswordKeyForm):
             if field:
                 field.widget.attrs.setdefault('class', 'form-control')
                 field.widget.attrs.setdefault('autocomplete', 'new-password')
+
+
+class CustomAddEmailForm(AddEmailForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        email = self.fields['email']
+        email.widget.attrs.setdefault('class', 'form-control')
+        email.widget.attrs.setdefault('autocomplete', 'email')
+
+
+class CustomChangePasswordForm(ChangePasswordForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name in ('oldpassword', 'password1', 'password2'):
+            field = self.fields.get(name)
+            if field:
+                field.widget.attrs.setdefault('class', 'form-control')
+
+
+class ProfileForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields: ClassVar[list[str]] = ['first_name', 'last_name', 'avatar']
+        widgets: ClassVar[dict] = {
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'avatar': forms.ClearableFileInput(
+                attrs={'class': 'form-control', 'accept': 'image/*'}
+            ),
+        }
+
+
+class ParentLinkForm(forms.Form):
+    email = forms.EmailField(
+        label='E-mail ученика',
+        widget=forms.EmailInput(
+            attrs={'class': 'form-control', 'placeholder': 'uchenik@example.com'}
+        ),
+    )
+
+    def __init__(self, *args, parent=None, **kwargs):
+        self.parent = parent
+        super().__init__(*args, **kwargs)
+
+    def clean_email(self):
+        email = self.cleaned_data['email'].lower()
+        child = User.objects.filter(
+            email__iexact=email, role=User.Role.STUDENT
+        ).first()
+        if not child:
+            raise forms.ValidationError('Ученик с такой почтой не найден.')
+        if self.parent and child.pk == self.parent.pk:
+            raise forms.ValidationError('Нельзя привязать самого себя.')
+        if self.parent and ParentLink.objects.filter(
+            parent=self.parent, child=child
+        ).exists():
+            raise forms.ValidationError('Этот ученик уже привязан к профилю.')
+        self.child = child
+        return email
+
+    def save(self):
+        return ParentLink.objects.create(parent=self.parent, child=self.child)

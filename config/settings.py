@@ -164,6 +164,8 @@ ACCOUNT_FORMS = {
     'signup': 'accounts.forms.CustomSignupForm',
     'reset_password': 'accounts.forms.CustomResetPasswordForm',
     'reset_password_from_key': 'accounts.forms.CustomResetPasswordKeyForm',
+    'add_email': 'accounts.forms.CustomAddEmailForm',
+    'change_password': 'accounts.forms.CustomChangePasswordForm',
 }
 
 SOCIALACCOUNT_PROVIDERS = {

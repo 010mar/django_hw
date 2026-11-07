@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+
+{% block title %}Профиль{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Профиль</h2>
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body p-4">
+                <h5 class="mb-4">Личные данные</h5>
+                <div class="d-flex align-items-center mb-4">
+                    {% if user.avatar %}
+                        <img src="{{ user.avatar.url }}" alt="Аватар"
+                             class="rounded-circle me-3" width="72" height="72"
+                             style="object-fit: cover;">
+                    {% else %}
+                        <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center me-3 flex-shrink-0"
+                             style="width: 72px; height: 72px; font-size: 1.75rem;">
+                            {{ user.first_name|default:user.username|first|upper }}
+                        </div>
+                    {% endif %}
+                    <div>
+                        <div class="fw-semibold">{{ user.get_full_name|default:user.username }}</div>
+                        <div class="text-muted small">{{ user.role_verbose }}</div>
+                    </div>
+                </div>
+                <form method="post" enctype="multipart/form-data" action="{% url 'profile' %}">
+                    {% csrf_token %}
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="{{ form.first_name.id_for_label }}">Имя</label>
+                            {{ form.first_name }}
+                            {% if form.first_name.errors %}
+                                <div class="text-danger small mt-1">{{ form.first_name.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="{{ form.last_name.id_for_label }}">Фамилия</label>
+                            {{ form.last_name }}
+                            {% if form.last_name.errors %}
+                                <div class="text-danger small mt-1">{{ form.last_name.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label" for="{{ form.avatar.id_for_label }}">Аватар</label>
+                        {{ form.avatar }}
+                        {% if form.avatar.errors %}
+                            <div class="text-danger small mt-1">{{ form.avatar.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    <button type="submit" class="btn btn-primary mt-3">Сохранить</button>
+                </form>
+            </div>
+        </div>
+
+        {% if child_form %}
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <h5 class="mb-3">Мои дети</h5>
+                    {% if children %}
+                        <ul class="list-group list-group-flush mb-3">
+                            {% for link in children %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center px-0 gap-3">
+                                    <div>
+                                        <div class="fw-semibold">
+                                            {{ link.child.get_full_name|default:link.child.username }}
+                                        </div>
+                                        <div class="text-muted small text-break">{{ link.child.email }}</div>
+                                    </div>
+                                    <form method="post" action="{% url 'remove_child' link.pk %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                onclick="return confirm('Удалить привязку?')">Удалить</button>
+                                    </form>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted">Пока нет привязанных учеников.</p>
+                    {% endif %}
+                    <form method="post" action="{% url 'add_child' %}" class="row g-2 align-items-end">
+                        {% csrf_token %}
+                        <div class="col">
+                            <label class="form-label" for="{{ child_form.email.id_for_label }}">E-mail ученика</label>
+                            {{ child_form.email }}
+                        </div>
+                        <div class="col-auto">
+                            <button type="submit" class="btn btn-outline-primary">Привязать</button>
+                        </div>
+                    </form>
+                    <p class="text-muted small mt-2 mb-0">
+                        Ученик должен быть зарегистрирован на сайте с ролью «Ученик».
+                    </p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <h5 class="mb-3">Аккаунт</h5>
+                <div class="mb-3">
+                    <div class="text-muted small">E-mail</div>
+                    <div class="d-flex justify-content-between align-items-center gap-2">
+                        <span class="text-break">{{ user.email }}</span>
+                        <a class="btn btn-sm btn-outline-secondary" href="{% url 'account_email' %}">Изменить</a>
+                    </div>
+                </div>
+                <hr>
+                <div>
+                    <div class="text-muted small mb-2">Пароль</div>
+                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'account_change_password' %}">
+                        Сменить пароль
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
