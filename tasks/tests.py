@@ -463,6 +463,13 @@ class TaskTopicTests(DjangoTestCase):
         task.refresh_from_db()
         self.assertIsNone(task.topic)
 
+    def test_bank_detail_deletes_topic_via_post(self):
+        topic = Topic.objects.create(bank=self.bank, name='Логика')
+        response = self.client.get(reverse('bank_detail', args=[self.bank.pk]))
+        delete_url = reverse('topic_delete', args=[topic.pk])
+        self.assertContains(response, f'action="{delete_url}"')
+        self.assertNotContains(response, f'href="{delete_url}"')
+
     def test_cannot_create_topic_in_other_bank(self):
         other_bank = TaskBank.objects.create(name='Чужое', author=self.other_teacher)
         response = self.client.post(reverse('topic_create', args=[other_bank.pk]), {

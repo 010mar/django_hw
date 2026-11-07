@@ -54,9 +54,12 @@
         {% for topic in topics %}
             <span class="badge bg-light text-dark border me-1 mb-1">
                 {{ forloop.counter }}. {{ topic.name }} ({{ topic.tasks.count }})
-                <a href="{% url 'topic_delete' topic.pk %}"
-                   class="text-danger text-decoration-none ms-1"
-                   onclick="return confirm('Удалить тему «{{ topic.name }}»? Задачи при этом сохранятся.');">✕</a>
+                <form method="post" action="{% url 'topic_delete' topic.pk %}" class="d-inline"
+                      onsubmit="return confirm('Удалить тему «{{ topic.name }}»? Задачи при этом сохранятся.');">
+                    {% csrf_token %}
+                    <button type="submit" class="border-0 bg-transparent text-danger p-0 ms-1 align-baseline"
+                            title="Удалить тему">✕</button>
+                </form>
             </span>
         {% empty %}
             <p class="text-muted small mb-0">Тем пока нет. Добавьте первую, чтобы разбить задачи по темам.</p>
