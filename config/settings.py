@@ -162,6 +162,8 @@ ACCOUNT_SIGNUP_REDIRECT_URL = 'home'
 
 ACCOUNT_FORMS = {
     'signup': 'accounts.forms.CustomSignupForm',
+    'reset_password': 'accounts.forms.CustomResetPasswordForm',
+    'reset_password_from_key': 'accounts.forms.CustomResetPasswordKeyForm',
 }
 
 SOCIALACCOUNT_PROVIDERS = {

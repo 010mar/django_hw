@@ -144,6 +144,20 @@ class EmailVerificationTests(TestCase):
         self.assertTrue(EmailAddress.objects.get(email='confirm@example.com').verified)
         self.assertIn('_auth_user_id', self.client.session)
 
+    def test_duplicate_signup_does_not_create_second_account(self):
+        self.signup('dup@example.com')
+        response = self.signup('dup@example.com')
+        self.assertRedirects(response, reverse('account_email_verification_sent'))
+        self.assertEqual(User.objects.filter(email='dup@example.com').count(), 1)
+        self.assertEqual(EmailAddress.objects.filter(email='dup@example.com').count(), 1)
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+    def test_duplicate_signup_is_case_insensitive(self):
+        self.signup('Case@example.com')
+        self.signup('CASE@example.com')
+        self.assertEqual(User.objects.filter(email='case@example.com').count(), 1)
+        self.assertEqual(EmailAddress.objects.filter(email='case@example.com').count(), 1)
+
 
 class ParentLinkTests(TestCase):
     def test_parent_link(self):
@@ -152,3 +166,61 @@ class ParentLinkTests(TestCase):
         ParentLink.objects.create(parent=parent, child=child)
         self.assertEqual(parent.children.count(), 1)
         self.assertEqual(child.parent_links.count(), 1)
+
+
+class PasswordResetTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='reset', email='reset@example.com', password='oldpass12345'
+        )
+
+    def request_reset(self, email='reset@example.com'):
+        return self.client.post(reverse('account_reset_password'), {'email': email})
+
+    def reset_path_from_email(self):
+        self.assertEqual(len(mail.outbox), 1)
+        match = re.search(r'https?://\S+', mail.outbox[0].body)
+        self.assertIsNotNone(match)
+        return urlparse(match.group(0)).path
+
+    def test_reset_password_page_renders(self):
+        response = self.client.get(reverse('account_reset_password'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Сброс пароля')
+        self.assertContains(response, 'form-control')
+
+    def test_reset_password_sends_email(self):
+        response = self.request_reset()
+        self.assertRedirects(response, reverse('account_reset_password_done'))
+        self.assertIn('Сброс пароля', mail.outbox[0].subject)
+        self.assertIn('/accounts/password/reset/key/', mail.outbox[0].body)
+
+    def test_reset_password_sets_new_password(self):
+        self.request_reset()
+        response = self.client.get(self.reset_path_from_email())
+        self.assertEqual(response.status_code, 302)
+        path = response.url
+        response = self.client.get(path)
+        self.assertContains(response, 'Новый пароль')
+        response = self.client.post(
+            path, {'password1': 'newpass12345', 'password2': 'newpass12345'}
+        )
+        self.assertRedirects(response, reverse('account_reset_password_from_key_done'))
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('newpass12345'))
+
+    def test_reset_password_unknown_email_sends_no_reset_link(self):
+        response = self.request_reset(email='nobody@example.com')
+        self.assertRedirects(response, reverse('account_reset_password_done'))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertNotIn('/accounts/password/reset/key/', mail.outbox[0].body)
+
+    def test_reset_password_bad_token_shows_message(self):
+        response = self.client.get(
+            reverse(
+                'account_reset_password_from_key',
+                kwargs={'uidb36': 'abc', 'key': 'bad'},
+            )
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Ссылка недействительна')

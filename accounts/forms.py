@@ -1,7 +1,9 @@
-from allauth.account.forms import SignupForm
+import random
+from typing import ClassVar
+
+from allauth.account.forms import ResetPasswordForm, ResetPasswordKeyForm, SignupForm
 from django import forms
 from django.utils.text import slugify
-import random
 
 from .models import User
 
@@ -31,7 +33,9 @@ class CustomSignupForm(SignupForm):
         initial=User.Role.STUDENT,
         widget=forms.RadioSelect(),
     )
-    field_order = ['email', 'first_name', 'last_name', 'password1', 'password2', 'role']
+    field_order: ClassVar[list[str]] = [
+        'email', 'first_name', 'last_name', 'password1', 'password2', 'role'
+    ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -59,3 +63,22 @@ class CustomSignupForm(SignupForm):
         user.role = self.cleaned_data['role']
         user.save(update_fields=['first_name', 'last_name', 'role'])
         return user
+
+
+class CustomResetPasswordForm(ResetPasswordForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        email = self.fields['email']
+        email.widget.attrs.setdefault('class', 'form-control')
+        email.widget.attrs.setdefault('autofocus', True)
+        email.widget.attrs.setdefault('autocomplete', 'email')
+
+
+class CustomResetPasswordKeyForm(ResetPasswordKeyForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name in ('password1', 'password2'):
+            field = self.fields.get(name)
+            if field:
+                field.widget.attrs.setdefault('class', 'form-control')
+                field.widget.attrs.setdefault('autocomplete', 'new-password')
