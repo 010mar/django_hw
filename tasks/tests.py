@@ -366,6 +366,13 @@ class TaskBankTests(DjangoTestCase):
         self.assertRedirects(response, reverse('bank_list'))
         self.assertFalse(TaskBank.objects.filter(pk=bank.pk).exists())
 
+    def test_bank_ids_restart_after_deleting_last_bank(self):
+        bank = TaskBank.objects.create(name='База', author=self.teacher)
+        self.client.force_login(self.teacher)
+        self.client.post(reverse('bank_delete', args=[bank.pk]))
+        new_bank = TaskBank.objects.create(name='Новая база', author=self.teacher)
+        self.assertEqual(new_bank.pk, 1)
+
     def test_cannot_access_other_teachers_bank(self):
         bank = TaskBank.objects.create(name='Чужая база', author=self.other_teacher)
         self.client.force_login(self.teacher)

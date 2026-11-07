@@ -154,6 +154,7 @@ def bank_delete(request, pk):
     bank = get_object_or_404(TaskBank, pk=pk, author=request.user)
     if request.method == 'POST':
         bank.delete()
+        _reset_sequence_if_empty(TaskBank)
         messages.success(request, 'База задач удалена.')
     return redirect('bank_list')
 
@@ -196,15 +197,15 @@ def _save_attachments(task, files):
         )
 
 
-def _reset_task_sequence_if_empty():
-    if Task.objects.exists():
+def _reset_sequence_if_empty(model):
+    if model.objects.exists():
         return
     if connection.vendor != 'sqlite':
         return
     with connection.cursor() as cursor:
         cursor.execute(
             'DELETE FROM sqlite_sequence WHERE name = %s',
-            [Task._meta.db_table],
+            [model._meta.db_table],
         )
 
 
@@ -439,7 +440,7 @@ def task_delete(request, pk):
     task = get_object_or_404(Task, pk=pk, author=request.user)
     if request.method == 'POST':
         task.delete()
-        _reset_task_sequence_if_empty()
+        _reset_sequence_if_empty(Task)
         messages.success(request, 'Задача удалена.')
     return redirect('task_list')
 
