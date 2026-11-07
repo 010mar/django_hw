@@ -93,6 +93,34 @@
                 </div>
             </div>
 
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5>Файлы к задаче</h5>
+                    <p class="text-muted small">
+                        Можно прикрепить файлы xls, ods или txt (до 20 МБ каждый).
+                    </p>
+                    {% if attachments %}
+                        <div class="mb-3">
+                            {% for attachment in attachments %}
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox"
+                                           name="remove_attachments" value="{{ attachment.pk }}"
+                                           id="remove-attachment-{{ attachment.pk }}">
+                                    <label class="form-check-label" for="remove-attachment-{{ attachment.pk }}">
+                                        {{ attachment.filename }}
+                                    </label>
+                                    <a href="{{ attachment.file.url }}" class="small ms-2"
+                                       target="_blank" rel="noopener">скачать</a>
+                                    <span class="text-muted small ms-1">— отметьте, чтобы удалить</span>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    <input type="file" name="attachments" multiple class="form-control"
+                           accept=".xls,.ods,.txt">
+                </div>
+            </div>
+
             <div id="text-section" class="card mb-4 d-none">
                 <div class="card-body">
                     <h5>Текстовая задача</h5>

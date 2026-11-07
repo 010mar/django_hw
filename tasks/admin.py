@@ -7,6 +7,7 @@ from .models import (
     Lesson,
     LessonTask,
     Task,
+    TaskAttachment,
     TaskBank,
     TaskImage,
     TestCase,
@@ -102,6 +103,13 @@ class TaskImageAdmin(admin.ModelAdmin):
     list_display = ('token', 'task', 'author', 'created_at')
     search_fields = ('token',)
     list_select_related = ('task', 'author')
+
+
+@admin.register(TaskAttachment)
+class TaskAttachmentAdmin(admin.ModelAdmin):
+    list_display = ('filename', 'task', 'created_at')
+    search_fields = ('original_name', 'file')
+    list_select_related = ('task',)
 
 
 @admin.register(Lesson)

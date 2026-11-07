@@ -43,6 +43,23 @@
     </div>
 </div>
 
+{% if task.attachments.all %}
+    <div class="card mb-4">
+        <div class="card-body">
+            <h6 class="text-muted mb-3">Файлы к задаче</h6>
+            <ul class="list-group list-group-flush">
+                {% for attachment in task.attachments.all %}
+                    <li class="list-group-item px-0 d-flex justify-content-between align-items-center gap-2">
+                        <span class="text-break">{{ attachment.filename }}</span>
+                        <a class="btn btn-sm btn-outline-secondary flex-shrink-0"
+                           href="{{ attachment.file.url }}" download>Скачать</a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+{% endif %}
+
 {% if task.type == 'text' %}
     <div class="card mb-4">
         <div class="card-body">

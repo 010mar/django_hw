@@ -1,18 +1,26 @@
-from io import BytesIO
 import os
 import shutil
 import tempfile
-
-from PIL import Image as PILImage
+from io import BytesIO
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase as DjangoTestCase
 from django.test import override_settings
 from django.urls import reverse
+from PIL import Image as PILImage
 
 from .forms import AddTaskForm, TaskForm
-from .models import AnswerOption, Lesson, LessonTask, Task, TaskBank, TaskImage, Topic
+from .models import (
+    AnswerOption,
+    Lesson,
+    LessonTask,
+    Task,
+    TaskAttachment,
+    TaskBank,
+    TaskImage,
+    Topic,
+)
 from .models import TestCase as TaskTestCase
 
 User = get_user_model()
@@ -569,6 +577,102 @@ class TaskTopicTests(DjangoTestCase):
         self.assertContains(response, 'katex.min.css')
         self.assertContains(response, 'body-preview')
         self.assertContains(response, 'renderMathInElement')
+
+
+class TaskAttachmentTests(DjangoTestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls._media_root = tempfile.mkdtemp()
+        cls._override = override_settings(MEDIA_ROOT=cls._media_root)
+        cls._override.enable()
+        super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        cls._override.disable()
+        shutil.rmtree(cls._media_root, ignore_errors=True)
+
+    def setUp(self):
+        self.teacher = User.objects.create_user(
+            username='teacher', password='pass12345', role=User.Role.TEACHER,
+        )
+        self.bank = TaskBank.objects.create(name='Информатика ЕГЭ', author=self.teacher)
+        self.topic = Topic.objects.create(bank=self.bank, name='Логика', order=1)
+        self.client.force_login(self.teacher)
+
+    def _task_data(self):
+        return {
+            'bank': str(self.bank.pk),
+            'topic': str(self.topic.pk),
+            'type': 'text',
+            'difficulty': 'easy',
+            'answer_mode': 'short',
+            'correct_answer': '42',
+            'source': 'author',
+            'options-TOTAL_FORMS': '0',
+            'options-INITIAL_FORMS': '0',
+            'options-MIN_NUM_FORMS': '0',
+            'options-MAX_NUM_FORMS': '1000',
+            'cases-TOTAL_FORMS': '0',
+            'cases-INITIAL_FORMS': '0',
+            'cases-MIN_NUM_FORMS': '0',
+            'cases-MAX_NUM_FORMS': '1000',
+        }
+
+    def _upload(self, name='data.txt', content=b'hello'):
+        return SimpleUploadedFile(name, content, content_type='text/plain')
+
+    def test_create_task_with_attachment(self):
+        response = self.client.post(
+            reverse('task_create'),
+            {**self._task_data(), 'attachments': self._upload()},
+        )
+        task = Task.objects.latest('pk')
+        self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
+        attachment = task.attachments.get()
+        self.assertEqual(attachment.filename, 'data.txt')
+        detail = self.client.get(reverse('task_detail', args=[task.pk]))
+        self.assertContains(detail, 'data.txt')
+        self.assertContains(detail, attachment.file.url)
+
+    def test_rejects_disallowed_extension(self):
+        response = self.client.post(
+            reverse('task_create'),
+            {
+                **self._task_data(),
+                'attachments': SimpleUploadedFile(
+                    'data.pdf', b'pdf', content_type='application/pdf'
+                ),
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'недопустимый формат')
+        self.assertFalse(Task.objects.filter(author=self.teacher).exists())
+
+    def test_edit_removes_selected_attachment(self):
+        task = Task.objects.create(title='1_1', author=self.teacher)
+        attachment = TaskAttachment.objects.create(
+            task=task, file=self._upload(), original_name='data.txt',
+        )
+        path = attachment.file.path
+        response = self.client.post(
+            reverse('task_edit', args=[task.pk]),
+            {**self._task_data(), 'remove_attachments': [attachment.pk]},
+        )
+        self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
+        self.assertFalse(TaskAttachment.objects.filter(pk=attachment.pk).exists())
+        self.assertFalse(os.path.exists(path))
+
+    def test_delete_task_removes_attachment_file(self):
+        task = Task.objects.create(title='1_1', author=self.teacher)
+        attachment = TaskAttachment.objects.create(
+            task=task, file=self._upload(), original_name='data.txt',
+        )
+        path = attachment.file.path
+        response = self.client.post(reverse('task_delete', args=[task.pk]))
+        self.assertRedirects(response, reverse('task_list'))
+        self.assertFalse(os.path.exists(path))
 
 
 class TaskImageTests(DjangoTestCase):

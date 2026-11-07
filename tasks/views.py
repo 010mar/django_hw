@@ -1,8 +1,10 @@
-from PIL import Image
+import os
+
 from django.contrib import messages
 from django.db.models import Max, Prefetch
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from PIL import Image
 
 from accounts.decorators import teacher_required
 
@@ -18,6 +20,7 @@ from .forms import (
     TopicForm,
 )
 from .models import (
+    ALLOWED_ATTACHMENT_EXTENSIONS,
     IMAGE_TOKEN_PATTERN,
     AnswerOption,
     Course,
@@ -25,6 +28,7 @@ from .models import (
     Lesson,
     LessonTask,
     Task,
+    TaskAttachment,
     TaskBank,
     TaskImage,
     TestCase,
@@ -32,6 +36,7 @@ from .models import (
 )
 
 MAX_INLINE_IMAGE_SIZE = 10 * 1024 * 1024
+MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024
 
 
 @teacher_required
@@ -167,6 +172,29 @@ def _save_formsets(task, option_formset, case_formset):
         obj.delete()
 
 
+def _attachment_errors(files):
+    errors = []
+    for upload in files:
+        ext = os.path.splitext(upload.name)[1].lower().lstrip('.')
+        if ext not in ALLOWED_ATTACHMENT_EXTENSIONS:
+            errors.append(
+                f'Файл «{upload.name}»: недопустимый формат. '
+                'Разрешены xls, ods и txt.'
+            )
+        elif upload.size > MAX_ATTACHMENT_SIZE:
+            errors.append(f'Файл «{upload.name}» больше 20 МБ.')
+    return errors
+
+
+def _save_attachments(task, files):
+    for upload in files:
+        TaskAttachment.objects.create(
+            task=task,
+            file=upload,
+            original_name=os.path.basename(upload.name)[:255],
+        )
+
+
 def _inline_images_for_request(request, task=None):
     if request.method == 'POST':
         tokens = set(IMAGE_TOKEN_PATTERN.findall(request.POST.get('body', '')))
@@ -231,7 +259,13 @@ def task_create(request):
         prefix='cases',
         queryset=TestCase.objects.none(),
     )
+    attachments = (
+        request.FILES.getlist('attachments') if request.method == 'POST' else []
+    )
+    attachment_errors = _attachment_errors(attachments)
     if request.method == 'POST':
+        for error in attachment_errors:
+            messages.error(request, error)
         if form.is_valid() and option_formset.is_valid() and case_formset.is_valid():
             task = form.save(commit=False)
             task.author = request.user
@@ -258,10 +292,11 @@ def task_create(request):
                 task.task_number = ''
             task.title = task.task_number or 'Без номера'
             formset_errors = _validate_formsets(task, option_formset, case_formset)
-            if not formset_errors:
+            if not formset_errors and not attachment_errors:
                 task.save()
                 _sync_task_images(task)
                 _save_formsets(task, option_formset, case_formset)
+                _save_attachments(task, attachments)
                 messages.success(request, 'Задача создана.')
                 return redirect('task_detail', pk=task.pk)
             for error in formset_errors:
@@ -352,14 +387,24 @@ def task_edit(request, pk):
         prefix='cases',
         queryset=TestCase.objects.filter(task=task),
     )
+    attachments = (
+        request.FILES.getlist('attachments') if request.method == 'POST' else []
+    )
+    attachment_errors = _attachment_errors(attachments)
     if request.method == 'POST':
+        for error in attachment_errors:
+            messages.error(request, error)
         if form.is_valid() and option_formset.is_valid() and case_formset.is_valid():
             saved_task = form.save(commit=False)
             formset_errors = _validate_formsets(saved_task, option_formset, case_formset)
-            if not formset_errors:
+            if not formset_errors and not attachment_errors:
                 saved_task.save()
                 _sync_task_images(saved_task)
                 _save_formsets(saved_task, option_formset, case_formset)
+                remove_ids = request.POST.getlist('remove_attachments')
+                if remove_ids:
+                    saved_task.attachments.filter(pk__in=remove_ids).delete()
+                _save_attachments(saved_task, attachments)
                 messages.success(request, 'Задача обновлена.')
                 return redirect('task_detail', pk=task.pk)
             for error in formset_errors:
@@ -370,6 +415,7 @@ def task_edit(request, pk):
         'case_formset': case_formset,
         'all_topics': Topic.objects.filter(bank__author=request.user).select_related('bank'),
         'inline_images': _inline_images_for_request(request, task),
+        'attachments': task.attachments.all(),
         'is_create': False,
         'task': task,
     })

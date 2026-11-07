@@ -2,11 +2,13 @@ import re
 import uuid
 
 from django.conf import settings
+from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
 IMAGE_TOKEN_PATTERN = re.compile(r'\[\[img:([0-9a-fA-F-]{36})\]\]')
+ALLOWED_ATTACHMENT_EXTENSIONS = ('xls', 'ods', 'txt')
 
 
 class TaskBank(models.Model):
@@ -234,6 +236,48 @@ class TaskImage(models.Model):
 def delete_task_image_file(sender, instance, **kwargs):
     if instance.image:
         instance.image.delete(save=False)
+
+
+class TaskAttachment(models.Model):
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        related_name='attachments',
+        verbose_name='Задача',
+    )
+    file = models.FileField(
+        upload_to='tasks/files/%Y/%m/',
+        validators=[
+            FileExtensionValidator(
+                allowed_extensions=list(ALLOWED_ATTACHMENT_EXTENSIONS)
+            )
+        ],
+        verbose_name='Файл',
+    )
+    original_name = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name='Имя файла',
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Загружен')
+
+    class Meta:
+        verbose_name = 'Файл к задаче'
+        verbose_name_plural = 'Файлы к задаче'
+        ordering = ('created_at',)
+
+    def __str__(self):
+        return self.filename
+
+    @property
+    def filename(self) -> str:
+        return self.original_name or self.file.name.rsplit('/', 1)[-1]
+
+
+@receiver(post_delete, sender=TaskAttachment)
+def delete_task_attachment_file(sender, instance, **kwargs):
+    if instance.file:
+        instance.file.delete(save=False)
 
 
 class AnswerOption(models.Model):
