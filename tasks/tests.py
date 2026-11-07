@@ -68,6 +68,11 @@ class TaskModelTests(DjangoTestCase):
         self.assertTrue(task.is_short_answer_correct(' 8 '))
         self.assertFalse(task.is_short_answer_correct('7'))
 
+    def test_deleting_user_removes_their_tasks(self):
+        Task.objects.create(title='Задача', author=self.teacher)
+        self.teacher.delete()
+        self.assertFalse(Task.objects.exists())
+
 
 class LessonModelTests(DjangoTestCase):
     def setUp(self):
