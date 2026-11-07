@@ -311,6 +311,11 @@ class TaskCrudViewTests(DjangoTestCase):
         new_task = Task.objects.create(title='Новая', author=self.teacher)
         self.assertEqual(new_task.pk, 1)
 
+    def test_task_list_has_delete_button(self):
+        task = Task.objects.create(title='Удаляемая', author=self.teacher)
+        response = self.client.get(reverse('task_list'))
+        self.assertContains(response, f'action="{reverse("task_delete", args=[task.pk])}"')
+
     def test_crud_requires_teacher(self):
         self.client.force_login(self.student)
         for url_name in ('task_create', 'task_list'):
