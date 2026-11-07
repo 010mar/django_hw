@@ -9,7 +9,7 @@
         <a href="{% url 'task_create' %}?bank={{ bank.pk }}" class="btn btn-primary btn-sm">Добавить задачу</a>
         <a href="{% url 'bank_edit' bank.pk %}" class="btn btn-outline-secondary btn-sm">Изменить</a>
         <form method="post" action="{% url 'bank_delete' bank.pk %}"
-              onsubmit="return confirm('Удалить базу задач «{{ bank.name }}»?');">
+              onsubmit="return confirm('Удалить базу задач «{{ bank.name }}»? Все её темы и задачи тоже будут удалены.');">
             {% csrf_token %}
             <button type="submit" class="btn btn-outline-danger btn-sm">Удалить</button>
         </form>

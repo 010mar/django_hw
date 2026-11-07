@@ -373,6 +373,26 @@ class TaskBankTests(DjangoTestCase):
         new_bank = TaskBank.objects.create(name='Новая база', author=self.teacher)
         self.assertEqual(new_bank.pk, 1)
 
+    def test_deleting_bank_removes_tasks_and_resets_sequences(self):
+        bank = TaskBank.objects.create(name='База', author=self.teacher)
+        topic = Topic.objects.create(bank=bank, name='Тема', order=1)
+        task = Task.objects.create(
+            title='Задача', author=self.teacher, bank=bank, topic=topic,
+        )
+        self.client.force_login(self.teacher)
+        self.client.post(reverse('bank_delete', args=[bank.pk]))
+        self.assertFalse(Task.objects.filter(pk=task.pk).exists())
+        self.assertFalse(Topic.objects.filter(pk=topic.pk).exists())
+        new_bank = TaskBank.objects.create(name='Новая база', author=self.teacher)
+        new_topic = Topic.objects.create(bank=new_bank, name='Новая тема', order=1)
+        new_task = Task.objects.create(
+            title='Новая задача', author=self.teacher,
+            bank=new_bank, topic=new_topic,
+        )
+        self.assertEqual(new_bank.pk, 1)
+        self.assertEqual(new_topic.pk, 1)
+        self.assertEqual(new_task.pk, 1)
+
     def test_cannot_access_other_teachers_bank(self):
         bank = TaskBank.objects.create(name='Чужая база', author=self.other_teacher)
         self.client.force_login(self.teacher)

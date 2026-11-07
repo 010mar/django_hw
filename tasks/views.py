@@ -154,6 +154,8 @@ def bank_delete(request, pk):
     bank = get_object_or_404(TaskBank, pk=pk, author=request.user)
     if request.method == 'POST':
         bank.delete()
+        _reset_sequence_if_empty(Task)
+        _reset_sequence_if_empty(Topic)
         _reset_sequence_if_empty(TaskBank)
         messages.success(request, 'База задач удалена.')
     return redirect('bank_list')
