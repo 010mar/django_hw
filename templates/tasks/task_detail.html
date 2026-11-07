@@ -6,15 +6,18 @@
 {% block extra_head %}{% include 'tasks/_katex_head.html' %}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-2">
+<div class="d-flex justify-content-between align-items-start mb-2">
     <h2>{{ task.title }}</h2>
-    <div class="d-flex gap-2">
-        <a href="{% url 'task_edit' task.pk %}" class="btn btn-outline-primary btn-sm">Редактировать</a>
-        <form method="post" action="{% url 'task_delete' task.pk %}"
-              onsubmit="return confirm('Удалить задачу?');">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-outline-danger btn-sm">Удалить</button>
-        </form>
+    <div class="d-flex flex-column align-items-end gap-2">
+        <div class="d-flex gap-2">
+            <a href="{% url 'task_edit' task.pk %}" class="btn btn-outline-primary btn-sm">Редактировать</a>
+            <form method="post" action="{% url 'task_delete' task.pk %}"
+                  onsubmit="return confirm('Удалить задачу?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-danger btn-sm">Удалить</button>
+            </form>
+        </div>
+        <a href="{% url 'task_list' %}" class="btn btn-outline-secondary btn-sm">К списку задач</a>
     </div>
 </div>
 <div class="mb-4">
@@ -115,7 +118,6 @@
     </div>
 {% endif %}
 
-<a href="{% url 'task_list' %}" class="btn btn-outline-secondary">К списку задач</a>
 {% endblock %}
 
 {% block extra_js %}{% include 'tasks/_katex_scripts.html' %}{% endblock %}
