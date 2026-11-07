@@ -554,6 +554,22 @@ class TaskTopicTests(DjangoTestCase):
         self.assertIn(topic_in_bank, form.fields['topic'].queryset)
         self.assertNotIn(topic_in_other, form.fields['topic'].queryset)
 
+    def test_task_detail_includes_katex(self):
+        task = Task.objects.create(
+            title='Формулы', author=self.teacher, bank=self.bank,
+            body='Сумма $a+b$',
+        )
+        response = self.client.get(reverse('task_detail', args=[task.pk]))
+        self.assertContains(response, 'katex.min.css')
+        self.assertContains(response, 'js-math')
+        self.assertContains(response, '$a+b$')
+
+    def test_task_form_has_math_preview(self):
+        response = self.client.get(reverse('task_create'))
+        self.assertContains(response, 'katex.min.css')
+        self.assertContains(response, 'body-preview')
+        self.assertContains(response, 'renderMathInElement')
+
 
 class TaskImageTests(DjangoTestCase):
     @classmethod

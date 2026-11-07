@@ -3,6 +3,8 @@
 
 {% block title %}{{ task.title }}{% endblock %}
 
+{% block extra_head %}{% include 'tasks/_katex_head.html' %}{% endblock %}
+
 {% block content %}
 <a href="{% url 'assignment_solve' assignment.pk %}" class="btn btn-outline-secondary btn-sm mb-3">← К заданию</a>
 
@@ -14,7 +16,7 @@
 
 <div class="card mb-4">
     <div class="card-body">
-        <div class="text-break">{{ task.body|render_task_body:task }}</div>
+        <div class="text-break js-math">{{ task.body|render_task_body:task }}</div>
         {% if task.image %}
             <img src="{{ task.image.url }}" alt="Условие" class="img-fluid mt-3 rounded">
         {% endif %}
@@ -80,3 +82,5 @@
     </div>
 {% endif %}
 {% endblock %}
+
+{% block extra_js %}{% include 'tasks/_katex_scripts.html' %}{% endblock %}

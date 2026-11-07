@@ -2,6 +2,8 @@
 
 {% block title %}{% if is_create %}Создание задачи{% else %}Редактирование задачи{% endif %}{% endblock %}
 
+{% block extra_head %}{% include 'tasks/_katex_head.html' %}{% endblock %}
+
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-8">
@@ -74,6 +76,13 @@
                                             aria-label="Удалить"></button>
                                 </div>
                             {% endfor %}
+                        </div>
+                        <div class="mt-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="text-muted small">Предпросмотр условия</span>
+                                <span class="text-muted small">Формулы: $x^2$ или $$...$$</span>
+                            </div>
+                            <div id="body-preview" class="js-math border rounded bg-white p-3 text-break"></div>
                         </div>
                     </div>
                     <div class="mb-3">
@@ -395,6 +404,72 @@
             files.forEach(upload);
         }
     });
+})();
+</script>
+{% endblock %}
+
+{% block extra_js %}
+{% include 'tasks/_katex_scripts.html' %}
+<script>
+(function () {
+    var body = document.getElementById('id_body');
+    var preview = document.getElementById('body-preview');
+    if (!body || !preview) {
+        return;
+    }
+    var timer = null;
+
+    function escapeHtml(text) {
+        return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function imageUrls() {
+        var urls = {};
+        document.querySelectorAll('#inline-image-list .inline-image-item').forEach(function (item) {
+            var img = item.querySelector('img');
+            if (img && item.dataset.token) {
+                urls[item.dataset.token] = img.getAttribute('src');
+            }
+        });
+        return urls;
+    }
+
+    function renderPreview() {
+        var urls = imageUrls();
+        var html = escapeHtml(body.value);
+        html = html.replace(/\[\[img:([A-Za-z0-9_-]+)\]\]/g, function (match, token) {
+            var url = urls[token];
+            if (!url) {
+                return '';
+            }
+            return '<img src="' + url + '" alt="" class="img-fluid rounded my-2 d-block" style="max-height:200px;">';
+        });
+        html = html.replace(/\n/g, '<br>');
+        preview.innerHTML = html || '<span class="text-muted">Здесь появится предпросмотр…</span>';
+        if (window.renderMathInElement) {
+            renderMathInElement(preview, {
+                delimiters: [
+                    { left: '$$', right: '$$', display: true },
+                    { left: '\\[', right: '\\]', display: true },
+                    { left: '$', right: '$', display: false },
+                    { left: '\\(', right: '\\)', display: false }
+                ],
+                throwOnError: false
+            });
+        }
+    }
+
+    function schedule() {
+        clearTimeout(timer);
+        timer = setTimeout(renderPreview, 300);
+    }
+
+    body.addEventListener('input', schedule);
+    renderPreview();
 })();
 </script>
 {% endblock %}

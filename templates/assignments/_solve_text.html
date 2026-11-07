@@ -8,7 +8,9 @@
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="answer_option"
                                value="{{ option.pk }}" id="opt{{ option.pk }}" required>
-                        <label class="form-check-label" for="opt{{ option.pk }}">{{ option.text }}</label>
+                        <label class="form-check-label" for="opt{{ option.pk }}">
+                            <span class="js-math">{{ option.text }}</span>
+                        </label>
                     </div>
                 {% endfor %}
             {% else %}
