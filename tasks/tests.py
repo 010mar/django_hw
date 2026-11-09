@@ -168,6 +168,12 @@ class CourseViewTests(DjangoTestCase):
         self.assertEqual(new_module.pk, 1)
         self.assertEqual(new_lesson.pk, 1)
 
+    def test_course_list_orders_oldest_first(self):
+        old = Course.objects.create(title='Старый курс', author=self.teacher)
+        new = Course.objects.create(title='Новый курс', author=self.teacher)
+        response = self.client.get(reverse('course_list'))
+        self.assertEqual(list(response.context['courses']), [old, new])
+
     def test_course_detail_has_delete_button(self):
         course = Course.objects.create(title='Курс', author=self.teacher)
         response = self.client.get(reverse('course_detail', args=[course.pk]))
