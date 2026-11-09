@@ -71,8 +71,8 @@
                         {% endif %}
                     </div>
                     {{ add_task_form.topic_bank_map|json_script:'topic-bank-map' }}
-                    <div id="topic-tasks" class="mb-3"
-                         style="max-height: 320px; overflow-y: auto;"></div>
+                    <div id="topic-tasks" class="mb-3 border rounded p-2 d-none"
+                         style="height: 50vh; overflow-y: auto;"></div>
                     {% if add_task_form.task.errors %}
                         <div class="text-danger small mb-3">{{ add_task_form.task.errors.0 }}</div>
                     {% endif %}
@@ -139,8 +139,10 @@ document.addEventListener('DOMContentLoaded', function () {
     function loadTasks() {
         if (!topicSelect.value) {
             container.innerHTML = '';
+            container.classList.add('d-none');
             return;
         }
+        container.classList.remove('d-none');
         var url = baseUrl + '?topic=' + encodeURIComponent(topicSelect.value);
         if (selectedTask) {
             url += '&selected=' + encodeURIComponent(selectedTask);
@@ -165,6 +167,7 @@ document.addEventListener('DOMContentLoaded', function () {
         selectedTask = '';
         fillTopics();
         container.innerHTML = '';
+        container.classList.add('d-none');
         if (topicSelect.value) {
             loadTasks();
         }
