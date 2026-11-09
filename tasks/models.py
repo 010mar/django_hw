@@ -6,6 +6,7 @@ from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
+from django.urls import reverse
 
 IMAGE_TOKEN_PATTERN = re.compile(r'\[\[img:([0-9a-fA-F-]{36})\]\]')
 ALLOWED_ATTACHMENT_EXTENSIONS = ('xls', 'ods', 'txt')
@@ -187,6 +188,21 @@ class Task(models.Model):
     @property
     def difficulty_verbose(self) -> str:
         return self.get_difficulty_display()
+
+    def get_absolute_url(self) -> str:
+        if self.bank_id:
+            return reverse('bank_task_detail', args=[self.bank_id, self.pk])
+        return reverse('task_detail', args=[self.pk])
+
+    def get_edit_url(self) -> str:
+        if self.bank_id:
+            return reverse('bank_task_edit', args=[self.bank_id, self.pk])
+        return reverse('task_edit', args=[self.pk])
+
+    def get_delete_url(self) -> str:
+        if self.bank_id:
+            return reverse('bank_task_delete', args=[self.bank_id, self.pk])
+        return reverse('task_delete', args=[self.pk])
 
     def is_short_answer_correct(self, answer: str) -> bool:
         return self.correct_answer.strip().lower() == (answer or '').strip().lower()

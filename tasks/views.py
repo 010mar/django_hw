@@ -80,7 +80,7 @@ def bank_detail(request, pk):
     if task_number:
         try:
             task = Task.objects.get(pk=int(task_number), bank=bank, author=request.user)
-            return redirect('task_detail', pk=task.pk)
+            return redirect(task.get_absolute_url())
         except (ValueError, Task.DoesNotExist):
             pass
 
@@ -314,7 +314,7 @@ def task_create(request):
                 _save_formsets(task, option_formset, case_formset)
                 _save_attachments(task, attachments)
                 messages.success(request, 'Задача создана.')
-                return redirect('task_detail', pk=task.pk)
+                return redirect(task.get_absolute_url())
             for error in formset_errors:
                 messages.error(request, error)
     return render(request, 'tasks/task_form.html', {
@@ -383,15 +383,25 @@ def task_image_upload(request):
     })
 
 
+def _get_task(request, pk, bank_pk=None):
+    filters = {'pk': pk, 'author': request.user}
+    if bank_pk is not None:
+        filters['bank_id'] = bank_pk
+    return get_object_or_404(Task, **filters)
+
+
 @teacher_required
-def task_detail(request, pk):
-    task = get_object_or_404(Task, pk=pk, author=request.user)
+def task_detail(request, pk, bank_pk=None):
+    task = _get_task(request, pk, bank_pk)
+    canonical_url = task.get_absolute_url()
+    if request.path != canonical_url:
+        return redirect(canonical_url)
     return render(request, 'tasks/task_detail.html', {'task': task})
 
 
 @teacher_required
-def task_edit(request, pk):
-    task = get_object_or_404(Task, pk=pk, author=request.user)
+def task_edit(request, pk, bank_pk=None):
+    task = _get_task(request, pk, bank_pk)
     form = TaskForm(request.POST or None, request.FILES or None, instance=task, user=request.user)
     option_formset = AnswerOptionFormSet(
         request.POST or None,
@@ -422,7 +432,7 @@ def task_edit(request, pk):
                     saved_task.attachments.filter(pk__in=remove_ids).delete()
                 _save_attachments(saved_task, attachments)
                 messages.success(request, 'Задача обновлена.')
-                return redirect('task_detail', pk=task.pk)
+                return redirect(saved_task.get_absolute_url())
             for error in formset_errors:
                 messages.error(request, error)
     return render(request, 'tasks/task_form.html', {
@@ -438,8 +448,8 @@ def task_edit(request, pk):
 
 
 @teacher_required
-def task_delete(request, pk):
-    task = get_object_or_404(Task, pk=pk, author=request.user)
+def task_delete(request, pk, bank_pk=None):
+    task = _get_task(request, pk, bank_pk)
     if request.method == 'POST':
         task.delete()
         _reset_sequence_if_empty(Task)

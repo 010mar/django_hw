@@ -185,7 +185,7 @@ class TaskCrudViewTests(DjangoTestCase):
         data.update(self._formset_data('cases', []))
         response = self.client.post(reverse('task_create'), data)
         task = Task.objects.latest('pk')
-        self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
+        self.assertRedirects(response, task.get_absolute_url())
         self.assertEqual(task.answer_options.filter(is_correct=True).count(), 1)
         self.assertEqual(task.type, Task.Type.TEXT)
 
@@ -204,7 +204,7 @@ class TaskCrudViewTests(DjangoTestCase):
         ]))
         response = self.client.post(reverse('task_create'), data)
         task = Task.objects.latest('pk')
-        self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
+        self.assertRedirects(response, task.get_absolute_url())
         self.assertEqual(task.test_cases.count(), 1)
         self.assertEqual(task.type, Task.Type.PROGRAMMING)
 
@@ -221,7 +221,7 @@ class TaskCrudViewTests(DjangoTestCase):
         data.update(self._formset_data('cases', []))
         response = self.client.post(reverse('task_create'), data)
         task = Task.objects.latest('pk')
-        self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
+        self.assertRedirects(response, task.get_absolute_url())
         self.assertEqual(task.correct_answer, '8')
 
     def test_programming_task_requires_case(self):
@@ -268,8 +268,8 @@ class TaskCrudViewTests(DjangoTestCase):
         data.update(self._formset_data('options', []))
         data.update(self._formset_data('cases', []))
         response = self.client.post(reverse('task_edit', args=[task.pk]), data)
-        self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
         task.refresh_from_db()
+        self.assertRedirects(response, task.get_absolute_url())
         self.assertEqual(task.difficulty, Task.Difficulty.HARD)
 
     def test_create_requires_topic(self):
@@ -300,7 +300,7 @@ class TaskCrudViewTests(DjangoTestCase):
         data.update(self._formset_data('cases', []))
         response = self.client.post(reverse('task_create'), data)
         task = Task.objects.latest('pk')
-        self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
+        self.assertRedirects(response, task.get_absolute_url())
         self.assertEqual(task.task_number, '1_1')
 
 
@@ -320,6 +320,41 @@ class TaskCrudViewTests(DjangoTestCase):
         task = Task.objects.create(title='Удаляемая', author=self.teacher)
         response = self.client.get(reverse('task_list'))
         self.assertContains(response, f'action="{reverse("task_delete", args=[task.pk])}"')
+
+    def test_task_detail_url_includes_bank(self):
+        task = Task.objects.create(
+            title='В базе', author=self.teacher, bank=self.bank, topic=self.topic,
+        )
+        self.assertEqual(
+            task.get_absolute_url(),
+            reverse('bank_task_detail', args=[self.bank.pk, task.pk]),
+        )
+        response = self.client.get(task.get_absolute_url())
+        self.assertEqual(response.status_code, 200)
+
+    def test_legacy_task_url_redirects_to_bank_url(self):
+        task = Task.objects.create(
+            title='В базе', author=self.teacher, bank=self.bank,
+        )
+        response = self.client.get(reverse('task_detail', args=[task.pk]))
+        self.assertRedirects(response, task.get_absolute_url())
+
+    def test_task_detail_rejects_wrong_bank(self):
+        task = Task.objects.create(
+            title='В базе', author=self.teacher, bank=self.bank,
+        )
+        other_bank = TaskBank.objects.create(name='Другая', author=self.teacher)
+        response = self.client.get(
+            reverse('bank_task_detail', args=[other_bank.pk, task.pk])
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_task_without_bank_keeps_plain_url(self):
+        task = Task.objects.create(title='Без базы', author=self.teacher)
+        self.assertEqual(
+            task.get_absolute_url(),
+            reverse('task_detail', args=[task.pk]),
+        )
 
     def test_crud_requires_teacher(self):
         self.client.force_login(self.student)
@@ -441,7 +476,7 @@ class TaskBankTests(DjangoTestCase):
             },
         )
         task = Task.objects.latest('pk')
-        self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
+        self.assertRedirects(response, task.get_absolute_url())
         self.assertEqual(task.bank, bank)
 
     def test_bank_name_preselect(self):
@@ -528,6 +563,13 @@ class TaskTopicTests(DjangoTestCase):
         })
         self.assertEqual(response.status_code, 404)
 
+    def test_bank_detail_links_to_task_inside_bank(self):
+        task = Task.objects.create(
+            title='Задача в базе', author=self.teacher, bank=self.bank,
+        )
+        response = self.client.get(reverse('bank_detail', args=[self.bank.pk]))
+        self.assertContains(response, f'href="{task.get_absolute_url()}"')
+
     def test_bank_detail_groups_tasks_by_topic(self):
         topic = Topic.objects.create(bank=self.bank, name='Логика')
         Topic.objects.create(bank=self.bank, name='Кодирование')
@@ -588,7 +630,7 @@ class TaskTopicTests(DjangoTestCase):
             'cases-MAX_NUM_FORMS': '1000',
         })
         task = Task.objects.latest('pk')
-        self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
+        self.assertRedirects(response, task.get_absolute_url())
         self.assertEqual(task.task_number, '1_2')
 
 
@@ -610,7 +652,7 @@ class TaskTopicTests(DjangoTestCase):
             title='Формулы', author=self.teacher, bank=self.bank,
             body='Сумма $a+b$',
         )
-        response = self.client.get(reverse('task_detail', args=[task.pk]))
+        response = self.client.get(task.get_absolute_url())
         self.assertContains(response, 'katex.min.css')
         self.assertContains(response, 'js-math')
         self.assertContains(response, '$a+b$')
@@ -672,10 +714,10 @@ class TaskAttachmentTests(DjangoTestCase):
             {**self._task_data(), 'attachments': self._upload()},
         )
         task = Task.objects.latest('pk')
-        self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
+        self.assertRedirects(response, task.get_absolute_url())
         attachment = task.attachments.get()
         self.assertEqual(attachment.filename, 'data.txt')
-        detail = self.client.get(reverse('task_detail', args=[task.pk]))
+        detail = self.client.get(task.get_absolute_url())
         self.assertContains(detail, 'data.txt')
         self.assertContains(detail, attachment.file.url)
 
@@ -703,7 +745,8 @@ class TaskAttachmentTests(DjangoTestCase):
             reverse('task_edit', args=[task.pk]),
             {**self._task_data(), 'remove_attachments': [attachment.pk]},
         )
-        self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
+        task.refresh_from_db()
+        self.assertRedirects(response, task.get_absolute_url())
         self.assertFalse(TaskAttachment.objects.filter(pk=attachment.pk).exists())
         self.assertFalse(os.path.exists(path))
 
@@ -812,10 +855,10 @@ class TaskImageTests(DjangoTestCase):
             self._task_data(f'Найдите ответ\n[[img:{image.token}]]\n'),
         )
         task = Task.objects.latest('pk')
-        self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
+        self.assertRedirects(response, task.get_absolute_url())
         image.refresh_from_db()
         self.assertEqual(image.task, task)
-        detail = self.client.get(reverse('task_detail', args=[task.pk]))
+        detail = self.client.get(task.get_absolute_url())
         self.assertContains(detail, '<img')
         self.assertContains(detail, image.image.url)
 
@@ -832,7 +875,8 @@ class TaskImageTests(DjangoTestCase):
             reverse('task_edit', args=[task.pk]),
             self._task_data('Новое условие без картинки'),
         )
-        self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
+        task.refresh_from_db()
+        self.assertRedirects(response, task.get_absolute_url())
         self.assertFalse(TaskImage.objects.filter(pk=image.pk).exists())
         self.assertFalse(os.path.exists(file_path))
 
@@ -846,8 +890,8 @@ class TaskImageTests(DjangoTestCase):
             self._task_data(f'Текст [[img:{image.token}]]'),
         )
         task = Task.objects.latest('pk')
-        self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
+        self.assertRedirects(response, task.get_absolute_url())
         image.refresh_from_db()
         self.assertIsNone(image.task)
-        detail = self.client.get(reverse('task_detail', args=[task.pk]))
+        detail = self.client.get(task.get_absolute_url())
         self.assertNotContains(detail, image.image.url)

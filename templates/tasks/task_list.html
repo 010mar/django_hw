@@ -36,7 +36,7 @@
         <tbody>
         {% for task in tasks %}
             <tr>
-                <td><a href="{% url 'task_detail' task.pk %}">{{ task.title }}</a></td>
+                <td><a href="{{ task.get_absolute_url }}">{{ task.title }}</a></td>
                 <td>
                     {% if task.bank %}
                         <a href="{% url 'bank_detail' task.bank.pk %}">{{ task.bank.name }}</a>
@@ -56,8 +56,8 @@
                 <td class="text-muted">{{ task.created_at|date:'d.m.Y' }}</td>
                 <td>
                     <div class="d-flex gap-1">
-                        <a href="{% url 'task_edit' task.pk %}" class="btn btn-sm btn-outline-primary">Изменить</a>
-                        <form method="post" action="{% url 'task_delete' task.pk %}"
+                        <a href="{{ task.get_edit_url }}" class="btn btn-sm btn-outline-primary">Изменить</a>
+                        <form method="post" action="{{ task.get_delete_url }}"
                               onsubmit="return confirm('Удалить задачу «{{ task.title }}»?');">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-sm btn-outline-danger">Удалить</button>
