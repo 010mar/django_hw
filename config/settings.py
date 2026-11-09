@@ -2,6 +2,7 @@ import os
 import socket
 from pathlib import Path
 
+from django.contrib.messages import constants as message_constants
 from django.core.mail import utils as mail_utils
 
 try:
@@ -96,6 +97,8 @@ TIME_ZONE = 'Europe/Moscow'
 USE_I18N = True
 
 USE_TZ = True
+
+MESSAGE_LEVEL = message_constants.WARNING
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
