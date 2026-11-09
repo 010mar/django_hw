@@ -235,7 +235,18 @@ def task_number_sort_key(number):
     ]
 
 
+class TopicChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, obj):
+        return f'{obj.bank.name} — {obj.name}'
+
+
 class AddTaskForm(forms.Form):
+    topic = TopicChoiceField(
+        queryset=Topic.objects.none(),
+        label='Тема',
+        empty_label='— Выберите тему —',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
     task = forms.ModelChoiceField(
         queryset=Task.objects.none(),
         label='Задача',
@@ -250,18 +261,24 @@ class AddTaskForm(forms.Form):
 
     def __init__(self, *args, lesson=None, user=None, **kwargs):
         super().__init__(*args, **kwargs)
-        tasks = Task.objects.select_related('bank')
+        tasks = Task.objects.select_related('bank', 'topic')
         if user is not None:
             tasks = tasks.filter(author=user)
         if lesson:
             taken_ids = lesson.entries.values_list('task_id', flat=True)
             tasks = tasks.exclude(id__in=taken_ids)
         self.fields['task'].queryset = tasks
-        self.available_tasks = sorted(
-            tasks,
-            key=lambda task: (
-                task.bank.name if task.bank else '',
-                task_number_sort_key(task.task_number or ''),
-                task.pk,
-            ),
+        topics = Topic.objects.select_related('bank').order_by(
+            'bank__name', 'order', 'name',
         )
+        if user is not None:
+            topics = topics.filter(bank__author=user)
+        self.fields['topic'].queryset = topics.filter(tasks__in=tasks).distinct()
+
+    def clean(self):
+        cleaned = super().clean()
+        topic = cleaned.get('topic')
+        task = cleaned.get('task')
+        if topic and task and task.topic_id != topic.pk:
+            self.add_error('task', 'Выбранная задача не относится к этой теме.')
+        return cleaned

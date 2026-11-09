@@ -105,8 +105,15 @@ class LessonViewTests(DjangoTestCase):
         self.student = User.objects.create_user(
             username='student', password='pass12345', role=User.Role.STUDENT,
         )
+        self.bank = TaskBank.objects.create(
+            name='Информатика ЕГЭ', author=self.teacher,
+        )
+        self.topic = Topic.objects.create(
+            bank=self.bank, name='Тема 1', order=1,
+        )
         self.task = Task.objects.create(
             title='Задача 1', author=self.teacher, task_number='1_1',
+            bank=self.bank, topic=self.topic,
         )
         self.lesson = Lesson.objects.create(title='Урок 1', author=self.teacher)
 
@@ -128,7 +135,7 @@ class LessonViewTests(DjangoTestCase):
         self.client.force_login(self.teacher)
         response = self.client.post(
             reverse('lesson_add_task', args=[self.lesson.pk]),
-            {'task': self.task.pk, 'order': 1},
+            {'topic': self.topic.pk, 'task': self.task.pk, 'order': 1},
         )
         self.assertRedirects(response, reverse('lesson_detail', args=[self.lesson.pk]))
         self.assertEqual(self.lesson.entries.count(), 1)
@@ -145,7 +152,21 @@ class LessonViewTests(DjangoTestCase):
         self.client.force_login(self.teacher)
         response = self.client.post(
             reverse('lesson_add_task', args=[self.lesson.pk]),
-            {'task': other_task.pk, 'order': 1},
+            {'topic': self.topic.pk, 'task': other_task.pk, 'order': 1},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.lesson.entries.count(), 0)
+
+    def test_add_task_rejects_task_from_other_topic(self):
+        topic2 = Topic.objects.create(bank=self.bank, name='Тема 2', order=2)
+        task2 = Task.objects.create(
+            title='Задача 2', author=self.teacher, task_number='2_1',
+            bank=self.bank, topic=topic2,
+        )
+        self.client.force_login(self.teacher)
+        response = self.client.post(
+            reverse('lesson_add_task', args=[self.lesson.pk]),
+            {'topic': self.topic.pk, 'task': task2.pk, 'order': 1},
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.lesson.entries.count(), 0)
@@ -158,40 +179,106 @@ class LessonViewTests(DjangoTestCase):
         self.assertFalse(queryset.filter(pk=self.task.pk).exists())
         self.assertIn(self.task2, queryset)
 
-    def test_add_task_form_sorts_tasks_naturally(self):
-        for number in ('1_10', '1_1', '2_1'):
-            Task.objects.create(
-                title=number, author=self.teacher, task_number=number,
-            )
+    def test_add_task_form_lists_topics(self):
+        bank2 = TaskBank.objects.create(name='Информатика ОГЭ', author=self.teacher)
+        topic2 = Topic.objects.create(bank=bank2, name='Тема 2', order=1)
+        Task.objects.create(
+            title='Задача 2', author=self.teacher, task_number='1_1',
+            bank=bank2, topic=topic2,
+        )
         form = AddTaskForm(user=self.teacher)
-        numbers = [task.task_number for task in form.available_tasks]
-        self.assertEqual(numbers[-3:], ['1_1', '1_10', '2_1'])
+        labels = [label for _, label in form.fields['topic'].choices]
+        self.assertIn('Информатика ЕГЭ — Тема 1', labels)
+        self.assertIn('Информатика ОГЭ — Тема 2', labels)
 
-    def test_lesson_detail_lists_available_tasks(self):
+    def test_add_task_form_hides_topics_without_available_tasks(self):
+        topic2 = Topic.objects.create(bank=self.bank, name='Тема 2', order=2)
+        task2 = Task.objects.create(
+            title='Задача 2', author=self.teacher, task_number='2_1',
+            bank=self.bank, topic=topic2,
+        )
+        LessonTask.objects.create(lesson=self.lesson, task=task2, order=1)
+        form = AddTaskForm(lesson=self.lesson, user=self.teacher)
+        topics = list(form.fields['topic'].queryset)
+        self.assertIn(self.topic, topics)
+        self.assertNotIn(topic2, topics)
+
+    def test_lesson_detail_has_topic_select(self):
         self.client.force_login(self.teacher)
         response = self.client.get(reverse('lesson_detail', args=[self.lesson.pk]))
-        self.assertContains(response, self.task.task_number)
-        self.assertContains(response, f'id="task-option-{self.task.pk}"')
+        self.assertContains(response, 'id="id_topic"')
+        self.assertContains(
+            response, reverse('lesson_topic_tasks', args=[self.lesson.pk]),
+        )
 
-    def test_lesson_detail_excludes_tasks_from_lesson(self):
-        self.task2 = Task.objects.create(
-            title='Задача 2', author=self.teacher, task_number='2_1',
+    def test_lesson_topic_tasks_lists_topic_tasks(self):
+        task2 = Task.objects.create(
+            title='Задача 2', author=self.teacher, task_number='1_2',
+            bank=self.bank, topic=self.topic,
+        )
+        topic2 = Topic.objects.create(bank=self.bank, name='Тема 2', order=2)
+        other_task = Task.objects.create(
+            title='Другая тема', author=self.teacher, task_number='2_1',
+            bank=self.bank, topic=topic2,
+        )
+        self.client.force_login(self.teacher)
+        response = self.client.get(
+            reverse('lesson_topic_tasks', args=[self.lesson.pk]),
+            {'topic': self.topic.pk},
+        )
+        self.assertContains(response, f'id="task-option-{self.task.pk}"')
+        self.assertContains(response, f'id="task-option-{task2.pk}"')
+        self.assertNotContains(response, f'id="task-option-{other_task.pk}"')
+
+    def test_lesson_topic_tasks_sorts_naturally(self):
+        task10 = Task.objects.create(
+            title='Задача 10', author=self.teacher, task_number='1_10',
+            bank=self.bank, topic=self.topic,
+        )
+        task2 = Task.objects.create(
+            title='Задача 2', author=self.teacher, task_number='1_2',
+            bank=self.bank, topic=self.topic,
+        )
+        self.client.force_login(self.teacher)
+        response = self.client.get(
+            reverse('lesson_topic_tasks', args=[self.lesson.pk]),
+            {'topic': self.topic.pk},
+        )
+        content = response.content.decode()
+        self.assertLess(
+            content.index(f'id="task-option-{task2.pk}"'),
+            content.index(f'id="task-option-{task10.pk}"'),
+        )
+
+    def test_lesson_topic_tasks_excludes_tasks_from_lesson(self):
+        task2 = Task.objects.create(
+            title='Задача 2', author=self.teacher, task_number='1_2',
+            bank=self.bank, topic=self.topic,
         )
         LessonTask.objects.create(lesson=self.lesson, task=self.task, order=1)
         self.client.force_login(self.teacher)
-        response = self.client.get(reverse('lesson_detail', args=[self.lesson.pk]))
+        response = self.client.get(
+            reverse('lesson_topic_tasks', args=[self.lesson.pk]),
+            {'topic': self.topic.pk},
+        )
         self.assertNotContains(response, f'id="task-option-{self.task.pk}"')
-        self.assertContains(response, f'id="task-option-{self.task2.pk}"')
+        self.assertContains(response, f'id="task-option-{task2.pk}"')
 
-    def test_lesson_detail_lists_only_own_tasks(self):
+    def test_lesson_topic_tasks_only_own_tasks(self):
         other = User.objects.create_user(
             username='other', password='pass12345', role=User.Role.TEACHER,
         )
+        other_bank = TaskBank.objects.create(name='Чужая база', author=other)
+        other_topic = Topic.objects.create(bank=other_bank, name='Чужая тема')
         other_task = Task.objects.create(
             title='Чужая', author=other, task_number='1_1',
+            bank=other_bank, topic=other_topic,
         )
         self.client.force_login(self.teacher)
-        response = self.client.get(reverse('lesson_detail', args=[self.lesson.pk]))
+        response = self.client.get(
+            reverse('lesson_topic_tasks', args=[self.lesson.pk]),
+            {'topic': other_topic.pk},
+        )
         self.assertNotContains(response, f'id="task-option-{other_task.pk}"')
 
 

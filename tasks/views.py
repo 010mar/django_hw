@@ -19,6 +19,7 @@ from .forms import (
     TaskForm,
     TestCaseFormSet,
     TopicForm,
+    task_number_sort_key,
 )
 from .models import (
     ALLOWED_ATTACHMENT_EXTENSIONS,
@@ -482,6 +483,36 @@ def lesson_detail(request, pk):
     return render(request, 'tasks/lesson_detail.html', {
         'lesson': lesson,
         'add_task_form': add_task_form,
+    })
+
+
+@teacher_required
+def lesson_topic_tasks(request, pk):
+    lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
+    topic_id = request.GET.get('topic')
+    selected = request.GET.get('selected', '').strip()
+    try:
+        topic_id = int(topic_id) if topic_id else None
+    except (TypeError, ValueError):
+        topic_id = None
+    tasks = Task.objects.none()
+    if topic_id:
+        tasks = (
+            Task.objects
+            .filter(author=request.user, topic_id=topic_id)
+            .exclude(id__in=lesson.entries.values_list('task_id', flat=True))
+            .select_related('bank', 'topic')
+        )
+        tasks = sorted(
+            tasks,
+            key=lambda task: (
+                task_number_sort_key(task.task_number or ''),
+                task.pk,
+            ),
+        )
+    return render(request, 'tasks/_lesson_topic_tasks.html', {
+        'tasks': tasks,
+        'selected': selected,
     })
 
 

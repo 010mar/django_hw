@@ -52,35 +52,19 @@
             <div class="card-body">
                 <h5 class="mb-3">Добавить задачу</h5>
                 <form method="post" action="{% url 'lesson_add_task' lesson.pk %}"
-                      id="add-task-form">
+                      id="add-task-form"
+                      data-tasks-url="{% url 'lesson_topic_tasks' lesson.pk %}"
+                      data-selected="{{ add_task_form.task.value|default:'' }}">
                     {% csrf_token %}
-                    <input type="text" id="task-search" class="form-control form-control-sm mb-2"
-                           placeholder="Поиск по номеру или названию">
-                    <div id="task-options" class="mb-3 border rounded p-2"
-                         style="max-height: 320px; overflow-y: auto;">
-                        {% regroup add_task_form.available_tasks by bank as bank_groups %}
-                        {% for group in bank_groups %}
-                            <div class="task-group">
-                                <div class="text-muted small fw-bold mt-2 mb-1">{{ group.grouper|default:'Без базы' }}</div>
-                                {% for task in group.list %}
-                                    <div class="form-check task-option py-1"
-                                         data-search="{{ task.task_number }} {{ task.title }} {{ task.bank.name|default:'' }}">
-                                        <input class="form-check-input" type="radio" name="task"
-                                               id="task-option-{{ task.pk }}" value="{{ task.pk }}"
-                                               {% if add_task_form.task.value|stringformat:'s' == task.pk|stringformat:'s' %}checked{% endif %}>
-                                        <label class="form-check-label" for="task-option-{{ task.pk }}">
-                                            <span class="badge bg-light text-dark border me-1">{{ task.task_number|default:'без номера' }}</span>
-                                            <span class="badge bg-secondary me-1">{{ task.type_verbose }}</span>
-                                            <span class="badge bg-warning text-dark me-1">{{ task.difficulty_verbose }}</span>
-                                            {{ task.title }}
-                                        </label>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        {% empty %}
-                            <div class="alert alert-secondary mb-0">Нет доступных задач.</div>
-                        {% endfor %}
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ add_task_form.topic.id_for_label }}">{{ add_task_form.topic.label }}</label>
+                        {{ add_task_form.topic }}
+                        {% if add_task_form.topic.errors %}
+                            <div class="text-danger small mt-1">{{ add_task_form.topic.errors.0 }}</div>
+                        {% endif %}
                     </div>
+                    <div id="topic-tasks" class="mb-3"
+                         style="max-height: 320px; overflow-y: auto;"></div>
                     {% if add_task_form.task.errors %}
                         <div class="text-danger small mb-3">{{ add_task_form.task.errors.0 }}</div>
                     {% endif %}
@@ -105,25 +89,54 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    var search = document.getElementById('task-search');
-    var options = document.getElementById('task-options');
-    if (!search || !options) {
+    var form = document.getElementById('add-task-form');
+    if (!form) {
         return;
     }
-    search.addEventListener('input', function () {
-        var query = search.value.trim().toLowerCase();
-        options.querySelectorAll('.task-group').forEach(function (group) {
-            var visible = 0;
-            group.querySelectorAll('.task-option').forEach(function (item) {
-                var match = !query || item.dataset.search.toLowerCase().indexOf(query) !== -1;
-                item.classList.toggle('d-none', !match);
-                if (match) {
-                    visible += 1;
+    var select = document.getElementById('id_topic');
+    var container = document.getElementById('topic-tasks');
+    var baseUrl = form.dataset.tasksUrl;
+    var selectedTask = form.dataset.selected || '';
+
+    function loadTasks() {
+        if (!select.value) {
+            container.innerHTML = '';
+            return;
+        }
+        var url = baseUrl + '?topic=' + encodeURIComponent(select.value);
+        if (selectedTask) {
+            url += '&selected=' + encodeURIComponent(selectedTask);
+        }
+        container.innerHTML = '<p class="text-muted small mb-0">Загрузка…</p>';
+        fetch(url)
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error('Ошибка загрузки');
                 }
+                return response.text();
+            })
+            .then(function (html) {
+                container.innerHTML = html;
+            })
+            .catch(function () {
+                container.innerHTML = '<p class="text-danger small mb-0">Не удалось загрузить задачи.</p>';
             });
-            group.classList.toggle('d-none', visible === 0);
-        });
+    }
+
+    select.addEventListener('change', function () {
+        selectedTask = '';
+        loadTasks();
     });
+
+    form.addEventListener('change', function (event) {
+        if (event.target.name === 'task') {
+            selectedTask = event.target.value;
+        }
+    });
+
+    if (select.value) {
+        loadTasks();
+    }
 });
 </script>
 {% endblock %}
