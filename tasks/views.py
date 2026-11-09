@@ -10,7 +10,6 @@ from PIL import Image
 from accounts.decorators import teacher_required
 
 from .forms import (
-    NO_NUMBER_VALUE,
     AddTaskForm,
     AnswerOptionFormSet,
     CourseForm,
@@ -381,31 +380,6 @@ def task_image_upload(request):
     return JsonResponse({
         'token': str(task_image.token),
         'url': task_image.image.url,
-    })
-
-
-@teacher_required
-def lesson_task_options(request, pk):
-    lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
-    number = request.GET.get('number', '').strip()
-    selected = request.GET.get('selected', '').strip()
-    tasks = (
-        Task.objects
-        .filter(author=request.user)
-        .exclude(id__in=lesson.entries.values_list('task_id', flat=True))
-        .select_related('bank', 'topic')
-        .prefetch_related('answer_options')
-        .order_by('task_number', 'id')
-    )
-    if number == NO_NUMBER_VALUE:
-        tasks = tasks.filter(task_number='')
-    elif number:
-        tasks = tasks.filter(task_number=number)
-    else:
-        tasks = tasks.none()
-    return render(request, 'tasks/_lesson_task_options.html', {
-        'tasks': tasks,
-        'selected': selected,
     })
 
 

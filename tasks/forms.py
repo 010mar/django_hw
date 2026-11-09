@@ -227,9 +227,6 @@ class TopicForm(forms.ModelForm):
         return self.cleaned_data['name'].strip()
 
 
-NO_NUMBER_VALUE = 'none'
-
-
 def task_number_sort_key(number):
     return [
         (0, int(part)) if part.isdigit() else (1, part.lower())
@@ -239,10 +236,6 @@ def task_number_sort_key(number):
 
 
 class AddTaskForm(forms.Form):
-    number = forms.ChoiceField(
-        label='Номер задания',
-        widget=forms.Select(attrs={'class': 'form-select'}),
-    )
     task = forms.ModelChoiceField(
         queryset=Task.objects.none(),
         label='Задача',
@@ -257,33 +250,18 @@ class AddTaskForm(forms.Form):
 
     def __init__(self, *args, lesson=None, user=None, **kwargs):
         super().__init__(*args, **kwargs)
-        tasks = Task.objects.all()
+        tasks = Task.objects.select_related('bank')
         if user is not None:
             tasks = tasks.filter(author=user)
         if lesson:
             taken_ids = lesson.entries.values_list('task_id', flat=True)
             tasks = tasks.exclude(id__in=taken_ids)
         self.fields['task'].queryset = tasks
-        numbers = sorted(
-            {
-                number
-                for number in tasks.values_list('task_number', flat=True)
-                if number
-            },
-            key=task_number_sort_key,
+        self.available_tasks = sorted(
+            tasks,
+            key=lambda task: (
+                task.bank.name if task.bank else '',
+                task_number_sort_key(task.task_number or ''),
+                task.pk,
+            ),
         )
-        choices = [('', '— Выберите номер —')]
-        choices += [(number, number) for number in numbers]
-        if tasks.filter(task_number='').exists():
-            choices.append((NO_NUMBER_VALUE, 'Без номера'))
-        self.fields['number'].choices = choices
-
-    def clean(self):
-        cleaned = super().clean()
-        number = cleaned.get('number')
-        task = cleaned.get('task')
-        if number and task:
-            task_number = task.task_number or NO_NUMBER_VALUE
-            if task_number != number:
-                self.add_error('task', 'Выбранная задача не соответствует номеру.')
-        return cleaned

@@ -128,21 +128,24 @@ class LessonViewTests(DjangoTestCase):
         self.client.force_login(self.teacher)
         response = self.client.post(
             reverse('lesson_add_task', args=[self.lesson.pk]),
-            {'number': '1_1', 'task': self.task.pk, 'order': 1},
+            {'task': self.task.pk, 'order': 1},
         )
         self.assertRedirects(response, reverse('lesson_detail', args=[self.lesson.pk]))
         self.assertEqual(self.lesson.entries.count(), 1)
         self.client.post(reverse('lesson_remove_task', args=[self.lesson.pk, self.task.pk]))
         self.assertEqual(self.lesson.entries.count(), 0)
 
-    def test_add_task_rejects_task_with_other_number(self):
+    def test_add_task_rejects_foreign_task(self):
+        other = User.objects.create_user(
+            username='other', password='pass12345', role=User.Role.TEACHER,
+        )
         other_task = Task.objects.create(
-            title='Задача 2', author=self.teacher, task_number='2_1',
+            title='Чужая', author=other, task_number='2_1',
         )
         self.client.force_login(self.teacher)
         response = self.client.post(
             reverse('lesson_add_task', args=[self.lesson.pk]),
-            {'number': '1_1', 'task': other_task.pk, 'order': 1},
+            {'task': other_task.pk, 'order': 1},
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.lesson.entries.count(), 0)
@@ -155,80 +158,41 @@ class LessonViewTests(DjangoTestCase):
         self.assertFalse(queryset.filter(pk=self.task.pk).exists())
         self.assertIn(self.task2, queryset)
 
-    def test_add_task_form_lists_numbers(self):
+    def test_add_task_form_sorts_tasks_naturally(self):
         for number in ('1_10', '1_1', '2_1'):
             Task.objects.create(
                 title=number, author=self.teacher, task_number=number,
             )
         form = AddTaskForm(user=self.teacher)
-        numbers = [
-            value for value, _ in form.fields['number'].choices
-            if value not in ('', 'none')
-        ]
-        self.assertEqual(numbers, ['1_1', '1_10', '2_1'])
+        numbers = [task.task_number for task in form.available_tasks]
+        self.assertEqual(numbers[-3:], ['1_1', '1_10', '2_1'])
 
-    def test_add_task_form_hides_taken_numbers(self):
-        LessonTask.objects.create(lesson=self.lesson, task=self.task, order=1)
-        form = AddTaskForm(lesson=self.lesson, user=self.teacher)
-        numbers = [value for value, _ in form.fields['number'].choices]
-        self.assertNotIn('1_1', numbers)
-
-    def test_lesson_detail_has_task_options(self):
+    def test_lesson_detail_lists_available_tasks(self):
         self.client.force_login(self.teacher)
         response = self.client.get(reverse('lesson_detail', args=[self.lesson.pk]))
-        self.assertContains(
-            response, reverse('lesson_task_options', args=[self.lesson.pk]),
-        )
+        self.assertContains(response, self.task.task_number)
+        self.assertContains(response, f'id="task-option-{self.task.pk}"')
 
-    def test_lesson_task_options_lists_all_tasks_with_number(self):
-        bank1 = TaskBank.objects.create(name='База 1', author=self.teacher)
-        bank2 = TaskBank.objects.create(name='База 2', author=self.teacher)
-        Task.objects.create(
-            title='Первая', author=self.teacher, task_number='1_1',
-            bank=bank1, body='Условие первой',
-        )
-        Task.objects.create(
-            title='Вторая', author=self.teacher, task_number='1_1',
-            bank=bank2, body='Условие второй',
-        )
-        self.client.force_login(self.teacher)
-        response = self.client.get(
-            reverse('lesson_task_options', args=[self.lesson.pk]),
-            {'number': '1_1'},
-        )
-        self.assertContains(response, 'Условие первой')
-        self.assertContains(response, 'Условие второй')
-
-    def test_lesson_task_options_excludes_tasks_from_lesson(self):
-        self.task.body = 'Условие задачи из урока'
-        self.task.save()
-        Task.objects.create(
-            title='Другая', author=self.teacher, task_number='1_1',
-            body='Условие другой задачи',
+    def test_lesson_detail_excludes_tasks_from_lesson(self):
+        self.task2 = Task.objects.create(
+            title='Задача 2', author=self.teacher, task_number='2_1',
         )
         LessonTask.objects.create(lesson=self.lesson, task=self.task, order=1)
         self.client.force_login(self.teacher)
-        response = self.client.get(
-            reverse('lesson_task_options', args=[self.lesson.pk]),
-            {'number': '1_1'},
-        )
-        self.assertNotContains(response, 'Условие задачи из урока')
-        self.assertContains(response, 'Условие другой задачи')
+        response = self.client.get(reverse('lesson_detail', args=[self.lesson.pk]))
+        self.assertNotContains(response, f'id="task-option-{self.task.pk}"')
+        self.assertContains(response, f'id="task-option-{self.task2.pk}"')
 
-    def test_lesson_task_options_only_own_tasks(self):
+    def test_lesson_detail_lists_only_own_tasks(self):
         other = User.objects.create_user(
             username='other', password='pass12345', role=User.Role.TEACHER,
         )
-        Task.objects.create(
+        other_task = Task.objects.create(
             title='Чужая', author=other, task_number='1_1',
-            body='Чужое условие',
         )
         self.client.force_login(self.teacher)
-        response = self.client.get(
-            reverse('lesson_task_options', args=[self.lesson.pk]),
-            {'number': '1_1'},
-        )
-        self.assertNotContains(response, 'Чужое условие')
+        response = self.client.get(reverse('lesson_detail', args=[self.lesson.pk]))
+        self.assertNotContains(response, f'id="task-option-{other_task.pk}"')
 
 
 class CourseViewTests(DjangoTestCase):
