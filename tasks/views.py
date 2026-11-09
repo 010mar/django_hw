@@ -76,20 +76,13 @@ def bank_create(request):
 def bank_detail(request, pk):
     bank = get_object_or_404(TaskBank, pk=pk, author=request.user)
 
-    number_query = request.GET.get('task_number', '').strip()
-    if number_query:
-        task = (
-            Task.objects
-            .filter(bank=bank, author=request.user, task_number__iexact=number_query)
-            .first()
-        )
-        if task is None and number_query.isdigit():
-            task = Task.objects.filter(
-                pk=int(number_query), bank=bank, author=request.user,
-            ).first()
-        if task is not None:
+    task_number = request.GET.get('task_number', '').strip()
+    if task_number:
+        try:
+            task = Task.objects.get(pk=int(task_number), bank=bank, author=request.user)
             return redirect('task_detail', pk=task.pk)
-        messages.warning(request, f'Задача с номером «{number_query}» не найдена.')
+        except (ValueError, Task.DoesNotExist):
+            pass
 
     tasks = bank.tasks.select_related('author').all()
     topics = bank.topics.all()
@@ -144,13 +137,9 @@ def topic_delete(request, pk):
 @teacher_required
 def bank_edit(request, pk):
     bank = get_object_or_404(TaskBank, pk=pk, author=request.user)
-    old_prefix = bank.number_prefix
     form = TaskBankForm(request.POST or None, instance=bank)
     if request.method == 'POST' and form.is_valid():
         form.save()
-        new_prefix = bank.number_prefix
-        if new_prefix != old_prefix:
-            _renumber_bank_tasks(bank, old_prefix, new_prefix)
         messages.success(request, 'База задач обновлена.')
         return redirect('bank_detail', pk=bank.pk)
     return render(request, 'tasks/bank_form.html', {
@@ -220,44 +209,6 @@ def _reset_sequence_if_empty(model):
             'DELETE FROM sqlite_sequence WHERE name = %s',
             [model._meta.db_table],
         )
-
-
-def _task_number_base(topic):
-    return f'{topic.bank.number_prefix}_{topic.order}_'
-
-
-def _next_task_number(topic):
-    base = _task_number_base(topic)
-    numbers = (
-        Task.objects
-        .filter(topic=topic)
-        .exclude(task_number='')
-        .values_list('task_number', flat=True)
-    )
-    max_seq = 0
-    for number in numbers:
-        if not number.startswith(base):
-            continue
-        try:
-            seq = int(number[len(base):])
-        except ValueError:
-            continue
-        if seq >= 1:
-            max_seq = max(max_seq, seq)
-    return f'{base}{max_seq + 1}'
-
-
-def _renumber_bank_tasks(bank, old_prefix, new_prefix):
-    marker = f'{old_prefix}_'
-    for task in Task.objects.filter(topic__bank=bank).exclude(task_number=''):
-        number = task.task_number
-        if not number.startswith(marker):
-            continue
-        new_number = f'{new_prefix}_{number[len(marker):]}'
-        if task.title == number:
-            task.title = new_number
-        task.task_number = new_number
-        task.save(update_fields=['task_number', 'title'])
 
 
 def _inline_images_for_request(request, task=None):
@@ -335,7 +286,26 @@ def task_create(request):
             task = form.save(commit=False)
             task.author = request.user
             topic = form.cleaned_data.get('topic')
-            task.task_number = _next_task_number(topic) if topic else ''
+            if topic:
+                last_num = (
+                    Task.objects
+                    .filter(topic=topic)
+                    .exclude(task_number='')
+                    .values_list('task_number', flat=True)
+                )
+                max_seq = 0
+                prefix = f'{topic.order}_'
+                for num in last_num:
+                    if num.startswith(prefix):
+                        try:
+                            seq = int(num[len(prefix):])
+                            if seq >= 1:
+                                max_seq = max(max_seq, seq)
+                        except ValueError:
+                            pass
+                task.task_number = f'{prefix}{max_seq + 1}'
+            else:
+                task.task_number = ''
             task.title = task.task_number or 'Без номера'
             formset_errors = _validate_formsets(task, option_formset, case_formset)
             if not formset_errors and not attachment_errors:
@@ -366,7 +336,23 @@ def task_number_preview(request):
         topic = Topic.objects.get(pk=topic_id, bank__author=request.user)
     except Topic.DoesNotExist:
         return JsonResponse({'task_number': ''})
-    return JsonResponse({'task_number': _next_task_number(topic)})
+    last_num = (
+        Task.objects
+        .filter(topic=topic)
+        .exclude(task_number='')
+        .values_list('task_number', flat=True)
+    )
+    max_seq = 0
+    prefix = f'{topic.order}_'
+    for num in last_num:
+        if num.startswith(prefix):
+            try:
+                seq = int(num[len(prefix):])
+                if seq >= 1:
+                    max_seq = max(max_seq, seq)
+            except ValueError:
+                pass
+    return JsonResponse({'task_number': f'{prefix}{max_seq + 1}'})
 
 
 @teacher_required

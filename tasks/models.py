@@ -14,12 +14,6 @@ ALLOWED_ATTACHMENT_EXTENSIONS = ('xls', 'ods', 'txt')
 class TaskBank(models.Model):
     name = models.CharField(max_length=255, verbose_name='Название')
     description = models.TextField(blank=True, verbose_name='Описание')
-    prefix = models.CharField(
-        max_length=8,
-        blank=True,
-        verbose_name='Префикс номера',
-        help_text='Например, ЕГЭ. Если пусто — используется номер базы.',
-    )
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -36,10 +30,6 @@ class TaskBank(models.Model):
 
     def __str__(self):
         return self.name
-
-    @property
-    def number_prefix(self) -> str:
-        return (self.prefix or '').strip() or str(self.pk or '')
 
     @property
     def task_count(self) -> int:

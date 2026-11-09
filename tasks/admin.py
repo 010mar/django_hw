@@ -51,8 +51,8 @@ class CourseModuleAdmin(admin.ModelAdmin):
 
 @admin.register(TaskBank)
 class TaskBankAdmin(admin.ModelAdmin):
-    list_display = ('name', 'prefix', 'author', 'topic_count', 'task_count', 'created_at')
-    search_fields = ('name', 'description', 'prefix')
+    list_display = ('name', 'author', 'topic_count', 'task_count', 'created_at')
+    search_fields = ('name', 'description')
     list_select_related = ('author',)
     inlines = [TopicInline]
 

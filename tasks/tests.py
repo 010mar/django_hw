@@ -301,56 +301,8 @@ class TaskCrudViewTests(DjangoTestCase):
         response = self.client.post(reverse('task_create'), data)
         task = Task.objects.latest('pk')
         self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
-        self.assertEqual(task.task_number, f'{self.bank.number_prefix}_1_1')
+        self.assertEqual(task.task_number, '1_1')
 
-    def test_task_number_uses_custom_bank_prefix(self):
-        self.bank.prefix = 'EGE'
-        self.bank.save(update_fields=['prefix'])
-        data = {
-            'type': 'text',
-            'difficulty': 'easy',
-            'answer_mode': 'short',
-            'correct_answer': '8',
-            'source': 'author',
-        }
-        data.update(self._base_data())
-        data.update(self._formset_data('options', []))
-        data.update(self._formset_data('cases', []))
-        self.client.post(reverse('task_create'), data)
-        task = Task.objects.latest('pk')
-        self.assertEqual(task.task_number, 'EGE_1_1')
-
-    def test_task_numbers_differ_between_banks(self):
-        other_bank = TaskBank.objects.create(
-            name='Информатика ОГЭ', author=self.teacher,
-        )
-        other_topic = Topic.objects.create(bank=other_bank, name='Логика', order=1)
-        data = {
-            'bank': str(other_bank.pk),
-            'topic': str(other_topic.pk),
-            'type': 'text',
-            'difficulty': 'easy',
-            'answer_mode': 'short',
-            'correct_answer': '8',
-            'source': 'author',
-        }
-        data.update(self._formset_data('options', []))
-        data.update(self._formset_data('cases', []))
-        self.client.post(reverse('task_create'), data)
-        task = Task.objects.latest('pk')
-        self.assertEqual(task.task_number, f'{other_bank.number_prefix}_1_1')
-        self.assertNotEqual(
-            task.task_number, f'{self.bank.number_prefix}_1_1',
-        )
-
-    def test_number_preview_includes_bank_prefix(self):
-        response = self.client.get(
-            reverse('task_number_preview'), {'topic_id': self.topic.pk},
-        )
-        self.assertJSONEqual(
-            response.content,
-            {'task_number': f'{self.bank.number_prefix}_1_1'},
-        )
 
     def test_delete_task(self):
         task = Task.objects.create(title='Удаляемая', author=self.teacher)
@@ -416,40 +368,6 @@ class TaskBankTests(DjangoTestCase):
         self.assertRedirects(response, reverse('bank_detail', args=[bank.pk]))
         bank.refresh_from_db()
         self.assertEqual(bank.name, 'Новое имя')
-
-    def test_changing_bank_prefix_renumbers_tasks(self):
-        bank = TaskBank.objects.create(name='База', author=self.teacher)
-        topic = Topic.objects.create(bank=bank, name='Тема', order=1)
-        old_number = f'{bank.number_prefix}_1_1'
-        task = Task.objects.create(
-            title=old_number, author=self.teacher, bank=bank, topic=topic,
-            task_number=old_number,
-        )
-        self.client.force_login(self.teacher)
-        response = self.client.post(reverse('bank_edit', args=[bank.pk]), {
-            'name': bank.name,
-            'description': '',
-            'prefix': 'EGE',
-        })
-        self.assertRedirects(response, reverse('bank_detail', args=[bank.pk]))
-        task.refresh_from_db()
-        self.assertEqual(task.task_number, 'EGE_1_1')
-        self.assertEqual(task.title, 'EGE_1_1')
-
-    def test_bank_detail_searches_task_by_number(self):
-        bank = TaskBank.objects.create(
-            name='Информатика ЕГЭ', author=self.teacher, prefix='EGE',
-        )
-        topic = Topic.objects.create(bank=bank, name='Тема', order=1)
-        task = Task.objects.create(
-            title='EGE_1_1', author=self.teacher, bank=bank, topic=topic,
-            task_number='EGE_1_1',
-        )
-        self.client.force_login(self.teacher)
-        response = self.client.get(
-            reverse('bank_detail', args=[bank.pk]), {'task_number': 'ege_1_1'},
-        )
-        self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
 
     def test_delete_bank(self):
         bank = TaskBank.objects.create(name='База', author=self.teacher)
@@ -644,14 +562,13 @@ class TaskTopicTests(DjangoTestCase):
         })
         task = Task.objects.latest('pk')
         self.assertEqual(task.topic, topic)
-        self.assertEqual(task.task_number, f'{self.bank.number_prefix}_1_1')
+        self.assertEqual(task.task_number, '1_1')
 
     def test_task_number_sequence_per_topic(self):
         topic = Topic.objects.create(bank=self.bank, name='Логика', order=1)
-        existing_number = f'{self.bank.number_prefix}_1_1'
         Task.objects.create(
-            title=existing_number, author=self.teacher, bank=self.bank, topic=topic,
-            task_number=existing_number,
+            title='1_1', author=self.teacher, bank=self.bank, topic=topic,
+            task_number='1_1',
         )
         response = self.client.post(reverse('task_create'), {
             'bank': str(self.bank.pk),
@@ -672,7 +589,7 @@ class TaskTopicTests(DjangoTestCase):
         })
         task = Task.objects.latest('pk')
         self.assertRedirects(response, reverse('task_detail', args=[task.pk]))
-        self.assertEqual(task.task_number, f'{self.bank.number_prefix}_1_2')
+        self.assertEqual(task.task_number, '1_2')
 
 
     def test_topic_queryset_limited_to_bank(self):
