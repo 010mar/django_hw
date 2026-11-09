@@ -27,7 +27,7 @@ class TaskBank(models.Model):
     class Meta:
         verbose_name = 'База задач'
         verbose_name_plural = 'Базы задач'
-        ordering = ('-created_at',)
+        ordering = ('created_at',)
 
     def __str__(self):
         return self.name

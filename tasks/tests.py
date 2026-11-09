@@ -393,6 +393,13 @@ class TaskBankTests(DjangoTestCase):
         self.assertContains(response, 'Моя база')
         self.assertNotContains(response, 'Чужая база')
 
+    def test_bank_list_orders_oldest_first(self):
+        old = TaskBank.objects.create(name='Старая база', author=self.teacher)
+        new = TaskBank.objects.create(name='Новая база', author=self.teacher)
+        self.client.force_login(self.teacher)
+        response = self.client.get(reverse('bank_list'))
+        self.assertEqual(list(response.context['banks']), [old, new])
+
     def test_edit_bank(self):
         bank = TaskBank.objects.create(name='База', author=self.teacher)
         self.client.force_login(self.teacher)
