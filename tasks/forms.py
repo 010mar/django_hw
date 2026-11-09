@@ -1,3 +1,5 @@
+import re
+
 from django import forms
 from django.db.models import Case, When
 
@@ -203,11 +205,20 @@ class LessonForm(forms.ModelForm):
 class TaskBankForm(forms.ModelForm):
     class Meta:
         model = TaskBank
-        fields = ('name', 'description')
+        fields = ('name', 'description', 'prefix')
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'prefix': forms.TextInput(attrs={'class': 'form-control'}),
         }
+
+    def clean_prefix(self):
+        prefix = (self.cleaned_data.get('prefix') or '').strip()
+        if prefix and not re.fullmatch(r'[A-Za-zА-Яа-яЁё0-9-]+', prefix):
+            raise forms.ValidationError(
+                'Префикс может содержать буквы, цифры и дефис.'
+            )
+        return prefix
 
 
 class TopicForm(forms.ModelForm):

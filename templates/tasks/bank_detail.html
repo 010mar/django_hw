@@ -23,7 +23,8 @@
     <div class="col-md-5">
         <h6 class="text-muted mb-2">Поиск по номеру</h6>
         <form method="get" class="d-flex gap-2">
-            <input type="number" name="task_number" class="form-control" placeholder="Номер задачи" min="1">
+            <input type="text" name="task_number" class="form-control"
+                   placeholder="{{ bank.number_prefix }}_1_5" autocomplete="off">
             <button type="submit" class="btn btn-outline-secondary btn-sm text-nowrap">Показать задачу</button>
         </form>
     </div>
