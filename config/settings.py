@@ -177,3 +177,8 @@ SOCIALACCOUNT_PROVIDERS = {
         'SCOPE': ['login:email', 'login:info'],
     },
 }
+
+SANDBOX_RUNNER = os.environ.get('DJANGO_SANDBOX_RUNNER', 'auto')
+SANDBOX_DOCKER_IMAGE = os.environ.get(
+    'DJANGO_SANDBOX_DOCKER_IMAGE', 'python:3.12-alpine'
+)

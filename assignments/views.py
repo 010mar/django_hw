@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
+from django.db.models import Count, IntegerField, OuterRef, Q, Subquery
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -13,13 +14,29 @@ from .models import Assignment, ClassGroup, Submission
 
 
 def _visible_assignments(user):
-    from django.db.models import Q
-
     groups = user.class_groups.all()
     return (
         Assignment.objects
         .filter(Q(students=user) | Q(class_group__in=groups))
         .distinct()
+    )
+
+
+def _with_attempt_numbers(queryset):
+    attempt_counts = (
+        Submission.objects
+        .filter(
+            assignment=OuterRef('assignment'),
+            task=OuterRef('task'),
+            student=OuterRef('student'),
+            created_at__lte=OuterRef('created_at'),
+        )
+        .values('assignment')
+        .annotate(total=Count('pk'))
+        .values('total')
+    )
+    return queryset.annotate(
+        attempt_no=Subquery(attempt_counts, output_field=IntegerField())
     )
 
 
@@ -114,7 +131,12 @@ def class_delete(request, pk):
 
 @teacher_required
 def assignment_list(request):
-    assignments = Assignment.objects.filter(author=request.user).prefetch_related('tasks', 'class_group')
+    assignments = (
+        Assignment.objects
+        .filter(author=request.user)
+        .select_related('class_group')
+        .prefetch_related('tasks', 'students', 'class_group__students')
+    )
     return render(request, 'assignments/assignment_list.html', {'assignments': assignments})
 
 
@@ -139,7 +161,9 @@ def assignment_create(request):
 @teacher_required
 def assignment_detail(request, pk):
     assignment = get_object_or_404(
-        Assignment.objects.prefetch_related('tasks', 'class_group'),
+        Assignment.objects.select_related('class_group').prefetch_related(
+            'tasks', 'class_group__students',
+        ),
         pk=pk,
         author=request.user,
     )
@@ -174,15 +198,14 @@ def assignment_delete(request, pk):
 @teacher_required
 def assignment_grade(request, pk):
     assignment = get_object_or_404(Assignment, pk=pk, author=request.user)
-    submissions = (
+    submissions = _with_attempt_numbers(
         Submission.objects
         .filter(assignment=assignment, task__type=Task.Type.IMAGE)
         .select_related('student', 'task')
         .exclude(status__in=[Submission.Status.CORRECT, Submission.Status.INCORRECT,
                              Submission.Status.OK, Submission.Status.WA,
                              Submission.Status.TLE, Submission.Status.RE, Submission.Status.CE])
-        .order_by('-created_at')
-    )
+    ).order_by('-created_at')
     return render(request, 'assignments/assignment_grade.html', {
         'assignment': assignment,
         'submissions': submissions,
@@ -203,18 +226,27 @@ def grade_submission(request, submission_id):
 
 @login_required
 def my_assignments(request):
-    assignments = _visible_assignments(request.user).prefetch_related('tasks', 'class_group')
-    progress = {}
-    for assignment in assignments:
-        solved = Submission.objects.filter(
-            assignment=assignment,
+    assignments = list(
+        _visible_assignments(request.user).prefetch_related('tasks')
+    )
+    solved_rows = (
+        Submission.objects
+        .filter(
+            assignment__in=assignments,
             student=request.user,
             status__in=Submission.SOLVED_STATUSES,
-        ).values('task_id').distinct().count()
-        progress[assignment.pk] = {
-            'solved': solved,
+        )
+        .values('assignment_id')
+        .annotate(solved=Count('task_id', distinct=True))
+    )
+    solved_map = {row['assignment_id']: row['solved'] for row in solved_rows}
+    progress = {
+        assignment.pk: {
+            'solved': solved_map.get(assignment.pk, 0),
             'total': assignment.tasks.count(),
         }
+        for assignment in assignments
+    }
     return render(request, 'assignments/my_assignments.html', {
         'assignments': assignments,
         'progress': progress,
@@ -242,10 +274,14 @@ def assignment_solve(request, pk):
 def solve_task(request, assignment_id, task_id):
     assignment = get_object_or_404(_visible_assignments(request.user), pk=assignment_id)
     task = get_object_or_404(Task, pk=task_id, assignments=assignment)
-    history = Submission.objects.filter(
-        assignment=assignment, task=task, student=request.user,
-    ).select_related('answer_option').order_by('-created_at')[:5]
-    latest = history.first() if history else None
+    history = list(
+        _with_attempt_numbers(
+            Submission.objects.filter(
+                assignment=assignment, task=task, student=request.user,
+            ).select_related('answer_option')
+        ).order_by('-created_at')[:5]
+    )
+    latest = history[0] if history else None
 
     if request.method == 'POST':
         if task.type == Task.Type.TEXT:
@@ -289,15 +325,23 @@ def _solve_text_task(request, assignment, task):
 
 def _solve_programming_task(request, assignment, task):
     code = request.POST.get('code', '')
+    tests = list(task.test_cases.all().order_by('order', 'id'))
+    if not tests:
+        return Submission.objects.create(
+            assignment=assignment, task=task, student=request.user,
+            code=code, status=Submission.Status.WA,
+            details='У задачи не настроены тесты. Обратитесь к учителю.',
+        )
     runner = get_runner()
     details_lines = []
     final_verdict = Submission.Status.OK
-    for test in task.test_cases.all().order_by('order', 'id'):
+    for test in tests:
         result = runner.check(
             code,
             input_data=test.input_data,
             expected_output=test.expected_output,
             time_limit_ms=task.time_limit_ms,
+            memory_limit_mb=task.memory_limit_mb,
         )
         label = 'Открытый' if test.is_public else 'Скрытый'
         if result.verdict == 'ok':

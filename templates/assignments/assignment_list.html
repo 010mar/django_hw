@@ -21,7 +21,7 @@
                         {% if assignment.deadline %}дедлайн {{ assignment.deadline|date:'d.m.Y H:i' }}{% else %}без дедлайна{% endif %}
                     </div>
                 </div>
-                <span class="badge bg-secondary rounded-pill">{{ assignment.effective_students.count }} уч.</span>
+                <span class="badge bg-secondary rounded-pill">{{ assignment.student_count }} уч.</span>
             </a>
         {% endfor %}
     </div>

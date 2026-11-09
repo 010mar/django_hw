@@ -1,6 +1,11 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
+from django.db import connection
 from django.test import TestCase as DjangoTestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+from django.utils import timezone
 
 from tasks.models import AnswerOption, Lesson, LessonTask, Task
 from tasks.models import TestCase as TaskTestCase
@@ -111,8 +116,22 @@ class AssignmentFlowTests(DjangoTestCase):
         sub = Submission.objects.get(task=self.prog_task)
         self.assertEqual(sub.status, Submission.Status.WA)
 
+    def test_solve_programming_without_tests_is_not_accepted(self):
+        bare_task = Task.objects.create(
+            title='Без тестов', type=Task.Type.PROGRAMMING, author=self.teacher,
+        )
+        self.assignment.tasks.add(bare_task)
+        self.client.post(
+            reverse('solve_task', args=[self.assignment.pk, bare_task.pk]),
+            {'code': 'print(1)\n'},
+        )
+        sub = Submission.objects.get(task=bare_task)
+        self.assertEqual(sub.status, Submission.Status.WA)
+        self.assertIn('не настроены тесты', sub.details)
+
     def test_solve_image_pending(self):
         from io import BytesIO
+
         from PIL import Image
 
         buf = BytesIO()
@@ -136,6 +155,40 @@ class AssignmentFlowTests(DjangoTestCase):
         sub.refresh_from_db()
         self.assertEqual(sub.status, Submission.Status.ACCEPTED)
         self.assertEqual(sub.graded_by, self.teacher)
+
+    def test_grade_page_shows_attempt_numbers(self):
+        first = Submission.objects.create(
+            assignment=self.assignment, task=self.image_task,
+            student=self.student, status=Submission.Status.PENDING,
+        )
+        Submission.objects.filter(pk=first.pk).update(
+            created_at=timezone.now() - timedelta(minutes=1),
+        )
+        Submission.objects.create(
+            assignment=self.assignment, task=self.image_task,
+            student=self.student, status=Submission.Status.PENDING,
+        )
+        self.client.force_login(self.teacher)
+        response = self.client.get(
+            reverse('assignment_grade', args=[self.assignment.pk]),
+        )
+        self.assertContains(response, 'Попытка №1')
+        self.assertContains(response, 'Попытка №2')
+
+    def test_my_assignments_query_count_is_stable(self):
+        self.client.force_login(self.student)
+        with CaptureQueriesContext(connection) as single:
+            self.client.get(reverse('my_assignments'))
+        extra_task = Task.objects.create(title='Ещё', author=self.teacher)
+        for index in range(4):
+            extra = Assignment.objects.create(
+                title=f'ДЗ {index}', author=self.teacher,
+                class_group=self.class_group,
+            )
+            extra.tasks.set([extra_task])
+        with CaptureQueriesContext(connection) as multiple:
+            self.client.get(reverse('my_assignments'))
+        self.assertEqual(len(single), len(multiple))
 
     def test_teacher_only_views(self):
         self.client.force_login(self.student)

@@ -7,8 +7,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from accounts.decorators import teacher_required
 from assignments.models import ClassGroup
 
-from .heatmap import build_heatmap
 from . import services
+from .heatmap import build_heatmap
 
 
 def _can_view_student(user, student) -> bool:
@@ -54,38 +54,23 @@ def parent_children(request):
     if not request.user.is_parent:
         messages.warning(request, 'Эта страница доступна только родителю.')
         return redirect('home')
-    children = []
-    for link in request.user.children.select_related('child'):
-        children.append({
-            'child': link.child,
-            'solved': services.solved_total(link.child),
-        })
+    child_users = [
+        link.child for link in request.user.children.select_related('child')
+    ]
+    solved_map = services.solved_totals(child_users)
+    children = [
+        {'child': child, 'solved': solved_map.get(child.pk, 0)}
+        for child in child_users
+    ]
     return render(request, 'stats/parent_children.html', {'children': children})
 
 
 @teacher_required
 def class_stats(request, pk):
     class_group = get_object_or_404(ClassGroup, pk=pk, teacher=request.user)
-    rows = []
-    for student in class_group.students.all():
-        progress = services.assignment_progress(
-            student,
-            assignments=class_group.assignments.all(),
-        )
-        solved = sum(item['solved'] for item in progress)
-        total = sum(item['total'] for item in progress)
-        rows.append({
-            'student': student,
-            'solved': solved,
-            'total': total,
-            'percent': round(solved / total * 100) if total else 0,
-        })
-    class_percent = (
-        round(sum(row['percent'] for row in rows) / len(rows))
-        if rows else 0
-    )
+    progress = services.class_progress(class_group)
     return render(request, 'stats/class_stats.html', {
         'class_group': class_group,
-        'rows': rows,
-        'class_percent': class_percent,
+        'rows': progress['rows'],
+        'class_percent': progress['class_percent'],
     })

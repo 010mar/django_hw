@@ -1,4 +1,5 @@
 import uuid
+from typing import ClassVar
 
 from django.conf import settings
 from django.db import models
@@ -95,6 +96,12 @@ class Assignment(models.Model):
         return students.distinct().order_by('last_name', 'first_name', 'username')
 
     @property
+    def student_count(self):
+        if self.class_group_id:
+            return self.class_group.students.count()
+        return self.students.count()
+
+    @property
     def tasks_ordered(self):
         if self.lesson_id:
             lesson_order = {
@@ -186,6 +193,10 @@ class Submission(models.Model):
         verbose_name = 'Решение'
         verbose_name_plural = 'Решения'
         ordering = ('-created_at',)
+        indexes: ClassVar[list[models.Index]] = [
+            models.Index(fields=['assignment', 'task', 'student']),
+            models.Index(fields=['student', 'status']),
+        ]
 
     def __str__(self):
         return f'{self.student} — {self.task.title}'
@@ -196,6 +207,9 @@ class Submission(models.Model):
 
     @property
     def attempt_number(self):
+        precomputed = self.__dict__.get('attempt_no')
+        if precomputed is not None:
+            return precomputed
         return Submission.objects.filter(
             assignment=self.assignment,
             task=self.task,
