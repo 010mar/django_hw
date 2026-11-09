@@ -68,12 +68,22 @@
                                 Лимит времени: {{ task.time_limit_ms }} мс, память: {{ task.memory_limit_mb }} МБ
                             </p>
                         {% endif %}
-                        <form method="post" action="{% url 'lesson_quick_add_task' lesson.pk task.pk %}">
-                            {% csrf_token %}
-                            <input type="hidden" name="bank" value="{{ current_bank_id|default:'' }}">
-                            <input type="hidden" name="topic" value="{{ current_topic.pk|default:'' }}">
-                            <button type="submit" class="btn btn-outline-primary w-100">Добавить в урок</button>
-                        </form>
+                        {% if task.pk in lesson_task_ids %}
+                            <form method="post" action="{% url 'lesson_remove_task' lesson.pk task.pk %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="bank" value="{{ current_bank_id|default:'' }}">
+                                <input type="hidden" name="topic" value="{{ current_topic.pk|default:'' }}">
+                                <button type="submit" class="btn btn-success w-100"
+                                        title="Нажмите, чтобы убрать задачу из урока">Добавлена в урок</button>
+                            </form>
+                        {% else %}
+                            <form method="post" action="{% url 'lesson_quick_add_task' lesson.pk task.pk %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="bank" value="{{ current_bank_id|default:'' }}">
+                                <input type="hidden" name="topic" value="{{ current_topic.pk|default:'' }}">
+                                <button type="submit" class="btn btn-outline-primary w-100">Добавить в урок</button>
+                            </form>
+                        {% endif %}
                     </div>
                 </div>
             {% empty %}
@@ -135,6 +145,8 @@
                                 <form method="post" action="{% url 'lesson_remove_task' lesson.pk entry.task.pk %}"
                                       onsubmit="return confirm('Убрать задачу из урока?');">
                                     {% csrf_token %}
+                                    <input type="hidden" name="bank" value="{{ current_bank_id|default:'' }}">
+                                    <input type="hidden" name="topic" value="{{ current_topic.pk|default:'' }}">
                                     <button type="submit" class="btn btn-sm btn-outline-danger">Убрать</button>
                                 </form>
                             </div>

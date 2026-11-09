@@ -12,7 +12,6 @@ from PIL import Image
 from accounts.decorators import teacher_required
 
 from .forms import (
-    AddTaskForm,
     AnswerOptionFormSet,
     CourseForm,
     CourseModuleForm,
@@ -488,20 +487,16 @@ def _parse_id(value):
 @teacher_required
 def lesson_detail(request, pk):
     lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
-    available = (
-        Task.objects
-        .filter(author=request.user)
-        .exclude(id__in=lesson.entries.values_list('task_id', flat=True))
-    )
+    base_tasks = Task.objects.filter(author=request.user)
     banks = (
         TaskBank.objects
-        .filter(author=request.user, tasks__in=available)
+        .filter(author=request.user, tasks__in=base_tasks)
         .distinct()
         .order_by('name')
     )
     all_topics = (
         Topic.objects
-        .filter(bank__author=request.user, tasks__in=available)
+        .filter(bank__author=request.user, tasks__in=base_tasks)
         .select_related('bank')
         .distinct()
         .order_by('order', 'name')
@@ -517,7 +512,7 @@ def lesson_detail(request, pk):
         current_topic = topics.filter(pk=topic_id).first()
         if current_topic:
             tasks = list(
-                available
+                base_tasks
                 .filter(topic_id=topic_id)
                 .select_related('bank', 'topic')
                 .prefetch_related('answer_options')
@@ -528,6 +523,9 @@ def lesson_detail(request, pk):
                     task.pk,
                 ),
             )
+    lesson_task_ids = set(
+        lesson.entries.values_list('task_id', flat=True)
+    )
     return render(request, 'tasks/lesson_detail.html', {
         'lesson': lesson,
         'banks': banks,
@@ -536,7 +534,22 @@ def lesson_detail(request, pk):
         'tasks': tasks,
         'current_bank_id': bank_id,
         'current_topic': current_topic,
+        'lesson_task_ids': lesson_task_ids,
     })
+
+
+def _lesson_redirect(pk, data):
+    url = reverse('lesson_detail', args=[pk])
+    params = {}
+    bank_id = data.get('bank')
+    topic_id = data.get('topic')
+    if bank_id:
+        params['bank'] = bank_id
+    if topic_id:
+        params['topic'] = topic_id
+    if params:
+        url += '?' + urlencode(params)
+    return url
 
 
 @teacher_required
@@ -551,17 +564,7 @@ def lesson_quick_add_task(request, pk, task_id):
         next_order = (lesson.entries.aggregate(Max('order'))['order__max'] or 0) + 1
         LessonTask.objects.create(lesson=lesson, task=task, order=next_order)
         messages.success(request, 'Задача добавлена в урок.')
-    url = reverse('lesson_detail', args=[pk])
-    params = {}
-    bank_id = request.POST.get('bank')
-    topic_id = request.POST.get('topic')
-    if bank_id:
-        params['bank'] = bank_id
-    if topic_id:
-        params['topic'] = topic_id
-    if params:
-        url += '?' + urlencode(params)
-    return redirect(url)
+    return redirect(_lesson_redirect(pk, request.POST))
 
 
 @teacher_required
@@ -589,33 +592,12 @@ def lesson_delete(request, pk):
 
 
 @teacher_required
-def lesson_add_task(request, pk):
-    lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
-    if request.method != 'POST':
-        return redirect('lesson_detail', pk=pk)
-    form = AddTaskForm(request.POST, lesson=lesson, user=request.user)
-    if form.is_valid():
-        LessonTask.objects.create(
-            lesson=lesson,
-            task=form.cleaned_data['task'],
-            order=form.cleaned_data['order'],
-        )
-        messages.success(request, 'Задача добавлена в урок.')
-        return redirect('lesson_detail', pk=pk)
-    messages.error(request, 'Не удалось добавить задачу: проверьте выбранные данные.')
-    return render(request, 'tasks/lesson_detail.html', {
-        'lesson': lesson,
-        'add_task_form': form,
-    })
-
-
-@teacher_required
 def lesson_remove_task(request, pk, task_id):
     lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
     if request.method == 'POST':
         LessonTask.objects.filter(lesson=lesson, task_id=task_id).delete()
         messages.success(request, 'Задача удалена из урока.')
-    return redirect('lesson_detail', pk=pk)
+    return redirect(_lesson_redirect(pk, request.POST))
 
 
 @teacher_required

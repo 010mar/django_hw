@@ -10,7 +10,7 @@ from django.test import override_settings
 from django.urls import reverse
 from PIL import Image as PILImage
 
-from .forms import AddTaskForm, TaskForm
+from .forms import TaskForm
 from .models import (
     AnswerOption,
     Course,
@@ -133,128 +133,16 @@ class LessonViewTests(DjangoTestCase):
 
     def test_add_and_remove_task(self):
         self.client.force_login(self.teacher)
-        response = self.client.post(
-            reverse('lesson_add_task', args=[self.lesson.pk]),
-            {
-                'bank': self.bank.pk,
-                'topic': self.topic.pk,
-                'task': self.task.pk,
-                'order': 1,
-            },
+        self.client.post(
+            reverse('lesson_quick_add_task', args=[self.lesson.pk, self.task.pk]),
+            {'bank': self.bank.pk, 'topic': self.topic.pk},
         )
-        self.assertRedirects(response, reverse('lesson_detail', args=[self.lesson.pk]))
         self.assertEqual(self.lesson.entries.count(), 1)
-        self.client.post(reverse('lesson_remove_task', args=[self.lesson.pk, self.task.pk]))
+        self.client.post(
+            reverse('lesson_remove_task', args=[self.lesson.pk, self.task.pk]),
+            {'bank': self.bank.pk, 'topic': self.topic.pk},
+        )
         self.assertEqual(self.lesson.entries.count(), 0)
-
-    def test_add_task_rejects_foreign_task(self):
-        other = User.objects.create_user(
-            username='other', password='pass12345', role=User.Role.TEACHER,
-        )
-        other_task = Task.objects.create(
-            title='Чужая', author=other, task_number='2_1',
-        )
-        self.client.force_login(self.teacher)
-        response = self.client.post(
-            reverse('lesson_add_task', args=[self.lesson.pk]),
-            {
-                'bank': self.bank.pk,
-                'topic': self.topic.pk,
-                'task': other_task.pk,
-                'order': 1,
-            },
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(self.lesson.entries.count(), 0)
-
-    def test_add_task_rejects_task_from_other_topic(self):
-        topic2 = Topic.objects.create(bank=self.bank, name='Тема 2', order=2)
-        task2 = Task.objects.create(
-            title='Задача 2', author=self.teacher, task_number='2_1',
-            bank=self.bank, topic=topic2,
-        )
-        self.client.force_login(self.teacher)
-        response = self.client.post(
-            reverse('lesson_add_task', args=[self.lesson.pk]),
-            {
-                'bank': self.bank.pk,
-                'topic': self.topic.pk,
-                'task': task2.pk,
-                'order': 1,
-            },
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(self.lesson.entries.count(), 0)
-
-    def test_add_task_form_excludes_existing(self):
-        self.task2 = Task.objects.create(title='Задача 2', author=self.teacher)
-        LessonTask.objects.create(lesson=self.lesson, task=self.task, order=1)
-        form = AddTaskForm(lesson=self.lesson)
-        queryset = form.fields['task'].queryset
-        self.assertFalse(queryset.filter(pk=self.task.pk).exists())
-        self.assertIn(self.task2, queryset)
-
-    def test_add_task_form_lists_banks(self):
-        bank2 = TaskBank.objects.create(name='Информатика ОГЭ', author=self.teacher)
-        topic2 = Topic.objects.create(bank=bank2, name='Тема 2', order=1)
-        Task.objects.create(
-            title='Задача 2', author=self.teacher, task_number='1_1',
-            bank=bank2, topic=topic2,
-        )
-        form = AddTaskForm(user=self.teacher)
-        labels = [label for _, label in form.fields['bank'].choices]
-        self.assertIn('Информатика ЕГЭ', labels)
-        self.assertIn('Информатика ОГЭ', labels)
-
-    def test_add_task_form_lists_topics(self):
-        bank2 = TaskBank.objects.create(name='Информатика ОГЭ', author=self.teacher)
-        topic2 = Topic.objects.create(bank=bank2, name='Тема 2', order=1)
-        Task.objects.create(
-            title='Задача 2', author=self.teacher, task_number='1_1',
-            bank=bank2, topic=topic2,
-        )
-        form = AddTaskForm(user=self.teacher)
-        labels = [label for _, label in form.fields['topic'].choices]
-        self.assertIn('Тема 1', labels)
-        self.assertIn('Тема 2', labels)
-
-    def test_add_task_form_maps_topics_to_banks(self):
-        bank2 = TaskBank.objects.create(name='Информатика ОГЭ', author=self.teacher)
-        topic2 = Topic.objects.create(bank=bank2, name='Тема 2', order=1)
-        Task.objects.create(
-            title='Задача 2', author=self.teacher, task_number='1_1',
-            bank=bank2, topic=topic2,
-        )
-        form = AddTaskForm(user=self.teacher)
-        self.assertEqual(form.topic_bank_map[str(self.topic.pk)], self.bank.pk)
-        self.assertEqual(form.topic_bank_map[str(topic2.pk)], bank2.pk)
-
-    def test_add_task_rejects_topic_from_other_bank(self):
-        bank2 = TaskBank.objects.create(name='Информатика ОГЭ', author=self.teacher)
-        topic2 = Topic.objects.create(bank=bank2, name='Тема 2', order=1)
-        task2 = Task.objects.create(
-            title='Задача 2', author=self.teacher, task_number='1_1',
-            bank=bank2, topic=topic2,
-        )
-        self.client.force_login(self.teacher)
-        response = self.client.post(
-            reverse('lesson_add_task', args=[self.lesson.pk]),
-            {'bank': self.bank.pk, 'topic': topic2.pk, 'task': task2.pk, 'order': 1},
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(self.lesson.entries.count(), 0)
-
-    def test_add_task_form_hides_topics_without_available_tasks(self):
-        topic2 = Topic.objects.create(bank=self.bank, name='Тема 2', order=2)
-        task2 = Task.objects.create(
-            title='Задача 2', author=self.teacher, task_number='2_1',
-            bank=self.bank, topic=topic2,
-        )
-        LessonTask.objects.create(lesson=self.lesson, task=task2, order=1)
-        form = AddTaskForm(lesson=self.lesson, user=self.teacher)
-        topics = list(form.fields['topic'].queryset)
-        self.assertIn(self.topic, topics)
-        self.assertNotIn(topic2, topics)
 
     def test_lesson_detail_has_topic_select(self):
         self.client.force_login(self.teacher)
@@ -319,7 +207,7 @@ class LessonViewTests(DjangoTestCase):
             ),
         )
 
-    def test_lesson_detail_excludes_tasks_from_lesson(self):
+    def test_lesson_detail_marks_tasks_in_lesson(self):
         task2 = Task.objects.create(
             title='Задача 2', author=self.teacher, task_number='1_2',
             bank=self.bank, topic=self.topic, body='Условие второй задачи',
@@ -330,14 +218,29 @@ class LessonViewTests(DjangoTestCase):
             reverse('lesson_detail', args=[self.lesson.pk]),
             {'bank': self.bank.pk, 'topic': self.topic.pk},
         )
-        self.assertNotContains(
+        self.assertContains(response, 'Добавлена в урок')
+        self.assertContains(
             response,
-            reverse('lesson_quick_add_task', args=[self.lesson.pk, self.task.pk]),
+            reverse('lesson_remove_task', args=[self.lesson.pk, self.task.pk]),
         )
         self.assertContains(
             response,
             reverse('lesson_quick_add_task', args=[self.lesson.pk, task2.pk]),
         )
+
+    def test_lesson_remove_task_redirects_with_filters(self):
+        LessonTask.objects.create(lesson=self.lesson, task=self.task, order=1)
+        self.client.force_login(self.teacher)
+        response = self.client.post(
+            reverse('lesson_remove_task', args=[self.lesson.pk, self.task.pk]),
+            {'bank': self.bank.pk, 'topic': self.topic.pk},
+        )
+        expected = (
+            reverse('lesson_detail', args=[self.lesson.pk])
+            + f'?bank={self.bank.pk}&topic={self.topic.pk}'
+        )
+        self.assertRedirects(response, expected)
+        self.assertFalse(self.lesson.entries.filter(task=self.task).exists())
 
     def test_lesson_detail_topic_only_own_tasks(self):
         other = User.objects.create_user(
