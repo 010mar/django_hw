@@ -261,20 +261,11 @@ class LessonViewTests(DjangoTestCase):
         response = self.client.get(reverse('lesson_detail', args=[self.lesson.pk]))
         self.assertContains(response, 'id="id_bank"')
         self.assertContains(response, 'id="id_topic"')
-        self.assertContains(response, 'id="topic-bank-map"')
         self.assertContains(
-            response, reverse('lesson_task_picker', args=[self.lesson.pk]),
+            response, f'action="{reverse("lesson_detail", args=[self.lesson.pk])}"',
         )
 
-    def test_task_picker_requires_teacher(self):
-        self.client.force_login(self.student)
-        response = self.client.get(
-            reverse('lesson_task_picker', args=[self.lesson.pk]),
-        )
-        self.assertEqual(response.status_code, 302)
-        self.assertRedirects(response, reverse('home'))
-
-    def test_task_picker_shows_tasks_for_topic(self):
+    def test_lesson_detail_shows_tasks_for_topic(self):
         task2 = Task.objects.create(
             title='Задача 2', author=self.teacher, task_number='1_2',
             bank=self.bank, topic=self.topic, body='Условие второй задачи',
@@ -286,7 +277,7 @@ class LessonViewTests(DjangoTestCase):
         )
         self.client.force_login(self.teacher)
         response = self.client.get(
-            reverse('lesson_task_picker', args=[self.lesson.pk]),
+            reverse('lesson_detail', args=[self.lesson.pk]),
             {'bank': self.bank.pk, 'topic': self.topic.pk},
         )
         self.assertContains(response, 'Условие второй задачи')
@@ -304,7 +295,7 @@ class LessonViewTests(DjangoTestCase):
             reverse('lesson_quick_add_task', args=[self.lesson.pk, other_task.pk]),
         )
 
-    def test_task_picker_sorts_tasks_naturally(self):
+    def test_lesson_detail_sorts_tasks_naturally(self):
         task10 = Task.objects.create(
             title='Задача 10', author=self.teacher, task_number='1_10',
             bank=self.bank, topic=self.topic, body='Задача 10',
@@ -315,7 +306,7 @@ class LessonViewTests(DjangoTestCase):
         )
         self.client.force_login(self.teacher)
         response = self.client.get(
-            reverse('lesson_task_picker', args=[self.lesson.pk]),
+            reverse('lesson_detail', args=[self.lesson.pk]),
             {'bank': self.bank.pk, 'topic': self.topic.pk},
         )
         content = response.content.decode()
@@ -328,7 +319,7 @@ class LessonViewTests(DjangoTestCase):
             ),
         )
 
-    def test_task_picker_excludes_tasks_from_lesson(self):
+    def test_lesson_detail_excludes_tasks_from_lesson(self):
         task2 = Task.objects.create(
             title='Задача 2', author=self.teacher, task_number='1_2',
             bank=self.bank, topic=self.topic, body='Условие второй задачи',
@@ -336,7 +327,7 @@ class LessonViewTests(DjangoTestCase):
         LessonTask.objects.create(lesson=self.lesson, task=self.task, order=1)
         self.client.force_login(self.teacher)
         response = self.client.get(
-            reverse('lesson_task_picker', args=[self.lesson.pk]),
+            reverse('lesson_detail', args=[self.lesson.pk]),
             {'bank': self.bank.pk, 'topic': self.topic.pk},
         )
         self.assertNotContains(
@@ -348,7 +339,7 @@ class LessonViewTests(DjangoTestCase):
             reverse('lesson_quick_add_task', args=[self.lesson.pk, task2.pk]),
         )
 
-    def test_task_picker_only_own_tasks(self):
+    def test_lesson_detail_topic_only_own_tasks(self):
         other = User.objects.create_user(
             username='other', password='pass12345', role=User.Role.TEACHER,
         )
@@ -360,7 +351,7 @@ class LessonViewTests(DjangoTestCase):
         )
         self.client.force_login(self.teacher)
         response = self.client.get(
-            reverse('lesson_task_picker', args=[self.lesson.pk]),
+            reverse('lesson_detail', args=[self.lesson.pk]),
             {'bank': other_bank.pk, 'topic': other_topic.pk},
         )
         self.assertNotContains(response, 'Чужое условие')
@@ -381,7 +372,7 @@ class LessonViewTests(DjangoTestCase):
             {'bank': self.bank.pk, 'topic': self.topic.pk},
         )
         expected = (
-            reverse('lesson_task_picker', args=[self.lesson.pk])
+            reverse('lesson_detail', args=[self.lesson.pk])
             + f'?bank={self.bank.pk}&topic={self.topic.pk}'
         )
         self.assertRedirects(response, expected)

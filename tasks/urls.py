@@ -26,9 +26,8 @@ urlpatterns = [
     path('lessons/<int:pk>/edit/', views.lesson_edit, name='lesson_edit'),
     path('lessons/<int:pk>/delete/', views.lesson_delete, name='lesson_delete'),
     path('lessons/<int:pk>/add_task/', views.lesson_add_task, name='lesson_add_task'),
-    path('lessons/<int:pk>/task_picker/', views.lesson_task_picker, name='lesson_task_picker'),
     path(
-        'lessons/<int:pk>/task_picker/<int:task_id>/add/',
+        'lessons/<int:pk>/tasks/<int:task_id>/add/',
         views.lesson_quick_add_task,
         name='lesson_quick_add_task',
     ),

@@ -478,16 +478,6 @@ def lesson_create(request):
     return render(request, 'tasks/lesson_form.html', {'form': form, 'is_create': True})
 
 
-@teacher_required
-def lesson_detail(request, pk):
-    lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
-    add_task_form = AddTaskForm(lesson=lesson, user=request.user)
-    return render(request, 'tasks/lesson_detail.html', {
-        'lesson': lesson,
-        'add_task_form': add_task_form,
-    })
-
-
 def _parse_id(value):
     try:
         return int(value) if value else None
@@ -496,7 +486,7 @@ def _parse_id(value):
 
 
 @teacher_required
-def lesson_task_picker(request, pk):
+def lesson_detail(request, pk):
     lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
     available = (
         Task.objects
@@ -509,13 +499,15 @@ def lesson_task_picker(request, pk):
         .distinct()
         .order_by('name')
     )
-    bank_id = _parse_id(request.GET.get('bank'))
-    topics = (
+    all_topics = (
         Topic.objects
         .filter(bank__author=request.user, tasks__in=available)
+        .select_related('bank')
         .distinct()
         .order_by('order', 'name')
     )
+    bank_id = _parse_id(request.GET.get('bank'))
+    topics = all_topics
     if bank_id:
         topics = topics.filter(bank_id=bank_id)
     topic_id = _parse_id(request.GET.get('topic'))
@@ -536,9 +528,10 @@ def lesson_task_picker(request, pk):
                     task.pk,
                 ),
             )
-    return render(request, 'tasks/lesson_task_picker.html', {
+    return render(request, 'tasks/lesson_detail.html', {
         'lesson': lesson,
         'banks': banks,
+        'all_topics': all_topics,
         'topics': topics,
         'tasks': tasks,
         'current_bank_id': bank_id,
@@ -558,7 +551,7 @@ def lesson_quick_add_task(request, pk, task_id):
         next_order = (lesson.entries.aggregate(Max('order'))['order__max'] or 0) + 1
         LessonTask.objects.create(lesson=lesson, task=task, order=next_order)
         messages.success(request, 'Задача добавлена в урок.')
-    url = reverse('lesson_task_picker', args=[pk])
+    url = reverse('lesson_detail', args=[pk])
     params = {}
     bank_id = request.POST.get('bank')
     topic_id = request.POST.get('topic')

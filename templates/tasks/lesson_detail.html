@@ -1,6 +1,9 @@
 {% extends 'base.html' %}
+{% load task_filters %}
 
 {% block title %}{{ lesson.title }}{% endblock %}
+
+{% block extra_head %}{% include 'tasks/_katex_head.html' %}{% endblock %}
 
 {% block content %}
 {% if lesson.module %}
@@ -22,51 +25,123 @@
 {% endif %}
 
 <div class="row">
-    <div class="col-lg-7">
-        <h5 class="mb-3">Задачи урока ({{ lesson.entries.count }})</h5>
-        {% if lesson.task_entries %}
-            <div class="list-group mb-4">
-                {% for entry in lesson.task_entries %}
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <span class="badge bg-light text-dark me-2">№{{ entry.order }}</span>
-                            <span class="badge bg-secondary">{{ entry.task.type_verbose }}</span>
-                            <span class="badge bg-warning text-dark">{{ entry.task.difficulty_verbose }}</span>
-                            <strong class="ms-1">{{ entry.task.title }}</strong>
+    <div class="col-lg-8">
+        {% if current_topic %}
+            <h5 class="mb-3">Задания темы «{{ current_topic.name }}» ({{ tasks|length }})</h5>
+            {% for task in tasks %}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="mb-0">Задание {{ task.task_number|default:task.pk }}</h5>
+                            <span class="badge bg-light text-dark border">{{ task.difficulty_verbose }}</span>
                         </div>
-                        <form method="post" action="{% url 'lesson_remove_task' lesson.pk entry.task.pk %}"
-                              onsubmit="return confirm('Убрать задачу из урока?');">
+                        <div class="text-muted small mb-3">
+                            {% if task.source %}{{ task.get_source_display }}{% endif %}
+                            {% if task.topic %} · {{ task.topic.name }}{% endif %}
+                            · {{ task.type_verbose }}
+                            {% if task.bank %} · {{ task.bank.name }}{% endif %}
+                        </div>
+                        <div class="text-break js-math mb-3">{{ task.body|render_task_body:task }}</div>
+                        {% if task.image %}
+                            <img src="{{ task.image.url }}" alt="Иллюстрация" class="img-fluid mb-3 rounded">
+                        {% endif %}
+                        {% if task.type == 'text' %}
+                            <details class="mb-3">
+                                <summary class="text-primary">Показать ответ</summary>
+                                {% if task.answer_mode == 'choice' %}
+                                    <ul class="list-group mt-2">
+                                        {% for option in task.answer_options.all %}
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                <span class="js-math">{{ option.text }}</span>
+                                                {% if option.is_correct %}
+                                                    <span class="badge bg-success">правильный</span>
+                                                {% endif %}
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                {% else %}
+                                    <p class="mb-0 mt-2">Правильный ответ: <code>{{ task.correct_answer }}</code></p>
+                                {% endif %}
+                            </details>
+                        {% elif task.type == 'programming' %}
+                            <p class="text-muted small mb-3">
+                                Лимит времени: {{ task.time_limit_ms }} мс, память: {{ task.memory_limit_mb }} МБ
+                            </p>
+                        {% endif %}
+                        <form method="post" action="{% url 'lesson_quick_add_task' lesson.pk task.pk %}">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-outline-danger">Убрать</button>
+                            <input type="hidden" name="bank" value="{{ current_bank_id|default:'' }}">
+                            <input type="hidden" name="topic" value="{{ current_topic.pk|default:'' }}">
+                            <button type="submit" class="btn btn-outline-primary w-100">Добавить в урок</button>
                         </form>
                     </div>
-                {% endfor %}
-            </div>
+                </div>
+            {% empty %}
+                <div class="alert alert-secondary">В этой теме нет доступных задач.</div>
+            {% endfor %}
         {% else %}
-            <div class="alert alert-secondary">В уроке пока нет задач.</div>
+            <div class="alert alert-secondary">
+                Выберите базу задач и тему справа, чтобы увидеть задания.
+            </div>
         {% endif %}
     </div>
 
-    <div class="col-lg-5">
-        <div class="card">
+    <div class="col-lg-4">
+        <div class="card mb-3">
             <div class="card-body">
                 <h5 class="mb-3">Добавить задачу</h5>
-                <form method="get" action="{% url 'lesson_task_picker' lesson.pk %}"
-                      id="add-task-form">
+                <form method="get" action="{% url 'lesson_detail' lesson.pk %}" id="add-task-form">
                     <div class="mb-3">
-                        <label class="form-label" for="{{ add_task_form.bank.id_for_label }}">{{ add_task_form.bank.label }}</label>
-                        {{ add_task_form.bank }}
+                        <label class="form-label" for="id_bank">База задач</label>
+                        <select name="bank" id="id_bank" class="form-select">
+                            <option value="">Все базы</option>
+                            {% for bank in banks %}
+                                <option value="{{ bank.pk }}" {% if current_bank_id == bank.pk %}selected{% endif %}>{{ bank.name }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label" for="{{ add_task_form.topic.id_for_label }}">{{ add_task_form.topic.label }}</label>
-                        {{ add_task_form.topic }}
+                        <label class="form-label" for="id_topic">Тема</label>
+                        <select name="topic" id="id_topic" class="form-select">
+                            <option value="">Выберите тему</option>
+                            {% for topic in all_topics %}
+                                <option value="{{ topic.pk }}" data-bank="{{ topic.bank_id }}" {% if current_topic and current_topic.pk == topic.pk %}selected{% endif %}>{{ topic.name }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
-                    {{ add_task_form.topic_bank_map|json_script:'topic-bank-map' }}
-                    <button type="submit" class="btn btn-primary w-100">Показать задания</button>
+                    <noscript>
+                        <button type="submit" class="btn btn-primary w-100">Показать задания</button>
+                    </noscript>
                 </form>
                 <p class="text-muted small mt-3 mb-0">
                     Нет подходящей задачи? <a href="{% url 'task_create' %}">Создайте её</a>.
                 </p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <h5 class="mb-3">Задачи урока ({{ lesson.entries.count }})</h5>
+                {% if lesson.task_entries %}
+                    <div class="list-group">
+                        {% for entry in lesson.task_entries %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center gap-2">
+                                <div>
+                                    <span class="badge bg-light text-dark me-1">№{{ entry.order }}</span>
+                                    <span class="badge bg-secondary">{{ entry.task.type_verbose }}</span>
+                                    <strong class="ms-1">{{ entry.task.title }}</strong>
+                                </div>
+                                <form method="post" action="{% url 'lesson_remove_task' lesson.pk entry.task.pk %}"
+                                      onsubmit="return confirm('Убрать задачу из урока?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Убрать</button>
+                                </form>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-secondary mb-0">В уроке пока нет задач.</div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -74,45 +149,52 @@
 {% endblock %}
 
 {% block extra_js %}
+{% include 'tasks/_katex_scripts.html' %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    var form = document.getElementById('add-task-form');
-    if (!form) {
-        return;
-    }
     var bankSelect = document.getElementById('id_bank');
     var topicSelect = document.getElementById('id_topic');
-    var mapElement = document.getElementById('topic-bank-map');
-    var topicBankMap = mapElement ? JSON.parse(mapElement.textContent) : {};
-    var placeholder = topicSelect.options.length ? topicSelect.options[0].text : '— Выберите тему —';
+    var form = document.getElementById('add-task-form');
+    if (!bankSelect || !topicSelect || !form) {
+        return;
+    }
     var allTopics = Array.prototype.map.call(topicSelect.options, function (option) {
-        return { value: option.value, text: option.text };
-    }).filter(function (option) {
-        return option.value;
+        return {
+            value: option.value,
+            text: option.text,
+            bank: option.dataset.bank || ''
+        };
+    }).filter(function (topic) {
+        return topic.value;
     });
 
     function fillTopics() {
-        var bankId = Number(bankSelect.value) || 0;
+        var bankId = bankSelect.value;
         var current = topicSelect.value;
         topicSelect.innerHTML = '';
-        var placeholderOption = document.createElement('option');
-        placeholderOption.value = '';
-        placeholderOption.textContent = placeholder;
-        topicSelect.appendChild(placeholderOption);
+        var placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = 'Выберите тему';
+        topicSelect.appendChild(placeholder);
         allTopics.forEach(function (topic) {
-            if (bankId && topicBankMap[topic.value] === bankId) {
+            if (bankId && topic.bank === bankId) {
                 var option = document.createElement('option');
                 option.value = topic.value;
                 option.textContent = topic.text;
+                option.dataset.bank = topic.bank;
+                if (topic.value === current) {
+                    option.selected = true;
+                }
                 topicSelect.appendChild(option);
             }
         });
-        if (current && topicBankMap[current] === bankId) {
-            topicSelect.value = current;
-        }
     }
 
-    bankSelect.addEventListener('change', fillTopics);
+    bankSelect.addEventListener('change', function () {
+        fillTopics();
+        topicSelect.value = '';
+    });
+
     topicSelect.addEventListener('change', function () {
         if (topicSelect.value) {
             form.submit();
