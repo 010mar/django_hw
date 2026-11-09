@@ -237,10 +237,16 @@ def task_number_sort_key(number):
 
 class TopicChoiceField(forms.ModelChoiceField):
     def label_from_instance(self, obj):
-        return f'{obj.bank.name} — {obj.name}'
+        return obj.name
 
 
 class AddTaskForm(forms.Form):
+    bank = forms.ModelChoiceField(
+        queryset=TaskBank.objects.none(),
+        label='База задач',
+        empty_label='— Выберите базу —',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
     topic = TopicChoiceField(
         queryset=Topic.objects.none(),
         label='Тема',
@@ -268,17 +274,28 @@ class AddTaskForm(forms.Form):
             taken_ids = lesson.entries.values_list('task_id', flat=True)
             tasks = tasks.exclude(id__in=taken_ids)
         self.fields['task'].queryset = tasks
-        topics = Topic.objects.select_related('bank').order_by(
-            'bank__name', 'order', 'name',
-        )
+        topics = Topic.objects.select_related('bank').order_by('order', 'name')
         if user is not None:
             topics = topics.filter(bank__author=user)
-        self.fields['topic'].queryset = topics.filter(tasks__in=tasks).distinct()
+        topics = topics.filter(tasks__in=tasks).distinct()
+        self.fields['topic'].queryset = topics
+        banks = TaskBank.objects.none()
+        if user is not None:
+            banks = TaskBank.objects.filter(author=user)
+        self.fields['bank'].queryset = (
+            banks.filter(topics__in=topics).distinct().order_by('name')
+        )
+        self.topic_bank_map = {
+            str(topic.pk): topic.bank_id for topic in topics
+        }
 
     def clean(self):
         cleaned = super().clean()
+        bank = cleaned.get('bank')
         topic = cleaned.get('topic')
         task = cleaned.get('task')
+        if bank and topic and topic.bank_id != bank.pk:
+            self.add_error('topic', 'Тема не относится к выбранной базе.')
         if topic and task and task.topic_id != topic.pk:
             self.add_error('task', 'Выбранная задача не относится к этой теме.')
         return cleaned

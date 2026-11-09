@@ -135,7 +135,12 @@ class LessonViewTests(DjangoTestCase):
         self.client.force_login(self.teacher)
         response = self.client.post(
             reverse('lesson_add_task', args=[self.lesson.pk]),
-            {'topic': self.topic.pk, 'task': self.task.pk, 'order': 1},
+            {
+                'bank': self.bank.pk,
+                'topic': self.topic.pk,
+                'task': self.task.pk,
+                'order': 1,
+            },
         )
         self.assertRedirects(response, reverse('lesson_detail', args=[self.lesson.pk]))
         self.assertEqual(self.lesson.entries.count(), 1)
@@ -152,7 +157,12 @@ class LessonViewTests(DjangoTestCase):
         self.client.force_login(self.teacher)
         response = self.client.post(
             reverse('lesson_add_task', args=[self.lesson.pk]),
-            {'topic': self.topic.pk, 'task': other_task.pk, 'order': 1},
+            {
+                'bank': self.bank.pk,
+                'topic': self.topic.pk,
+                'task': other_task.pk,
+                'order': 1,
+            },
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.lesson.entries.count(), 0)
@@ -166,7 +176,12 @@ class LessonViewTests(DjangoTestCase):
         self.client.force_login(self.teacher)
         response = self.client.post(
             reverse('lesson_add_task', args=[self.lesson.pk]),
-            {'topic': self.topic.pk, 'task': task2.pk, 'order': 1},
+            {
+                'bank': self.bank.pk,
+                'topic': self.topic.pk,
+                'task': task2.pk,
+                'order': 1,
+            },
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.lesson.entries.count(), 0)
@@ -179,6 +194,18 @@ class LessonViewTests(DjangoTestCase):
         self.assertFalse(queryset.filter(pk=self.task.pk).exists())
         self.assertIn(self.task2, queryset)
 
+    def test_add_task_form_lists_banks(self):
+        bank2 = TaskBank.objects.create(name='Информатика ОГЭ', author=self.teacher)
+        topic2 = Topic.objects.create(bank=bank2, name='Тема 2', order=1)
+        Task.objects.create(
+            title='Задача 2', author=self.teacher, task_number='1_1',
+            bank=bank2, topic=topic2,
+        )
+        form = AddTaskForm(user=self.teacher)
+        labels = [label for _, label in form.fields['bank'].choices]
+        self.assertIn('Информатика ЕГЭ', labels)
+        self.assertIn('Информатика ОГЭ', labels)
+
     def test_add_task_form_lists_topics(self):
         bank2 = TaskBank.objects.create(name='Информатика ОГЭ', author=self.teacher)
         topic2 = Topic.objects.create(bank=bank2, name='Тема 2', order=1)
@@ -188,8 +215,34 @@ class LessonViewTests(DjangoTestCase):
         )
         form = AddTaskForm(user=self.teacher)
         labels = [label for _, label in form.fields['topic'].choices]
-        self.assertIn('Информатика ЕГЭ — Тема 1', labels)
-        self.assertIn('Информатика ОГЭ — Тема 2', labels)
+        self.assertIn('Тема 1', labels)
+        self.assertIn('Тема 2', labels)
+
+    def test_add_task_form_maps_topics_to_banks(self):
+        bank2 = TaskBank.objects.create(name='Информатика ОГЭ', author=self.teacher)
+        topic2 = Topic.objects.create(bank=bank2, name='Тема 2', order=1)
+        Task.objects.create(
+            title='Задача 2', author=self.teacher, task_number='1_1',
+            bank=bank2, topic=topic2,
+        )
+        form = AddTaskForm(user=self.teacher)
+        self.assertEqual(form.topic_bank_map[str(self.topic.pk)], self.bank.pk)
+        self.assertEqual(form.topic_bank_map[str(topic2.pk)], bank2.pk)
+
+    def test_add_task_rejects_topic_from_other_bank(self):
+        bank2 = TaskBank.objects.create(name='Информатика ОГЭ', author=self.teacher)
+        topic2 = Topic.objects.create(bank=bank2, name='Тема 2', order=1)
+        task2 = Task.objects.create(
+            title='Задача 2', author=self.teacher, task_number='1_1',
+            bank=bank2, topic=topic2,
+        )
+        self.client.force_login(self.teacher)
+        response = self.client.post(
+            reverse('lesson_add_task', args=[self.lesson.pk]),
+            {'bank': self.bank.pk, 'topic': topic2.pk, 'task': task2.pk, 'order': 1},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.lesson.entries.count(), 0)
 
     def test_add_task_form_hides_topics_without_available_tasks(self):
         topic2 = Topic.objects.create(bank=self.bank, name='Тема 2', order=2)
@@ -206,7 +259,9 @@ class LessonViewTests(DjangoTestCase):
     def test_lesson_detail_has_topic_select(self):
         self.client.force_login(self.teacher)
         response = self.client.get(reverse('lesson_detail', args=[self.lesson.pk]))
+        self.assertContains(response, 'id="id_bank"')
         self.assertContains(response, 'id="id_topic"')
+        self.assertContains(response, 'id="topic-bank-map"')
         self.assertContains(
             response, reverse('lesson_topic_tasks', args=[self.lesson.pk]),
         )

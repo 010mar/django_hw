@@ -57,12 +57,20 @@
                       data-selected="{{ add_task_form.task.value|default:'' }}">
                     {% csrf_token %}
                     <div class="mb-3">
+                        <label class="form-label" for="{{ add_task_form.bank.id_for_label }}">{{ add_task_form.bank.label }}</label>
+                        {{ add_task_form.bank }}
+                        {% if add_task_form.bank.errors %}
+                            <div class="text-danger small mt-1">{{ add_task_form.bank.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label" for="{{ add_task_form.topic.id_for_label }}">{{ add_task_form.topic.label }}</label>
                         {{ add_task_form.topic }}
                         {% if add_task_form.topic.errors %}
                             <div class="text-danger small mt-1">{{ add_task_form.topic.errors.0 }}</div>
                         {% endif %}
                     </div>
+                    {{ add_task_form.topic_bank_map|json_script:'topic-bank-map' }}
                     <div id="topic-tasks" class="mb-3"
                          style="max-height: 320px; overflow-y: auto;"></div>
                     {% if add_task_form.task.errors %}
@@ -93,17 +101,47 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!form) {
         return;
     }
-    var select = document.getElementById('id_topic');
+    var bankSelect = document.getElementById('id_bank');
+    var topicSelect = document.getElementById('id_topic');
     var container = document.getElementById('topic-tasks');
     var baseUrl = form.dataset.tasksUrl;
     var selectedTask = form.dataset.selected || '';
+    var mapElement = document.getElementById('topic-bank-map');
+    var topicBankMap = mapElement ? JSON.parse(mapElement.textContent) : {};
+    var placeholder = topicSelect.options.length ? topicSelect.options[0].text : '— Выберите тему —';
+    var allTopics = Array.prototype.map.call(topicSelect.options, function (option) {
+        return { value: option.value, text: option.text };
+    }).filter(function (option) {
+        return option.value;
+    });
+
+    function fillTopics() {
+        var bankId = Number(bankSelect.value) || 0;
+        var current = topicSelect.value;
+        topicSelect.innerHTML = '';
+        var placeholderOption = document.createElement('option');
+        placeholderOption.value = '';
+        placeholderOption.textContent = placeholder;
+        topicSelect.appendChild(placeholderOption);
+        allTopics.forEach(function (topic) {
+            if (bankId && topicBankMap[topic.value] === bankId) {
+                var option = document.createElement('option');
+                option.value = topic.value;
+                option.textContent = topic.text;
+                topicSelect.appendChild(option);
+            }
+        });
+        if (current && topicBankMap[current] === bankId) {
+            topicSelect.value = current;
+        }
+    }
 
     function loadTasks() {
-        if (!select.value) {
+        if (!topicSelect.value) {
             container.innerHTML = '';
             return;
         }
-        var url = baseUrl + '?topic=' + encodeURIComponent(select.value);
+        var url = baseUrl + '?topic=' + encodeURIComponent(topicSelect.value);
         if (selectedTask) {
             url += '&selected=' + encodeURIComponent(selectedTask);
         }
@@ -123,7 +161,16 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
-    select.addEventListener('change', function () {
+    bankSelect.addEventListener('change', function () {
+        selectedTask = '';
+        fillTopics();
+        container.innerHTML = '';
+        if (topicSelect.value) {
+            loadTasks();
+        }
+    });
+
+    topicSelect.addEventListener('change', function () {
         selectedTask = '';
         loadTasks();
     });
@@ -134,7 +181,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    if (select.value) {
+    fillTopics();
+    if (topicSelect.value) {
         loadTasks();
     }
 });
