@@ -54,18 +54,23 @@
             <div class="card-body">
                 <h5 class="mb-3">Добавить задачу</h5>
                 <form method="post" action="{% url 'lesson_add_task' lesson.pk %}"
-                      id="add-task-form" data-preview-url="{% url 'task_preview' 0 %}">
+                      id="add-task-form"
+                      data-options-url="{% url 'lesson_task_options' lesson.pk %}"
+                      data-selected="{{ add_task_form.task.value|default:'' }}">
                     {% csrf_token %}
                     <div class="mb-3">
-                        <label class="form-label">{{ add_task_form.task.label }}</label>
-                        {{ add_task_form.task }}
-                        {% if add_task_form.task.errors %}
-                            <div class="text-danger small mt-1">{{ add_task_form.task.errors.0 }}</div>
+                        <label class="form-label" for="{{ add_task_form.number.id_for_label }}">{{ add_task_form.number.label }}</label>
+                        {{ add_task_form.number }}
+                        {% if add_task_form.number.errors %}
+                            <div class="text-danger small mt-1">{{ add_task_form.number.errors.0 }}</div>
                         {% endif %}
                     </div>
-                    <div id="task-preview" class="mb-3"></div>
+                    <div id="task-options" class="mb-3"></div>
+                    {% if add_task_form.task.errors %}
+                        <div class="text-danger small mb-3">{{ add_task_form.task.errors.0 }}</div>
+                    {% endif %}
                     <div class="mb-3">
-                        <label class="form-label">{{ add_task_form.order.label }}</label>
+                        <label class="form-label" for="{{ add_task_form.order.id_for_label }}">{{ add_task_form.order.label }}</label>
                         {{ add_task_form.order }}
                         {% if add_task_form.order.errors %}
                             <div class="text-danger small mt-1">{{ add_task_form.order.errors.0 }}</div>
@@ -90,9 +95,10 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!form) {
         return;
     }
-    var select = document.getElementById('id_task');
-    var preview = document.getElementById('task-preview');
-    var baseUrl = form.dataset.previewUrl;
+    var select = document.getElementById('id_number');
+    var options = document.getElementById('task-options');
+    var baseUrl = form.dataset.optionsUrl;
+    var selectedTask = form.dataset.selected || '';
 
     function renderMath(element) {
         if (!window.renderMathInElement) {
@@ -109,13 +115,16 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    function updatePreview() {
+    function loadOptions() {
         if (!select.value) {
-            preview.innerHTML = '';
+            options.innerHTML = '';
             return;
         }
-        var url = baseUrl.replace('/0/', '/' + select.value + '/');
-        preview.innerHTML = '<p class="text-muted small mb-0">Загрузка…</p>';
+        var url = baseUrl + '?number=' + encodeURIComponent(select.value);
+        if (selectedTask) {
+            url += '&selected=' + encodeURIComponent(selectedTask);
+        }
+        options.innerHTML = '<p class="text-muted small mb-0">Загрузка…</p>';
         fetch(url)
             .then(function (response) {
                 if (!response.ok) {
@@ -124,15 +133,29 @@ document.addEventListener('DOMContentLoaded', function () {
                 return response.text();
             })
             .then(function (html) {
-                preview.innerHTML = html;
-                renderMath(preview);
+                options.innerHTML = html;
+                renderMath(options);
             })
             .catch(function () {
-                preview.innerHTML = '<p class="text-danger small mb-0">Не удалось загрузить задачу.</p>';
+                options.innerHTML = '<p class="text-danger small mb-0">Не удалось загрузить задачи.</p>';
             });
     }
 
-    select.addEventListener('change', updatePreview);
+    select.addEventListener('change', function () {
+        var checked = form.querySelector('input[name="task"]:checked');
+        selectedTask = checked ? checked.value : '';
+        loadOptions();
+    });
+
+    form.addEventListener('change', function (event) {
+        if (event.target.name === 'task') {
+            selectedTask = event.target.value;
+        }
+    });
+
+    if (select.value) {
+        loadOptions();
+    }
 });
 </script>
 {% endblock %}

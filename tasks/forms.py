@@ -1,3 +1,5 @@
+import re
+
 from django import forms
 from django.db.models import Case, When
 
@@ -225,19 +227,26 @@ class TopicForm(forms.ModelForm):
         return self.cleaned_data['name'].strip()
 
 
-class TaskChoiceField(forms.ModelChoiceField):
-    def label_from_instance(self, obj):
-        number = obj.task_number or obj.pk
-        if obj.title and obj.title != obj.task_number:
-            return f'Задание {number} — {obj.title}'
-        return f'Задание {number}'
+NO_NUMBER_VALUE = 'none'
+
+
+def task_number_sort_key(number):
+    return [
+        (0, int(part)) if part.isdigit() else (1, part.lower())
+        for part in re.split(r'(\d+)', number)
+        if part
+    ]
 
 
 class AddTaskForm(forms.Form):
-    task = TaskChoiceField(
-        queryset=Task.objects.none(),
+    number = forms.ChoiceField(
         label='Номер задания',
         widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+    task = forms.ModelChoiceField(
+        queryset=Task.objects.none(),
+        label='Задача',
+        widget=forms.RadioSelect(),
     )
     order = forms.IntegerField(
         min_value=0,
@@ -255,3 +264,26 @@ class AddTaskForm(forms.Form):
             taken_ids = lesson.entries.values_list('task_id', flat=True)
             tasks = tasks.exclude(id__in=taken_ids)
         self.fields['task'].queryset = tasks
+        numbers = sorted(
+            {
+                number
+                for number in tasks.values_list('task_number', flat=True)
+                if number
+            },
+            key=task_number_sort_key,
+        )
+        choices = [('', '— Выберите номер —')]
+        choices += [(number, number) for number in numbers]
+        if tasks.filter(task_number='').exists():
+            choices.append((NO_NUMBER_VALUE, 'Без номера'))
+        self.fields['number'].choices = choices
+
+    def clean(self):
+        cleaned = super().clean()
+        number = cleaned.get('number')
+        task = cleaned.get('task')
+        if number and task:
+            task_number = task.task_number or NO_NUMBER_VALUE
+            if task_number != number:
+                self.add_error('task', 'Выбранная задача не соответствует номеру.')
+        return cleaned

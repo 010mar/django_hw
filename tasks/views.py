@@ -10,6 +10,7 @@ from PIL import Image
 from accounts.decorators import teacher_required
 
 from .forms import (
+    NO_NUMBER_VALUE,
     AddTaskForm,
     AnswerOptionFormSet,
     CourseForm,
@@ -384,13 +385,28 @@ def task_image_upload(request):
 
 
 @teacher_required
-def task_preview(request, pk):
-    task = get_object_or_404(
-        Task.objects.select_related('bank', 'topic').prefetch_related('answer_options'),
-        pk=pk,
-        author=request.user,
+def lesson_task_options(request, pk):
+    lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
+    number = request.GET.get('number', '').strip()
+    selected = request.GET.get('selected', '').strip()
+    tasks = (
+        Task.objects
+        .filter(author=request.user)
+        .exclude(id__in=lesson.entries.values_list('task_id', flat=True))
+        .select_related('bank', 'topic')
+        .prefetch_related('answer_options')
+        .order_by('task_number', 'id')
     )
-    return render(request, 'tasks/_task_preview.html', {'task': task})
+    if number == NO_NUMBER_VALUE:
+        tasks = tasks.filter(task_number='')
+    elif number:
+        tasks = tasks.filter(task_number=number)
+    else:
+        tasks = tasks.none()
+    return render(request, 'tasks/_lesson_task_options.html', {
+        'tasks': tasks,
+        'selected': selected,
+    })
 
 
 def _get_task(request, pk, bank_pk=None):
@@ -522,7 +538,9 @@ def lesson_delete(request, pk):
 @teacher_required
 def lesson_add_task(request, pk):
     lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
-    form = AddTaskForm(request.POST or None, lesson=lesson, user=request.user)
+    if request.method != 'POST':
+        return redirect('lesson_detail', pk=pk)
+    form = AddTaskForm(request.POST, lesson=lesson, user=request.user)
     if form.is_valid():
         LessonTask.objects.create(
             lesson=lesson,
@@ -530,7 +548,12 @@ def lesson_add_task(request, pk):
             order=form.cleaned_data['order'],
         )
         messages.success(request, 'Задача добавлена в урок.')
-    return redirect('lesson_detail', pk=pk)
+        return redirect('lesson_detail', pk=pk)
+    messages.error(request, 'Не удалось добавить задачу: проверьте выбранные данные.')
+    return render(request, 'tasks/lesson_detail.html', {
+        'lesson': lesson,
+        'add_task_form': form,
+    })
 
 
 @teacher_required
