@@ -2,6 +2,8 @@
 
 {% block title %}{{ lesson.title }}{% endblock %}
 
+{% block extra_head %}{% include 'tasks/_katex_head.html' %}{% endblock %}
+
 {% block content %}
 {% if lesson.module %}
     <a href="{% url 'course_detail' lesson.module.course_id %}" class="btn btn-link px-0 mb-2">← К программе курса</a>
@@ -51,17 +53,24 @@
         <div class="card">
             <div class="card-body">
                 <h5 class="mb-3">Добавить задачу</h5>
-                <form method="post" action="{% url 'lesson_add_task' lesson.pk %}">
+                <form method="post" action="{% url 'lesson_add_task' lesson.pk %}"
+                      id="add-task-form" data-preview-url="{% url 'task_preview' 0 %}">
                     {% csrf_token %}
-                    {% for field in add_task_form %}
-                        <div class="mb-3">
-                            <label class="form-label">{{ field.label }}</label>
-                            {{ field }}
-                            {% if field.errors %}
-                                <div class="text-danger small mt-1">{{ field.errors.0 }}</div>
-                            {% endif %}
-                        </div>
-                    {% endfor %}
+                    <div class="mb-3">
+                        <label class="form-label">{{ add_task_form.task.label }}</label>
+                        {{ add_task_form.task }}
+                        {% if add_task_form.task.errors %}
+                            <div class="text-danger small mt-1">{{ add_task_form.task.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    <div id="task-preview" class="mb-3"></div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ add_task_form.order.label }}</label>
+                        {{ add_task_form.order }}
+                        {% if add_task_form.order.errors %}
+                            <div class="text-danger small mt-1">{{ add_task_form.order.errors.0 }}</div>
+                        {% endif %}
+                    </div>
                     <button type="submit" class="btn btn-primary w-100">Добавить</button>
                 </form>
                 <p class="text-muted small mt-3 mb-0">
@@ -71,4 +80,59 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% include 'tasks/_katex_scripts.html' %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var form = document.getElementById('add-task-form');
+    if (!form) {
+        return;
+    }
+    var select = document.getElementById('id_task');
+    var preview = document.getElementById('task-preview');
+    var baseUrl = form.dataset.previewUrl;
+
+    function renderMath(element) {
+        if (!window.renderMathInElement) {
+            return;
+        }
+        renderMathInElement(element, {
+            delimiters: [
+                { left: '$$', right: '$$', display: true },
+                { left: '\\[', right: '\\]', display: true },
+                { left: '$', right: '$', display: false },
+                { left: '\\(', right: '\\)', display: false }
+            ],
+            throwOnError: false
+        });
+    }
+
+    function updatePreview() {
+        if (!select.value) {
+            preview.innerHTML = '';
+            return;
+        }
+        var url = baseUrl.replace('/0/', '/' + select.value + '/');
+        preview.innerHTML = '<p class="text-muted small mb-0">Загрузка…</p>';
+        fetch(url)
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error('Ошибка загрузки');
+                }
+                return response.text();
+            })
+            .then(function (html) {
+                preview.innerHTML = html;
+                renderMath(preview);
+            })
+            .catch(function () {
+                preview.innerHTML = '<p class="text-danger small mb-0">Не удалось загрузить задачу.</p>';
+            });
+    }
+
+    select.addEventListener('change', updatePreview);
+});
+</script>
 {% endblock %}

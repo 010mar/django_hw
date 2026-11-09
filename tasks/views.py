@@ -383,6 +383,16 @@ def task_image_upload(request):
     })
 
 
+@teacher_required
+def task_preview(request, pk):
+    task = get_object_or_404(
+        Task.objects.select_related('bank', 'topic').prefetch_related('answer_options'),
+        pk=pk,
+        author=request.user,
+    )
+    return render(request, 'tasks/_task_preview.html', {'task': task})
+
+
 def _get_task(request, pk, bank_pk=None):
     filters = {'pk': pk, 'author': request.user}
     if bank_pk is not None:

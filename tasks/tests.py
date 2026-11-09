@@ -141,6 +141,47 @@ class LessonViewTests(DjangoTestCase):
         self.assertFalse(queryset.filter(pk=self.task.pk).exists())
         self.assertIn(self.task2, queryset)
 
+    def test_add_task_form_shows_task_number(self):
+        task = Task.objects.create(
+            title='1_1', author=self.teacher, task_number='1_1',
+        )
+        form = AddTaskForm(user=self.teacher)
+        self.assertEqual(form.fields['task'].label_from_instance(task), 'Задание 1_1')
+
+    def test_add_task_form_shows_custom_title(self):
+        task = Task.objects.create(
+            title='Сумма чисел', author=self.teacher, task_number='2_3',
+        )
+        form = AddTaskForm(user=self.teacher)
+        self.assertEqual(
+            form.fields['task'].label_from_instance(task),
+            'Задание 2_3 — Сумма чисел',
+        )
+
+    def test_lesson_detail_has_task_preview(self):
+        self.client.force_login(self.teacher)
+        response = self.client.get(reverse('lesson_detail', args=[self.lesson.pk]))
+        self.assertContains(response, reverse('task_preview', args=[0]))
+
+    def test_task_preview_returns_task_body(self):
+        task = Task.objects.create(
+            title='1_1', author=self.teacher, task_number='1_1',
+            body='Условие задачи',
+        )
+        self.client.force_login(self.teacher)
+        response = self.client.get(reverse('task_preview', args=[task.pk]))
+        self.assertContains(response, 'Условие задачи')
+        self.assertContains(response, '1_1')
+
+    def test_task_preview_only_own_tasks(self):
+        other = User.objects.create_user(
+            username='other', password='pass12345', role=User.Role.TEACHER,
+        )
+        task = Task.objects.create(title='Чужая', author=other)
+        self.client.force_login(self.teacher)
+        response = self.client.get(reverse('task_preview', args=[task.pk]))
+        self.assertEqual(response.status_code, 404)
+
 
 class CourseViewTests(DjangoTestCase):
     def setUp(self):

@@ -14,6 +14,7 @@ urlpatterns = [
     path('tasks/new/', views.task_create, name='task_create'),
     path('tasks/number_preview/', views.task_number_preview, name='task_number_preview'),
     path('tasks/images/upload/', views.task_image_upload, name='task_image_upload'),
+    path('tasks/<int:pk>/preview/', views.task_preview, name='task_preview'),
     path('banks/<int:bank_pk>/tasks/<int:pk>/', views.task_detail, name='bank_task_detail'),
     path('banks/<int:bank_pk>/tasks/<int:pk>/edit/', views.task_edit, name='bank_task_edit'),
     path('banks/<int:bank_pk>/tasks/<int:pk>/delete/', views.task_delete, name='bank_task_delete'),

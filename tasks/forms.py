@@ -225,10 +225,18 @@ class TopicForm(forms.ModelForm):
         return self.cleaned_data['name'].strip()
 
 
+class TaskChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, obj):
+        number = obj.task_number or obj.pk
+        if obj.title and obj.title != obj.task_number:
+            return f'Задание {number} — {obj.title}'
+        return f'Задание {number}'
+
+
 class AddTaskForm(forms.Form):
-    task = forms.ModelChoiceField(
+    task = TaskChoiceField(
         queryset=Task.objects.none(),
-        label='Задача',
+        label='Номер задания',
         widget=forms.Select(attrs={'class': 'form-select'}),
     )
     order = forms.IntegerField(
