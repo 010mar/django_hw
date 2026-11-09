@@ -277,7 +277,14 @@
                     {% if course.description %}{{ course.description|linebreaksbr }}{% else %}Описание не заполнено.{% endif %}
                 </p>
             </div>
-            <a href="{% url 'course_edit' course.pk %}" class="btn btn-outline-secondary btn-sm">Настройки курса</a>
+            <div class="d-flex gap-2">
+                <a href="{% url 'course_edit' course.pk %}" class="btn btn-outline-secondary btn-sm">Настройки курса</a>
+                <form method="post" action="{% url 'course_delete' course.pk %}"
+                      onsubmit="return confirm('Удалить курс «{{ course.title }}»? Все модули и уроки тоже будут удалены.');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-danger btn-sm">Удалить курс</button>
+                </form>
+            </div>
         </div>
 
         <div class="d-flex justify-content-between align-items-center mb-3">

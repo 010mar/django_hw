@@ -502,6 +502,7 @@ def lesson_delete(request, pk):
     course_id = lesson.module.course_id if lesson.module_id else None
     if request.method == 'POST':
         lesson.delete()
+        _reset_sequence_if_empty(Lesson)
         messages.success(request, 'Урок удалён.')
     if course_id:
         return redirect('course_detail', pk=course_id)
@@ -586,6 +587,9 @@ def course_delete(request, pk):
     course = get_object_or_404(Course, pk=pk, author=request.user)
     if request.method == 'POST':
         course.delete()
+        _reset_sequence_if_empty(Course)
+        _reset_sequence_if_empty(CourseModule)
+        _reset_sequence_if_empty(Lesson)
         messages.success(request, 'Курс удалён.')
     return redirect('course_list')
 
@@ -629,6 +633,8 @@ def module_delete(request, pk):
     course_id = module.course_id
     if request.method == 'POST':
         module.delete()
+        _reset_sequence_if_empty(CourseModule)
+        _reset_sequence_if_empty(Lesson)
         messages.success(request, 'Модуль удалён.')
     return redirect('course_detail', pk=course_id)
 

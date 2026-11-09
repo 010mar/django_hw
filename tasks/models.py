@@ -346,7 +346,7 @@ class Course(models.Model):
     description = models.TextField(blank=True, verbose_name='Описание')
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name='courses',
@@ -408,7 +408,7 @@ class Lesson(models.Model):
     order = models.PositiveIntegerField(default=0, verbose_name='Порядок')
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name='created_lessons',

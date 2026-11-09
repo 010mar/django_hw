@@ -13,6 +13,8 @@ from PIL import Image as PILImage
 from .forms import AddTaskForm, TaskForm
 from .models import (
     AnswerOption,
+    Course,
+    CourseModule,
     Lesson,
     LessonTask,
     Task,
@@ -138,6 +140,48 @@ class LessonViewTests(DjangoTestCase):
         queryset = form.fields['task'].queryset
         self.assertFalse(queryset.filter(pk=self.task.pk).exists())
         self.assertIn(self.task2, queryset)
+
+
+class CourseViewTests(DjangoTestCase):
+    def setUp(self):
+        self.teacher = User.objects.create_user(
+            username='teacher', password='pass12345', role=User.Role.TEACHER,
+        )
+        self.client.force_login(self.teacher)
+
+    def test_course_ids_restart_after_deleting_last_course(self):
+        course = Course.objects.create(title='Курс', author=self.teacher)
+        self.client.post(reverse('course_delete', args=[course.pk]))
+        new_course = Course.objects.create(title='Новый курс', author=self.teacher)
+        self.assertEqual(new_course.pk, 1)
+
+    def test_module_and_lesson_ids_restart_after_deleting_last_course(self):
+        course = Course.objects.create(title='Курс', author=self.teacher)
+        module = CourseModule.objects.create(course=course, title='Модуль')
+        Lesson.objects.create(title='Урок', author=self.teacher, module=module)
+        self.client.post(reverse('course_delete', args=[course.pk]))
+        new_course = Course.objects.create(title='Новый курс', author=self.teacher)
+        new_module = CourseModule.objects.create(course=new_course, title='Модуль')
+        new_lesson = Lesson.objects.create(
+            title='Урок', author=self.teacher, module=new_module,
+        )
+        self.assertEqual(new_module.pk, 1)
+        self.assertEqual(new_lesson.pk, 1)
+
+    def test_course_detail_has_delete_button(self):
+        course = Course.objects.create(title='Курс', author=self.teacher)
+        response = self.client.get(reverse('course_detail', args=[course.pk]))
+        self.assertContains(
+            response,
+            f'action="{reverse("course_delete", args=[course.pk])}"',
+        )
+
+    def test_deleting_user_removes_courses_and_lessons(self):
+        course = Course.objects.create(title='Курс', author=self.teacher)
+        lesson = Lesson.objects.create(title='Урок', author=self.teacher)
+        self.teacher.delete()
+        self.assertFalse(Course.objects.filter(pk=course.pk).exists())
+        self.assertFalse(Lesson.objects.filter(pk=lesson.pk).exists())
 
 
 class TaskCrudViewTests(DjangoTestCase):
