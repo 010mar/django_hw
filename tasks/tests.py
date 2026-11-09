@@ -263,63 +263,92 @@ class LessonViewTests(DjangoTestCase):
         self.assertContains(response, 'id="id_topic"')
         self.assertContains(response, 'id="topic-bank-map"')
         self.assertContains(
-            response, reverse('lesson_topic_tasks', args=[self.lesson.pk]),
+            response, reverse('lesson_task_picker', args=[self.lesson.pk]),
         )
 
-    def test_lesson_topic_tasks_lists_topic_tasks(self):
+    def test_task_picker_requires_teacher(self):
+        self.client.force_login(self.student)
+        response = self.client.get(
+            reverse('lesson_task_picker', args=[self.lesson.pk]),
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse('home'))
+
+    def test_task_picker_shows_tasks_for_topic(self):
         task2 = Task.objects.create(
             title='Задача 2', author=self.teacher, task_number='1_2',
-            bank=self.bank, topic=self.topic,
+            bank=self.bank, topic=self.topic, body='Условие второй задачи',
         )
         topic2 = Topic.objects.create(bank=self.bank, name='Тема 2', order=2)
         other_task = Task.objects.create(
             title='Другая тема', author=self.teacher, task_number='2_1',
-            bank=self.bank, topic=topic2,
+            bank=self.bank, topic=topic2, body='Условие другой темы',
         )
         self.client.force_login(self.teacher)
         response = self.client.get(
-            reverse('lesson_topic_tasks', args=[self.lesson.pk]),
-            {'topic': self.topic.pk},
+            reverse('lesson_task_picker', args=[self.lesson.pk]),
+            {'bank': self.bank.pk, 'topic': self.topic.pk},
         )
-        self.assertContains(response, f'id="task-option-{self.task.pk}"')
-        self.assertContains(response, f'id="task-option-{task2.pk}"')
-        self.assertNotContains(response, f'id="task-option-{other_task.pk}"')
+        self.assertContains(response, 'Условие второй задачи')
+        self.assertNotContains(response, 'Условие другой темы')
+        self.assertContains(
+            response,
+            reverse('lesson_quick_add_task', args=[self.lesson.pk, self.task.pk]),
+        )
+        self.assertContains(
+            response,
+            reverse('lesson_quick_add_task', args=[self.lesson.pk, task2.pk]),
+        )
+        self.assertNotContains(
+            response,
+            reverse('lesson_quick_add_task', args=[self.lesson.pk, other_task.pk]),
+        )
 
-    def test_lesson_topic_tasks_sorts_naturally(self):
+    def test_task_picker_sorts_tasks_naturally(self):
         task10 = Task.objects.create(
             title='Задача 10', author=self.teacher, task_number='1_10',
-            bank=self.bank, topic=self.topic,
+            bank=self.bank, topic=self.topic, body='Задача 10',
         )
         task2 = Task.objects.create(
             title='Задача 2', author=self.teacher, task_number='1_2',
-            bank=self.bank, topic=self.topic,
+            bank=self.bank, topic=self.topic, body='Задача 2',
         )
         self.client.force_login(self.teacher)
         response = self.client.get(
-            reverse('lesson_topic_tasks', args=[self.lesson.pk]),
-            {'topic': self.topic.pk},
+            reverse('lesson_task_picker', args=[self.lesson.pk]),
+            {'bank': self.bank.pk, 'topic': self.topic.pk},
         )
         content = response.content.decode()
         self.assertLess(
-            content.index(f'id="task-option-{task2.pk}"'),
-            content.index(f'id="task-option-{task10.pk}"'),
+            content.index(
+                reverse('lesson_quick_add_task', args=[self.lesson.pk, task2.pk]),
+            ),
+            content.index(
+                reverse('lesson_quick_add_task', args=[self.lesson.pk, task10.pk]),
+            ),
         )
 
-    def test_lesson_topic_tasks_excludes_tasks_from_lesson(self):
+    def test_task_picker_excludes_tasks_from_lesson(self):
         task2 = Task.objects.create(
             title='Задача 2', author=self.teacher, task_number='1_2',
-            bank=self.bank, topic=self.topic,
+            bank=self.bank, topic=self.topic, body='Условие второй задачи',
         )
         LessonTask.objects.create(lesson=self.lesson, task=self.task, order=1)
         self.client.force_login(self.teacher)
         response = self.client.get(
-            reverse('lesson_topic_tasks', args=[self.lesson.pk]),
-            {'topic': self.topic.pk},
+            reverse('lesson_task_picker', args=[self.lesson.pk]),
+            {'bank': self.bank.pk, 'topic': self.topic.pk},
         )
-        self.assertNotContains(response, f'id="task-option-{self.task.pk}"')
-        self.assertContains(response, f'id="task-option-{task2.pk}"')
+        self.assertNotContains(
+            response,
+            reverse('lesson_quick_add_task', args=[self.lesson.pk, self.task.pk]),
+        )
+        self.assertContains(
+            response,
+            reverse('lesson_quick_add_task', args=[self.lesson.pk, task2.pk]),
+        )
 
-    def test_lesson_topic_tasks_only_own_tasks(self):
+    def test_task_picker_only_own_tasks(self):
         other = User.objects.create_user(
             username='other', password='pass12345', role=User.Role.TEACHER,
         )
@@ -327,14 +356,58 @@ class LessonViewTests(DjangoTestCase):
         other_topic = Topic.objects.create(bank=other_bank, name='Чужая тема')
         other_task = Task.objects.create(
             title='Чужая', author=other, task_number='1_1',
-            bank=other_bank, topic=other_topic,
+            bank=other_bank, topic=other_topic, body='Чужое условие',
         )
         self.client.force_login(self.teacher)
         response = self.client.get(
-            reverse('lesson_topic_tasks', args=[self.lesson.pk]),
-            {'topic': other_topic.pk},
+            reverse('lesson_task_picker', args=[self.lesson.pk]),
+            {'bank': other_bank.pk, 'topic': other_topic.pk},
         )
-        self.assertNotContains(response, f'id="task-option-{other_task.pk}"')
+        self.assertNotContains(response, 'Чужое условие')
+        self.assertNotContains(
+            response,
+            reverse('lesson_quick_add_task', args=[self.lesson.pk, other_task.pk]),
+        )
+
+    def test_quick_add_task_adds_with_next_order(self):
+        LessonTask.objects.create(lesson=self.lesson, task=self.task, order=3)
+        task2 = Task.objects.create(
+            title='Задача 2', author=self.teacher, task_number='1_2',
+            bank=self.bank, topic=self.topic,
+        )
+        self.client.force_login(self.teacher)
+        response = self.client.post(
+            reverse('lesson_quick_add_task', args=[self.lesson.pk, task2.pk]),
+            {'bank': self.bank.pk, 'topic': self.topic.pk},
+        )
+        expected = (
+            reverse('lesson_task_picker', args=[self.lesson.pk])
+            + f'?bank={self.bank.pk}&topic={self.topic.pk}'
+        )
+        self.assertRedirects(response, expected)
+        entry = self.lesson.entries.get(task=task2)
+        self.assertEqual(entry.order, 4)
+
+    def test_quick_add_task_does_not_duplicate(self):
+        LessonTask.objects.create(lesson=self.lesson, task=self.task, order=1)
+        self.client.force_login(self.teacher)
+        self.client.post(
+            reverse('lesson_quick_add_task', args=[self.lesson.pk, self.task.pk]),
+        )
+        self.assertEqual(self.lesson.entries.count(), 1)
+
+    def test_quick_add_task_rejects_foreign_task(self):
+        other = User.objects.create_user(
+            username='other', password='pass12345', role=User.Role.TEACHER,
+        )
+        other_task = Task.objects.create(
+            title='Чужая', author=other, task_number='1_1',
+        )
+        self.client.force_login(self.teacher)
+        response = self.client.post(
+            reverse('lesson_quick_add_task', args=[self.lesson.pk, other_task.pk]),
+        )
+        self.assertEqual(response.status_code, 404)
 
 
 class CourseViewTests(DjangoTestCase):

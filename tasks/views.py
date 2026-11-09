@@ -1,10 +1,12 @@
 import os
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.db import connection
 from django.db.models import Max, Prefetch
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from PIL import Image
 
 from accounts.decorators import teacher_required
@@ -486,34 +488,87 @@ def lesson_detail(request, pk):
     })
 
 
-@teacher_required
-def lesson_topic_tasks(request, pk):
-    lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
-    topic_id = request.GET.get('topic')
-    selected = request.GET.get('selected', '').strip()
+def _parse_id(value):
     try:
-        topic_id = int(topic_id) if topic_id else None
+        return int(value) if value else None
     except (TypeError, ValueError):
-        topic_id = None
-    tasks = Task.objects.none()
+        return None
+
+
+@teacher_required
+def lesson_task_picker(request, pk):
+    lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
+    available = (
+        Task.objects
+        .filter(author=request.user)
+        .exclude(id__in=lesson.entries.values_list('task_id', flat=True))
+    )
+    banks = (
+        TaskBank.objects
+        .filter(author=request.user, tasks__in=available)
+        .distinct()
+        .order_by('name')
+    )
+    bank_id = _parse_id(request.GET.get('bank'))
+    topics = (
+        Topic.objects
+        .filter(bank__author=request.user, tasks__in=available)
+        .distinct()
+        .order_by('order', 'name')
+    )
+    if bank_id:
+        topics = topics.filter(bank_id=bank_id)
+    topic_id = _parse_id(request.GET.get('topic'))
+    current_topic = None
+    tasks = []
     if topic_id:
-        tasks = (
-            Task.objects
-            .filter(author=request.user, topic_id=topic_id)
-            .exclude(id__in=lesson.entries.values_list('task_id', flat=True))
-            .select_related('bank', 'topic')
-        )
-        tasks = sorted(
-            tasks,
-            key=lambda task: (
-                task_number_sort_key(task.task_number or ''),
-                task.pk,
-            ),
-        )
-    return render(request, 'tasks/_lesson_topic_tasks.html', {
+        current_topic = topics.filter(pk=topic_id).first()
+        if current_topic:
+            tasks = list(
+                available
+                .filter(topic_id=topic_id)
+                .select_related('bank', 'topic')
+                .prefetch_related('answer_options')
+            )
+            tasks.sort(
+                key=lambda task: (
+                    task_number_sort_key(task.task_number or ''),
+                    task.pk,
+                ),
+            )
+    return render(request, 'tasks/lesson_task_picker.html', {
+        'lesson': lesson,
+        'banks': banks,
+        'topics': topics,
         'tasks': tasks,
-        'selected': selected,
+        'current_bank_id': bank_id,
+        'current_topic': current_topic,
     })
+
+
+@teacher_required
+def lesson_quick_add_task(request, pk, task_id):
+    lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
+    if request.method != 'POST':
+        return redirect('lesson_detail', pk=pk)
+    task = get_object_or_404(Task, pk=task_id, author=request.user)
+    if lesson.entries.filter(task=task).exists():
+        messages.info(request, 'Задача уже добавлена в урок.')
+    else:
+        next_order = (lesson.entries.aggregate(Max('order'))['order__max'] or 0) + 1
+        LessonTask.objects.create(lesson=lesson, task=task, order=next_order)
+        messages.success(request, 'Задача добавлена в урок.')
+    url = reverse('lesson_task_picker', args=[pk])
+    params = {}
+    bank_id = request.POST.get('bank')
+    topic_id = request.POST.get('topic')
+    if bank_id:
+        params['bank'] = bank_id
+    if topic_id:
+        params['topic'] = topic_id
+    if params:
+        url += '?' + urlencode(params)
+    return redirect(url)
 
 
 @teacher_required

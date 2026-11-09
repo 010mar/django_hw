@@ -51,39 +51,18 @@
         <div class="card">
             <div class="card-body">
                 <h5 class="mb-3">Добавить задачу</h5>
-                <form method="post" action="{% url 'lesson_add_task' lesson.pk %}"
-                      id="add-task-form"
-                      data-tasks-url="{% url 'lesson_topic_tasks' lesson.pk %}"
-                      data-selected="{{ add_task_form.task.value|default:'' }}">
-                    {% csrf_token %}
+                <form method="get" action="{% url 'lesson_task_picker' lesson.pk %}"
+                      id="add-task-form">
                     <div class="mb-3">
                         <label class="form-label" for="{{ add_task_form.bank.id_for_label }}">{{ add_task_form.bank.label }}</label>
                         {{ add_task_form.bank }}
-                        {% if add_task_form.bank.errors %}
-                            <div class="text-danger small mt-1">{{ add_task_form.bank.errors.0 }}</div>
-                        {% endif %}
                     </div>
                     <div class="mb-3">
                         <label class="form-label" for="{{ add_task_form.topic.id_for_label }}">{{ add_task_form.topic.label }}</label>
                         {{ add_task_form.topic }}
-                        {% if add_task_form.topic.errors %}
-                            <div class="text-danger small mt-1">{{ add_task_form.topic.errors.0 }}</div>
-                        {% endif %}
                     </div>
                     {{ add_task_form.topic_bank_map|json_script:'topic-bank-map' }}
-                    <div id="topic-tasks" class="mb-3 border rounded p-2 d-none"
-                         style="height: 50vh; overflow-y: auto;"></div>
-                    {% if add_task_form.task.errors %}
-                        <div class="text-danger small mb-3">{{ add_task_form.task.errors.0 }}</div>
-                    {% endif %}
-                    <div class="mb-3">
-                        <label class="form-label" for="{{ add_task_form.order.id_for_label }}">{{ add_task_form.order.label }}</label>
-                        {{ add_task_form.order }}
-                        {% if add_task_form.order.errors %}
-                            <div class="text-danger small mt-1">{{ add_task_form.order.errors.0 }}</div>
-                        {% endif %}
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100">Добавить</button>
+                    <button type="submit" class="btn btn-primary w-100">Показать задания</button>
                 </form>
                 <p class="text-muted small mt-3 mb-0">
                     Нет подходящей задачи? <a href="{% url 'task_create' %}">Создайте её</a>.
@@ -103,9 +82,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     var bankSelect = document.getElementById('id_bank');
     var topicSelect = document.getElementById('id_topic');
-    var container = document.getElementById('topic-tasks');
-    var baseUrl = form.dataset.tasksUrl;
-    var selectedTask = form.dataset.selected || '';
     var mapElement = document.getElementById('topic-bank-map');
     var topicBankMap = mapElement ? JSON.parse(mapElement.textContent) : {};
     var placeholder = topicSelect.options.length ? topicSelect.options[0].text : '— Выберите тему —';
@@ -136,58 +112,14 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    function loadTasks() {
-        if (!topicSelect.value) {
-            container.innerHTML = '';
-            container.classList.add('d-none');
-            return;
-        }
-        container.classList.remove('d-none');
-        var url = baseUrl + '?topic=' + encodeURIComponent(topicSelect.value);
-        if (selectedTask) {
-            url += '&selected=' + encodeURIComponent(selectedTask);
-        }
-        container.innerHTML = '<p class="text-muted small mb-0">Загрузка…</p>';
-        fetch(url)
-            .then(function (response) {
-                if (!response.ok) {
-                    throw new Error('Ошибка загрузки');
-                }
-                return response.text();
-            })
-            .then(function (html) {
-                container.innerHTML = html;
-            })
-            .catch(function () {
-                container.innerHTML = '<p class="text-danger small mb-0">Не удалось загрузить задачи.</p>';
-            });
-    }
-
-    bankSelect.addEventListener('change', function () {
-        selectedTask = '';
-        fillTopics();
-        container.innerHTML = '';
-        container.classList.add('d-none');
-        if (topicSelect.value) {
-            loadTasks();
-        }
-    });
-
+    bankSelect.addEventListener('change', fillTopics);
     topicSelect.addEventListener('change', function () {
-        selectedTask = '';
-        loadTasks();
-    });
-
-    form.addEventListener('change', function (event) {
-        if (event.target.name === 'task') {
-            selectedTask = event.target.value;
+        if (topicSelect.value) {
+            form.submit();
         }
     });
 
     fillTopics();
-    if (topicSelect.value) {
-        loadTasks();
-    }
 });
 </script>
 {% endblock %}
