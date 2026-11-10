@@ -11,7 +11,6 @@ from .models import (
     Task,
     TaskBank,
     TaskBlock,
-    TaskContext,
     TestCase,
     Topic,
 )
@@ -22,8 +21,8 @@ class TaskForm(forms.ModelForm):
         model = Task
         fields = (
             'bank',
-            'context',
             'topic',
+            'related_tasks',
             'source',
             'type',
             'difficulty',
@@ -37,8 +36,8 @@ class TaskForm(forms.ModelForm):
         )
         widgets = {
             'bank': forms.Select(attrs={'class': 'form-select'}),
-            'context': forms.Select(attrs={'class': 'form-select'}),
             'topic': forms.Select(attrs={'class': 'form-select'}),
+            'related_tasks': forms.SelectMultiple(attrs={'class': 'form-select', 'size': 6}),
             'source': forms.Select(attrs={'class': 'form-select'}),
             'type': forms.Select(attrs={'class': 'form-select'}),
             'difficulty': forms.Select(attrs={'class': 'form-select'}),
@@ -53,9 +52,11 @@ class TaskForm(forms.ModelForm):
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
-        for name in ('language', 'time_limit_ms', 'memory_limit_mb', 'answer_mode', 'context'):
+        for name in ('language', 'time_limit_ms', 'memory_limit_mb', 'answer_mode', 'related_tasks'):
             self.fields[name].required = False
-        self.fields['context'].empty_label = 'Без общего текста'
+        self.fields['related_tasks'].help_text = (
+            'Можно выбрать несколько задач, связанных с этой'
+        )
         self.fields['topic'].required = True
         self.fields['topic'].empty_label = None
         if user is not None:
@@ -87,26 +88,22 @@ class TaskForm(forms.ModelForm):
             self.fields['topic'].queryset = Topic.objects.filter(bank_id=bank_id)
         else:
             self.fields['topic'].queryset = Topic.objects.none()
-        if bank_id and user is not None:
-            self.fields['context'].queryset = TaskContext.objects.filter(
-                bank_id=bank_id, author=user
+        if user is not None:
+            related = (
+                Task.objects
+                .filter(author=user)
+                .select_related('bank', 'topic')
+                .order_by('task_number', 'pk')
             )
-        elif bank_id:
-            self.fields['context'].queryset = TaskContext.objects.filter(
-                bank_id=bank_id
-            )
-        else:
-            self.fields['context'].queryset = TaskContext.objects.none()
+            if self.instance and self.instance.pk:
+                related = related.exclude(pk=self.instance.pk)
+            self.fields['related_tasks'].queryset = related
 
     def clean(self):
         cleaned = super().clean()
         task_type = cleaned.get('type')
         answer_mode = cleaned.get('answer_mode')
         correct_answer = cleaned.get('correct_answer', '')
-        context = cleaned.get('context')
-        bank = cleaned.get('bank')
-        if context is not None and bank is not None and context.bank_id != bank.pk:
-            self.add_error('context', 'Общий текст относится к другой базе задач.')
         if task_type == Task.Type.TEXT and answer_mode == Task.AnswerMode.SHORT and not correct_answer.strip():
             self.add_error('correct_answer', 'Укажите правильный ответ для краткого ответа.')
         if task_type == Task.Type.PROGRAMMING:
@@ -115,33 +112,6 @@ class TaskForm(forms.ModelForm):
             if not cleaned.get('memory_limit_mb'):
                 cleaned['memory_limit_mb'] = 128
         return cleaned
-
-
-class TaskContextForm(forms.ModelForm):
-    class Meta:
-        model = TaskContext
-        fields = ('bank', 'title', 'body')
-        widgets = {
-            'bank': forms.Select(attrs={'class': 'form-select'}),
-            'title': forms.TextInput(attrs={'class': 'form-control'}),
-            'body': forms.Textarea(attrs={'class': 'form-control', 'rows': 6}),
-        }
-
-    def __init__(self, *args, user=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        if user is not None:
-            self.fields['bank'].queryset = (
-                TaskBank.objects.filter(
-                    author=user,
-                    name__in=['Информатика ЕГЭ', 'Информатика ОГЭ'],
-                ).order_by(
-                    Case(
-                        When(name='Информатика ЕГЭ', then=0),
-                        When(name='Информатика ОГЭ', then=1),
-                    )
-                )
-            )
-        self.fields['bank'].empty_label = None
 
 
 class BaseTaskFormSet(forms.BaseModelFormSet):

@@ -12,9 +12,7 @@ from tasks.models import (
     Lesson,
     LessonTask,
     Task,
-    TaskBank,
     TaskBlock,
-    TaskContext,
 )
 from tasks.models import TestCase as TaskTestCase
 
@@ -69,15 +67,6 @@ class AssignmentFlowTests(DjangoTestCase):
         TaskBlock.objects.create(
             task=self.gap_task, kind=TaskBlock.Kind.GAP, answers='9', order=3,
         )
-        self.bank = TaskBank.objects.create(
-            name='Информатика ЕГЭ', author=self.teacher,
-        )
-        self.context = TaskContext.objects.create(
-            bank=self.bank, title='Общий текст', body='Общий текст к задачам.',
-            author=self.teacher,
-        )
-        self.gap_task.context = self.context
-        self.gap_task.save(update_fields=['context'])
         self.class_group = ClassGroup.objects.create(title='9А', teacher=self.teacher)
         self.class_group.students.set([self.student, self.other_student])
         self.assignment = Assignment.objects.create(
@@ -192,12 +181,6 @@ class AssignmentFlowTests(DjangoTestCase):
         )
         self.assertContains(response, 'name="gap_1"')
         self.assertContains(response, 'name="gap_2"')
-
-    def test_solve_page_shows_shared_context(self):
-        response = self.client.get(
-            reverse('solve_task', args=[self.assignment.pk, self.gap_task.pk]),
-        )
-        self.assertContains(response, 'Общий текст к задачам.')
 
     def test_teacher_grades_image(self):
         sub = Submission.objects.create(

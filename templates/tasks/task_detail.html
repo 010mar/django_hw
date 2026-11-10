@@ -36,29 +36,24 @@
     {% endif %}
 </div>
 
-{% if task.context %}
-    <div class="card mb-4 border-primary">
+{% if task.related_tasks.all %}
+    <div class="card mb-4">
         <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="text-muted mb-0">Общий текст: {{ task.context.title }}</h6>
-                <a href="{{ task.context.get_absolute_url }}" class="btn btn-outline-secondary btn-sm">
-                    Открыть
-                </a>
+            <h6 class="text-muted mb-3">Связанные задачи</h6>
+            <div class="list-group">
+                {% for related in task.related_tasks.all %}
+                    <a href="{{ related.get_absolute_url }}"
+                       class="list-group-item list-group-item-action d-flex justify-content-between align-items-center gap-2">
+                        <span>
+                            <span class="badge bg-light text-dark border me-2">
+                                {{ related.task_number|default:related.pk }}
+                            </span>
+                            {{ related.title }}
+                        </span>
+                        <span class="badge bg-secondary">{{ related.type_verbose }}</span>
+                    </a>
+                {% endfor %}
             </div>
-            <div class="text-break js-math">{{ task.context.body|render_context_body:task.context }}</div>
-            {% if task.context.attachments.all %}
-                <hr>
-                <h6 class="text-muted mb-2">Файлы к общему тексту</h6>
-                <ul class="list-group list-group-flush">
-                    {% for attachment in task.context.attachments.all %}
-                        <li class="list-group-item px-0 d-flex justify-content-between align-items-center gap-2">
-                            <span class="text-break">{{ attachment.filename }}</span>
-                            <a class="btn btn-sm btn-outline-secondary flex-shrink-0"
-                               href="{{ attachment.file.url }}" download>Скачать</a>
-                        </li>
-                    {% endfor %}
-                </ul>
-            {% endif %}
         </div>
     </div>
 {% endif %}

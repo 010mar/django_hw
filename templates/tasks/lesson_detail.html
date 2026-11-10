@@ -41,27 +41,6 @@
                             · {{ task.type_verbose }}
                             {% if task.bank %} · {{ task.bank.name }}{% endif %}
                         </div>
-                        {% if task.context %}
-                            <div class="border rounded bg-light p-3 mb-3">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <strong class="small text-muted">{{ task.context.title }}</strong>
-                                    <a href="{{ task.context.get_absolute_url }}"
-                                       class="btn btn-outline-secondary btn-sm py-0">Открыть</a>
-                                </div>
-                                <div class="text-break js-math">{{ task.context.body|render_context_body:task.context }}</div>
-                                {% if task.context.attachments.all %}
-                                    <ul class="list-group list-group-flush mt-2">
-                                        {% for attachment in task.context.attachments.all %}
-                                            <li class="list-group-item px-0 py-1 d-flex justify-content-between align-items-center gap-2 bg-transparent">
-                                                <span class="text-break small">{{ attachment.filename }}</span>
-                                                <a class="btn btn-sm btn-outline-secondary flex-shrink-0"
-                                                   href="{{ attachment.file.url }}" download>Скачать</a>
-                                            </li>
-                                        {% endfor %}
-                                    </ul>
-                                {% endif %}
-                            </div>
-                        {% endif %}
                         <div class="text-break js-math mb-3">{{ task.body|render_task_body:task }}</div>
                         {% if task.image %}
                             <img src="{{ task.image.url }}" alt="Иллюстрация" class="img-fluid mb-3 rounded">
@@ -125,13 +104,13 @@
                                 <button type="submit" class="btn btn-outline-primary w-100">Добавить эту задачу</button>
                             </form>
                         {% endif %}
-                        {% if task.context %}
-                            <form method="post" action="{% url 'lesson_quick_add_context_tasks' lesson.pk task.pk %}" class="mt-2">
+                        {% if task.related_tasks.all %}
+                            <form method="post" action="{% url 'lesson_quick_add_related_tasks' lesson.pk task.pk %}" class="mt-2">
                                 {% csrf_token %}
                                 <input type="hidden" name="bank" value="{{ current_bank_id|default:'' }}">
                                 <input type="hidden" name="topic" value="{{ current_topic.pk|default:'' }}">
                                 <button type="submit" class="btn btn-outline-primary w-100">
-                                    Добавить все вопросы задачи ({{ task.context.tasks.all|length }})
+                                    Добавить все связанные задачи ({{ task.related_tasks.all|length }})
                                 </button>
                             </form>
                         {% endif %}

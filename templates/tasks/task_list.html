@@ -16,7 +16,6 @@
                 {% endfor %}
             </select>
         </form>
-        <a href="{% url 'context_list' %}" class="btn btn-outline-secondary">Общие тексты</a>
         <a href="{% url 'task_create' %}" class="btn btn-primary">Создать задачу</a>
     </div>
 </div>
@@ -39,9 +38,8 @@
             <tr>
                 <td>
                     <a href="{{ task.get_absolute_url }}">{{ task.title }}</a>
-                    {% if task.context %}
-                        <a href="{{ task.context.get_absolute_url }}"
-                           class="badge bg-light text-dark border text-decoration-none">к тексту</a>
+                    {% if task.related_tasks.all %}
+                        <span class="badge bg-light text-dark border">связана</span>
                     {% endif %}
                 </td>
                 <td>
