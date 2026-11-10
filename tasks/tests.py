@@ -181,6 +181,7 @@ class LessonViewTests(DjangoTestCase):
         response = self.client.get(reverse('lesson_detail', args=[self.lesson.pk]))
         self.assertContains(response, 'id="id_bank"')
         self.assertContains(response, 'id="id_topic"')
+        self.assertContains(response, f'lesson-scroll-{self.lesson.pk}')
         self.assertContains(
             response, f'action="{reverse("lesson_detail", args=[self.lesson.pk])}"',
         )

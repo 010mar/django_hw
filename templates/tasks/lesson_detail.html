@@ -195,6 +195,36 @@
 {% block extra_js %}
 {% include 'tasks/_katex_scripts.html' %}
 <script>
+(function () {
+    var key = 'lesson-scroll-{{ lesson.pk }}';
+    var position = null;
+    try {
+        var saved = sessionStorage.getItem(key);
+        if (saved !== null) {
+            sessionStorage.removeItem(key);
+            position = parseInt(saved, 10);
+        }
+    } catch (error) {
+        position = null;
+    }
+    if (position !== null && !isNaN(position)) {
+        window.scrollTo(0, position);
+        window.addEventListener('load', function () {
+            window.scrollTo(0, position);
+        });
+    }
+    document.querySelectorAll('form').forEach(function (form) {
+        form.addEventListener('submit', function () {
+            try {
+                sessionStorage.setItem(key, String(window.scrollY));
+            } catch (error) {
+                // sessionStorage may be unavailable
+            }
+        });
+    });
+})();
+</script>
+<script>
 document.addEventListener('DOMContentLoaded', function () {
     var bankSelect = document.getElementById('id_bank');
     var topicSelect = document.getElementById('id_topic');
