@@ -6,40 +6,19 @@
     <div class="card-body">
         <form method="post">
             {% csrf_token %}
-            {% for item in gap_blocks %}
-                {% if item.block.kind == 'text' %}
-                    <div class="mb-3 text-break js-math">{{ item.block.text|render_block_text }}</div>
-                {% endif %}
-            {% endfor %}
-            <div class="table-responsive mb-3">
-                <table class="table table-bordered align-middle text-center mb-0">
-                    <thead>
-                        <tr>
-                            <th style="width:5rem; background-color:#e3ebf6;"></th>
-                            {% for item in gap_blocks %}
-                                {% if item.block.kind != 'text' %}
-                                    <th style="min-width:8rem; background-color:#e3ebf6; font-size:1.1rem;">
-                                        {{ item.number }}
-                                    </th>
-                                {% endif %}
-                            {% endfor %}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <th style="background-color:#e3ebf6;">Ответ</th>
-                            {% for item in gap_blocks %}
-                                {% if item.block.kind != 'text' %}
-                                    <td>
-                                        <input type="text" name="gap_{{ item.number }}" id="gap-input-{{ item.number }}"
-                                               class="form-control form-control-sm text-center" required
-                                               {% if preview %}disabled{% endif %}>
-                                    </td>
-                                {% endif %}
-                            {% endfor %}
-                        </tr>
-                    </tbody>
-                </table>
+            <div class="gap-flow text-break mb-3">
+                {% for item in gap_blocks %}
+                    {% if item.block.kind == 'text' %}
+                        <span class="js-math">{{ item.block.text|render_block_text }}</span>
+                    {% else %}
+                        <span class="d-inline-flex flex-column align-items-center me-2 mb-2" style="vertical-align:middle;">
+                            <span class="text-muted" style="font-size:0.8rem; line-height:1;">{{ item.number }}</span>
+                            <input type="text" name="gap_{{ item.number }}" id="gap-input-{{ item.number }}"
+                                   class="form-control form-control-sm text-center" style="width:8rem;" required
+                                   {% if preview %}disabled{% endif %}>
+                        </span>
+                    {% endif %}
+                {% endfor %}
             </div>
             {% if not preview %}
                 <div class="d-flex gap-2">

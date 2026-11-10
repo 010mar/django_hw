@@ -186,14 +186,17 @@ class AssignmentFlowTests(DjangoTestCase):
         self.assertContains(response, 'Очистить')
         self.assertNotContains(response, 'Пропуск 1')
 
-    def test_solve_page_renders_text_breaks(self):
+    def test_solve_page_flows_gap_text_inline_with_breaks(self):
         text_block = self.gap_task.blocks.get(order=0)
         text_block.text = '2 + 2 = <br>'
         text_block.save(update_fields=['text'])
         response = self.client.get(
             reverse('solve_task', args=[self.assignment.pk, self.gap_task.pk]),
         )
-        self.assertIn('2 + 2 = <br>', response.content.decode())
+        html = response.content.decode()
+        self.assertIn('gap-flow', html)
+        self.assertIn('2 + 2 = <br>', html)
+        self.assertLess(html.index('2 + 2 = <br>'), html.index('name="gap_1"'))
 
     def test_teacher_grades_image(self):
         sub = Submission.objects.create(
