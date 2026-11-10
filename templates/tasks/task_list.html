@@ -29,6 +29,7 @@
             <th>Тема</th>
             <th>Тип</th>
             <th>Сложность</th>
+            <th>Баллы</th>
             <th>Создана</th>
             <th></th>
         </tr>
@@ -58,6 +59,7 @@
                 </td>
                 <td><span class="badge bg-secondary">{{ task.type_verbose }}</span></td>
                 <td><span class="badge bg-warning text-dark">{{ task.difficulty_verbose }}</span></td>
+                <td>{{ task.points }}</td>
                 <td class="text-muted">{{ task.created_at|date:'d.m.Y' }}</td>
                 <td>
                     <div class="d-flex gap-1">
@@ -72,7 +74,7 @@
                 </td>
             </tr>
         {% empty %}
-            <tr><td colspan="7" class="text-center text-muted py-4">Задач пока нет.</td></tr>
+            <tr><td colspan="8" class="text-center text-muted py-4">Задач пока нет.</td></tr>
         {% endfor %}
         </tbody>
     </table>

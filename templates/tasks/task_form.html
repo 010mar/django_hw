@@ -70,6 +70,13 @@
                         {{ form.difficulty }}
                     </div>
                     <div class="mb-3">
+                        <label class="form-label" for="{{ form.points.id_for_label }}">{{ form.points.label }}</label>
+                        {{ form.points }}
+                        {% if form.points.errors %}
+                            <div class="text-danger small">{{ form.points.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">{{ form.type.label }}</label>
                         {{ form.type }}
                     </div>

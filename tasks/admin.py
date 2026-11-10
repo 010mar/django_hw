@@ -84,13 +84,13 @@ class TopicAdmin(admin.ModelAdmin):
 
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ('title', 'bank', 'topic', 'type', 'difficulty', 'author', 'created_at')
+    list_display = ('title', 'bank', 'topic', 'type', 'difficulty', 'points', 'author', 'created_at')
     list_filter = ('type', 'difficulty', 'language')
     search_fields = ('title', 'body')
     list_select_related = ('author', 'bank', 'topic')
     fieldsets = (
         (None, {
-            'fields': ('title', 'body', 'type', 'difficulty', 'image', 'bank', 'topic', 'related_tasks', 'author'),
+            'fields': ('title', 'body', 'type', 'difficulty', 'points', 'image', 'bank', 'topic', 'related_tasks', 'author'),
         }),
         ('Текстовая задача', {
             'fields': ('answer_mode', 'correct_answer'),

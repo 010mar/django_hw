@@ -24,6 +24,7 @@
 <div class="mb-4">
     <span class="badge bg-secondary">{{ task.type_verbose }}</span>
     <span class="badge bg-warning text-dark">{{ task.difficulty_verbose }}</span>
+    <span class="badge bg-light text-dark border">Баллы: {{ task.points }}</span>
     {% if task.type == 'programming' %}
         <span class="badge bg-info text-dark">{{ task.language }}</span>
     {% endif %}

@@ -43,6 +43,7 @@ class TaskForm(forms.ModelForm):
             'source',
             'type',
             'difficulty',
+            'points',
             'body',
             'image',
             'answer_mode',
@@ -57,6 +58,7 @@ class TaskForm(forms.ModelForm):
             'source': forms.Select(attrs={'class': 'form-select'}),
             'type': forms.Select(attrs={'class': 'form-select'}),
             'difficulty': forms.Select(attrs={'class': 'form-select'}),
+            'points': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
             'body': forms.Textarea(attrs={'class': 'form-control', 'rows': 5}),
             'image': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'answer_mode': forms.Select(attrs={'class': 'form-select'}),
@@ -70,6 +72,7 @@ class TaskForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         for name in ('language', 'time_limit_ms', 'memory_limit_mb', 'answer_mode', 'related_tasks'):
             self.fields[name].required = False
+        self.fields['points'].required = False
         self.fields['topic'].required = True
         self.fields['topic'].empty_label = None
         if user is not None:
@@ -116,6 +119,14 @@ class TaskForm(forms.ModelForm):
     def selected_related_ids(self):
         value = self['related_tasks'].value() or []
         return {str(getattr(item, 'pk', item)) for item in value}
+
+    def clean_points(self):
+        points = self.cleaned_data.get('points')
+        if points is None:
+            return 1
+        if points < 1:
+            raise forms.ValidationError('Баллы должны быть не меньше 1.')
+        return points
 
     def clean(self):
         cleaned = super().clean()

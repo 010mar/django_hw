@@ -487,6 +487,42 @@ class TaskCrudViewTests(DjangoTestCase):
         self.assertRedirects(response, task.get_absolute_url())
         self.assertEqual(task.correct_answer, '8')
 
+    def _short_answer_data(self):
+        data = {
+            'type': 'text',
+            'difficulty': 'easy',
+            'answer_mode': 'short',
+            'correct_answer': '8',
+            'source': 'author',
+        }
+        data.update(self._base_data())
+        data.update(self._formset_data('options', []))
+        data.update(self._formset_data('cases', []))
+        return data
+
+    def test_create_task_defaults_to_one_point(self):
+        response = self.client.post(reverse('task_create'), self._short_answer_data())
+        task = Task.objects.latest('pk')
+        self.assertRedirects(response, task.get_absolute_url())
+        self.assertEqual(task.points, 1)
+
+    def test_create_task_with_custom_points(self):
+        data = self._short_answer_data()
+        data['points'] = '3'
+        response = self.client.post(reverse('task_create'), data)
+        task = Task.objects.latest('pk')
+        self.assertRedirects(response, task.get_absolute_url())
+        self.assertEqual(task.points, 3)
+        detail = self.client.get(task.get_absolute_url())
+        self.assertContains(detail, 'Баллы: 3')
+
+    def test_task_points_cannot_be_zero(self):
+        data = self._short_answer_data()
+        data['points'] = '0'
+        response = self.client.post(reverse('task_create'), data)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Task.objects.filter(author=self.teacher).exists())
+
     def test_create_task_with_related_tasks(self):
         other = Task.objects.create(
             title='1_9', author=self.teacher, task_number='1_9',

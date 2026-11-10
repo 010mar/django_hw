@@ -130,6 +130,11 @@ class Task(models.Model):
         default=Difficulty.MEDIUM,
         verbose_name='Сложность',
     )
+    points = models.PositiveIntegerField(
+        default=1,
+        verbose_name='Баллы',
+        help_text='Сколько баллов даёт задача',
+    )
     title = models.CharField(max_length=255, verbose_name='Название')
     body = models.TextField(blank=True, verbose_name='Условие')
     image = models.ImageField(
