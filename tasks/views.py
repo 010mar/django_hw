@@ -186,28 +186,35 @@ def _save_formsets(task, option_formset, case_formset):
 
 
 def _save_blocks(task, block_formset):
-    rows = []
-    order = 0
-    for form in block_formset.forms:
+    blocks = []
+    for index, form in enumerate(block_formset.forms):
         cleaned = getattr(form, 'cleaned_data', None)
         if not cleaned or cleaned.get('DELETE'):
             continue
         kind = cleaned.get('kind') or TaskBlock.Kind.TEXT
         if kind == TaskBlock.Kind.GAP:
-            answers = (cleaned.get('answers') or '').strip()
-            if not answers:
-                continue
+            value = (cleaned.get('answers') or '').strip()
+        else:
+            value = (cleaned.get('text') or '').strip()
+        if not value:
+            continue
+        try:
+            position = int(cleaned.get('order'))
+        except (TypeError, ValueError):
+            position = index
+        blocks.append((position, index, kind, value))
+    blocks.sort(key=lambda item: (item[0], item[1]))
+
+    rows = []
+    for order, (_, _, kind, value) in enumerate(blocks):
+        if kind == TaskBlock.Kind.GAP:
             rows.append(TaskBlock(
-                task=task, kind=TaskBlock.Kind.GAP, answers=answers, order=order,
+                task=task, kind=TaskBlock.Kind.GAP, answers=value, order=order,
             ))
         else:
-            text = (cleaned.get('text') or '').strip()
-            if not text:
-                continue
             rows.append(TaskBlock(
-                task=task, kind=TaskBlock.Kind.TEXT, text=text, order=order,
+                task=task, kind=TaskBlock.Kind.TEXT, text=value, order=order,
             ))
-        order += 1
     task.blocks.all().delete()
     TaskBlock.objects.bulk_create(rows)
 

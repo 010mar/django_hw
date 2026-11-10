@@ -613,6 +613,79 @@ class TaskCrudViewTests(DjangoTestCase):
         self.assertContains(response, 'block-empty-form')
         self.assertContains(response, 'Добавить текст')
         self.assertContains(response, 'Добавить пропуск')
+        self.assertContains(response, 'block-move-up')
+        self.assertContains(response, 'block-move-down')
+
+    def test_gap_blocks_respect_order_field(self):
+        data = {
+            'type': 'gap',
+            'difficulty': 'easy',
+            'source': 'author',
+            'body': 'Заполните пропуски.',
+        }
+        data.update(self._base_data())
+        data.update(self._formset_data('options', []))
+        data.update(self._formset_data('cases', []))
+        data.update(self._formset_data('blocks', [
+            {'kind': 'text', 'text': 'Первый', 'order': '2'},
+            {'kind': 'gap', 'answers': '1', 'order': '1'},
+            {'kind': 'text', 'text': 'Третий', 'order': '0'},
+        ]))
+        response = self.client.post(reverse('task_create'), data)
+        task = Task.objects.latest('pk')
+        self.assertRedirects(response, task.get_absolute_url())
+        self.assertEqual(
+            list(task.blocks.values_list('kind', 'text', 'answers')),
+            [
+                ('text', 'Третий', ''),
+                ('gap', '', '1'),
+                ('text', 'Первый', ''),
+            ],
+        )
+
+    def test_edit_gap_task_reorders_blocks(self):
+        task = Task.objects.create(
+            title='Пропуски', type=Task.Type.GAP, author=self.teacher,
+            bank=self.bank, topic=self.topic, task_number='1_1',
+        )
+        first = TaskBlock.objects.create(
+            task=task, kind=TaskBlock.Kind.TEXT, text='Первый', order=0,
+        )
+        second = TaskBlock.objects.create(
+            task=task, kind=TaskBlock.Kind.GAP, answers='1', order=1,
+        )
+        data = {
+            'type': 'gap',
+            'difficulty': 'easy',
+            'source': 'author',
+            'body': 'Заполните пропуски.',
+            'bank': str(self.bank.pk),
+            'topic': str(self.topic.pk),
+            'blocks-TOTAL_FORMS': '2',
+            'blocks-INITIAL_FORMS': '2',
+            'blocks-MIN_NUM_FORMS': '0',
+            'blocks-MAX_NUM_FORMS': '1000',
+            'blocks-0-id': str(first.pk),
+            'blocks-0-kind': 'gap',
+            'blocks-0-answers': '9',
+            'blocks-0-order': '1',
+            'blocks-1-id': str(second.pk),
+            'blocks-1-kind': 'text',
+            'blocks-1-text': 'Второй текст',
+            'blocks-1-order': '0',
+        }
+        data.update(self._formset_data('options', []))
+        data.update(self._formset_data('cases', []))
+        response = self.client.post(reverse('task_edit', args=[task.pk]), data)
+        task.refresh_from_db()
+        self.assertRedirects(response, task.get_absolute_url())
+        self.assertEqual(
+            list(task.blocks.values_list('kind', 'text', 'answers')),
+            [
+                ('text', 'Второй текст', ''),
+                ('gap', '', '9'),
+            ],
+        )
 
     def test_gap_task_requires_gap_block(self):
         data = {

@@ -194,9 +194,10 @@ TestCaseFormSet = forms.modelformset_factory(
 class TaskBlockForm(forms.ModelForm):
     class Meta:
         model = TaskBlock
-        fields = ('kind', 'text', 'answers')
+        fields = ('kind', 'text', 'answers', 'order')
         widgets = {
             'kind': forms.HiddenInput(),
+            'order': forms.HiddenInput(),
             'text': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 2,
@@ -214,6 +215,7 @@ class TaskBlockForm(forms.ModelForm):
         self.fields['kind'].required = False
         self.fields['text'].required = False
         self.fields['answers'].required = False
+        self.fields['order'].required = False
 
 
 class BaseTaskBlockFormSet(forms.BaseModelFormSet):
