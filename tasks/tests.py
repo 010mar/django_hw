@@ -72,6 +72,18 @@ class TaskModelTests(DjangoTestCase):
         self.assertTrue(task.is_short_answer_correct(' 8 '))
         self.assertFalse(task.is_short_answer_correct('7'))
 
+    def test_short_answer_case_sensitive(self):
+        task = Task.objects.create(
+            title='Регистр',
+            type=Task.Type.TEXT,
+            answer_mode=Task.AnswerMode.SHORT,
+            correct_answer='Hello',
+        )
+        self.assertTrue(task.is_short_answer_correct('hello'))
+        task.case_sensitive = True
+        self.assertFalse(task.is_short_answer_correct('hello'))
+        self.assertTrue(task.is_short_answer_correct('Hello'))
+
     def test_gap_answers_are_case_insensitive(self):
         task = Task.objects.create(
             title='Пропуски',
@@ -651,6 +663,26 @@ class TaskCrudViewTests(DjangoTestCase):
         self.assertContains(response, 'Добавить пропуск')
         self.assertContains(response, 'block-move-up')
         self.assertContains(response, 'block-move-down')
+
+    def test_task_form_has_answer_rule_checkboxes(self):
+        response = self.client.get(reverse('task_create'))
+        self.assertContains(response, 'Регистр ответа должен совпадать')
+        self.assertContains(response, 'Показывать верные и ошибочные ячейки')
+        self.assertContains(response, 'Оценка зависит от числа верных ячеек')
+
+    def test_create_task_with_answer_rules(self):
+        data = self._short_answer_data()
+        data.update({
+            'case_sensitive': 'on',
+            'show_cell_results': 'on',
+            'score_by_cells': 'on',
+        })
+        response = self.client.post(reverse('task_create'), data)
+        task = Task.objects.latest('pk')
+        self.assertRedirects(response, task.get_absolute_url())
+        self.assertTrue(task.case_sensitive)
+        self.assertTrue(task.show_cell_results)
+        self.assertTrue(task.score_by_cells)
 
     def test_gap_blocks_respect_order_field(self):
         data = {

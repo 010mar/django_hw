@@ -178,6 +178,12 @@ class Submission(models.Model):
     )
     code = models.TextField(blank=True, verbose_name='Код решения')
     details = models.TextField(blank=True, verbose_name='Детали')
+    score = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=0,
+        verbose_name='Баллы',
+    )
     status = models.CharField(
         max_length=16,
         choices=Status.choices,

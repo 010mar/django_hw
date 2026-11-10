@@ -77,6 +77,26 @@
                         {% endif %}
                     </div>
                     <div class="mb-3">
+                        <div class="form-check">
+                            {{ form.case_sensitive }}
+                            <label class="form-check-label" for="{{ form.case_sensitive.id_for_label }}">
+                                {{ form.case_sensitive.label }}
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            {{ form.show_cell_results }}
+                            <label class="form-check-label" for="{{ form.show_cell_results.id_for_label }}">
+                                {{ form.show_cell_results.label }}
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            {{ form.score_by_cells }}
+                            <label class="form-check-label" for="{{ form.score_by_cells.id_for_label }}">
+                                {{ form.score_by_cells.label }}
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">{{ form.type.label }}</label>
                         {{ form.type }}
                     </div>

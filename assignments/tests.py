@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.db import connection
@@ -119,6 +120,22 @@ class AssignmentFlowTests(DjangoTestCase):
         self.assertEqual(sub.status, Submission.Status.CORRECT)
         self.assertEqual(sub.answer_text, ' 42 ')
 
+    def test_short_answer_earns_points(self):
+        self.short_task.points = 5
+        self.short_task.save(update_fields=['points'])
+        self.client.post(
+            reverse('solve_task', args=[self.assignment.pk, self.short_task.pk]),
+            {'answer_text': '42'},
+        )
+        sub = Submission.objects.get(task=self.short_task)
+        self.assertEqual(sub.score, Decimal('5.00'))
+        self.client.post(
+            reverse('solve_task', args=[self.assignment.pk, self.short_task.pk]),
+            {'answer_text': '7'},
+        )
+        sub = Submission.objects.filter(task=self.short_task).latest('created_at')
+        self.assertEqual(sub.score, Decimal('0.00'))
+
     def test_solve_programming_ok(self):
         self.client.post(
             reverse('solve_task', args=[self.assignment.pk, self.prog_task.pk]),
@@ -174,6 +191,68 @@ class AssignmentFlowTests(DjangoTestCase):
         )
         sub = Submission.objects.get(task=self.gap_task)
         self.assertEqual(sub.status, Submission.Status.CORRECT)
+
+    def test_gap_case_sensitive_when_enabled(self):
+        self.gap_task.case_sensitive = True
+        self.gap_task.save(update_fields=['case_sensitive'])
+        self.client.post(
+            reverse('solve_task', args=[self.assignment.pk, self.gap_task.pk]),
+            {'gap_1': 'Четыре', 'gap_2': '9'},
+        )
+        sub = Submission.objects.get(task=self.gap_task)
+        self.assertEqual(sub.status, Submission.Status.INCORRECT)
+
+    def test_gap_hides_cell_results_by_default(self):
+        self.client.post(
+            reverse('solve_task', args=[self.assignment.pk, self.gap_task.pk]),
+            {'gap_1': '4', 'gap_2': '8'},
+        )
+        sub = Submission.objects.get(task=self.gap_task)
+        self.assertEqual(sub.details, '')
+
+    def test_gap_shows_cell_results_when_enabled(self):
+        self.gap_task.show_cell_results = True
+        self.gap_task.save(update_fields=['show_cell_results'])
+        self.client.post(
+            reverse('solve_task', args=[self.assignment.pk, self.gap_task.pk]),
+            {'gap_1': '4', 'gap_2': '8'},
+        )
+        sub = Submission.objects.get(task=self.gap_task)
+        self.assertIn('Пропуск 1: верно', sub.details)
+        self.assertIn('Пропуск 2: неверно', sub.details)
+        response = self.client.get(
+            reverse('solve_task', args=[self.assignment.pk, self.gap_task.pk]),
+        )
+        self.assertContains(response, 'is-valid')
+        self.assertContains(response, 'is-invalid')
+
+    def test_gap_full_score_without_cell_scoring(self):
+        self.gap_task.points = 3
+        self.gap_task.save(update_fields=['points'])
+        self.client.post(
+            reverse('solve_task', args=[self.assignment.pk, self.gap_task.pk]),
+            {'gap_1': '4', 'gap_2': '8'},
+        )
+        sub = Submission.objects.get(task=self.gap_task)
+        self.assertEqual(sub.score, Decimal('0.00'))
+        self.client.post(
+            reverse('solve_task', args=[self.assignment.pk, self.gap_task.pk]),
+            {'gap_1': '4', 'gap_2': '9'},
+        )
+        sub = Submission.objects.filter(task=self.gap_task).latest('created_at')
+        self.assertEqual(sub.score, Decimal('3.00'))
+
+    def test_gap_partial_score_when_cell_scoring_enabled(self):
+        self.gap_task.points = 4
+        self.gap_task.score_by_cells = True
+        self.gap_task.save(update_fields=['points', 'score_by_cells'])
+        self.client.post(
+            reverse('solve_task', args=[self.assignment.pk, self.gap_task.pk]),
+            {'gap_1': '4', 'gap_2': '8'},
+        )
+        sub = Submission.objects.get(task=self.gap_task)
+        self.assertEqual(sub.status, Submission.Status.INCORRECT)
+        self.assertEqual(sub.score, Decimal('2.00'))
 
     def test_solve_page_renders_gap_inputs(self):
         response = self.client.get(

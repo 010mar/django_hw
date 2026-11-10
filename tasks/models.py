@@ -135,6 +135,18 @@ class Task(models.Model):
         verbose_name='Баллы',
         help_text='Сколько баллов даёт задача',
     )
+    case_sensitive = models.BooleanField(
+        default=False,
+        verbose_name='Регистр ответа должен совпадать',
+    )
+    show_cell_results = models.BooleanField(
+        default=False,
+        verbose_name='Показывать верные и ошибочные ячейки',
+    )
+    score_by_cells = models.BooleanField(
+        default=False,
+        verbose_name='Оценка зависит от числа верных ячеек',
+    )
     title = models.CharField(max_length=255, verbose_name='Название')
     body = models.TextField(blank=True, verbose_name='Условие')
     image = models.ImageField(
@@ -217,7 +229,12 @@ class Task(models.Model):
         return reverse('task_delete', args=[self.pk])
 
     def is_short_answer_correct(self, answer: str) -> bool:
-        return self.correct_answer.strip().lower() == (answer or '').strip().lower()
+        expected = self.correct_answer.strip()
+        given = (answer or '').strip()
+        if not self.case_sensitive:
+            expected = expected.lower()
+            given = given.lower()
+        return expected == given
 
     @property
     def gap_blocks(self):
@@ -230,7 +247,9 @@ class Task(models.Model):
     def is_gap_answer_correct(self, number: int, answer: str) -> bool:
         blocks = self.gap_blocks
         if 1 <= number <= len(blocks):
-            return blocks[number - 1].is_correct(answer)
+            return blocks[number - 1].is_correct(
+                answer, case_sensitive=self.case_sensitive,
+            )
         return False
 
 
@@ -271,9 +290,14 @@ class TaskBlock(models.Model):
     def accepted_answers(self) -> list[str]:
         return [line.strip() for line in self.answers.splitlines() if line.strip()]
 
-    def is_correct(self, answer: str) -> bool:
-        normalized = (answer or '').strip().lower()
-        return bool(normalized) and any(
+    def is_correct(self, answer: str, case_sensitive: bool = False) -> bool:
+        normalized = (answer or '').strip()
+        if not normalized:
+            return False
+        if case_sensitive:
+            return normalized in self.accepted_answers
+        normalized = normalized.lower()
+        return any(
             normalized == accepted.lower() for accepted in self.accepted_answers
         )
 

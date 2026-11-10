@@ -38,6 +38,10 @@
                     </div>
                     <div class="col-md-4">
                         <p class="text-muted small mb-2">Попытка №{{ submission.attempt_number }} · {{ submission.created_at|date:'d.m.Y H:i' }}</p>
+                        <p class="mb-2">
+                            Баллы: <strong>{{ submission.score|floatformat:'-2' }}</strong>
+                            из {{ submission.task.points }}
+                        </p>
                         <div class="d-flex gap-2">
                             <form method="post" action="{% url 'grade_submission' submission.pk %}">
                                 {% csrf_token %}

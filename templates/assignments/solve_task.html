@@ -88,6 +88,9 @@
                     {{ latest.get_status_display }}
                 </span>
             </p>
+            <p>
+                Баллы: <strong>{{ latest.score|floatformat:'-2' }}</strong> из {{ task.points }}
+            </p>
             {% if latest.answer_text %}
                 <p>Ваш ответ: <code>{{ latest.answer_text }}</code></p>
             {% endif %}

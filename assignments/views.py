@@ -1,4 +1,5 @@
 import re
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
@@ -293,13 +294,15 @@ def solve_task(request, assignment_id, task_id):
         return redirect('solve_task', assignment_id=assignment.pk, task_id=task.pk)
 
     gap_blocks = _gap_block_items(task)
+    gap_grid = _gap_grid(gap_blocks)
+    _decorate_gap_grid(gap_grid, task, latest)
     context = {
         'assignment': assignment,
         'task': task,
         'latest': latest,
         'history': history,
         'gap_blocks': gap_blocks,
-        'gap_grid': _gap_grid(gap_blocks),
+        'gap_grid': gap_grid,
     }
     return render(request, 'assignments/solve_task.html', context)
 
@@ -355,24 +358,49 @@ def _gap_grid(items):
     return {'rows': grid_rows, 'columns': list(range(1, columns + 1))}
 
 
+def _decorate_gap_grid(grid, task, latest):
+    if not latest or not task.show_cell_results:
+        return
+    answers = latest.gap_answers or {}
+    for row in grid['rows']:
+        for cell in row['cells']:
+            if not cell:
+                continue
+            value = answers.get(str(cell['number']), '')
+            cell['answer'] = value
+            cell['state'] = (
+                'valid'
+                if value and task.is_gap_answer_correct(cell['number'], value)
+                else 'invalid'
+            )
+
+
+def _round_score(value):
+    return Decimal(value).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+
+def _full_score(task):
+    return _round_score(task.points)
+
+
 def _solve_text_task(request, assignment, task):
     if task.answer_mode == Task.AnswerMode.CHOICE:
         option_id = request.POST.get('answer_option')
         option = get_object_or_404(task.answer_options, pk=option_id)
-        status = Submission.Status.CORRECT if option.is_correct else Submission.Status.INCORRECT
+        is_correct = option.is_correct
         return Submission.objects.create(
             assignment=assignment, task=task, student=request.user,
-            answer_option=option, status=status,
+            answer_option=option,
+            status=Submission.Status.CORRECT if is_correct else Submission.Status.INCORRECT,
+            score=_full_score(task) if is_correct else 0,
         )
     answer_text = request.POST.get('answer_text', '')
-    status = (
-        Submission.Status.CORRECT
-        if task.is_short_answer_correct(answer_text)
-        else Submission.Status.INCORRECT
-    )
+    is_correct = task.is_short_answer_correct(answer_text)
     return Submission.objects.create(
         assignment=assignment, task=task, student=request.user,
-        answer_text=answer_text, status=status,
+        answer_text=answer_text,
+        status=Submission.Status.CORRECT if is_correct else Submission.Status.INCORRECT,
+        score=_full_score(task) if is_correct else 0,
     )
 
 
@@ -418,6 +446,7 @@ def _solve_programming_task(request, assignment, task):
     return Submission.objects.create(
         assignment=assignment, task=task, student=request.user,
         code=code, status=final_verdict, details='\n'.join(details_lines),
+        score=_full_score(task) if final_verdict == Submission.Status.OK else 0,
     )
 
 
@@ -425,18 +454,24 @@ def _solve_gap_task(request, assignment, task):
     gap_blocks = list(task.blocks.filter(kind=TaskBlock.Kind.GAP))
     answers = {}
     details = []
-    all_correct = bool(gap_blocks)
+    correct_count = 0
     for index, gap in enumerate(gap_blocks, start=1):
         value = request.POST.get(f'gap_{index}', '')
         answers[str(index)] = value
-        if gap.is_correct(value):
-            details.append(f'Пропуск {index}: верно')
-        else:
-            all_correct = False
-            details.append(f'Пропуск {index}: неверно')
+        is_correct = gap.is_correct(value, case_sensitive=task.case_sensitive)
+        if is_correct:
+            correct_count += 1
+        if task.show_cell_results:
+            details.append(f'Пропуск {index}: {"верно" if is_correct else "неверно"}')
+    all_correct = bool(gap_blocks) and correct_count == len(gap_blocks)
+    if task.score_by_cells and gap_blocks:
+        score = _round_score(Decimal(task.points) * correct_count / len(gap_blocks))
+    else:
+        score = _full_score(task) if all_correct else 0
     return Submission.objects.create(
         assignment=assignment, task=task, student=request.user,
         gap_answers=answers,
         status=Submission.Status.CORRECT if all_correct else Submission.Status.INCORRECT,
         details='\n'.join(details),
+        score=score,
     )

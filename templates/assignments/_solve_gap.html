@@ -34,7 +34,8 @@
                                         <td>
                                             {% if cell %}
                                                 <input type="text" name="gap_{{ cell.number }}" id="gap-input-{{ cell.number }}"
-                                                       class="form-control form-control-sm text-center" required
+                                                       class="form-control form-control-sm text-center{% if cell.state == 'valid' %} is-valid{% elif cell.state == 'invalid' %} is-invalid{% endif %}"
+                                                       value="{{ cell.answer|default:'' }}" required
                                                        {% if preview %}disabled{% endif %}>
                                             {% endif %}
                                         </td>

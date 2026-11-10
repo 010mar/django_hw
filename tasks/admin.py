@@ -90,7 +90,11 @@ class TaskAdmin(admin.ModelAdmin):
     list_select_related = ('author', 'bank', 'topic')
     fieldsets = (
         (None, {
-            'fields': ('title', 'body', 'type', 'difficulty', 'points', 'image', 'bank', 'topic', 'related_tasks', 'author'),
+            'fields': (
+                'title', 'body', 'type', 'difficulty', 'points',
+                'case_sensitive', 'show_cell_results', 'score_by_cells',
+                'image', 'bank', 'topic', 'related_tasks', 'author',
+            ),
         }),
         ('Текстовая задача', {
             'fields': ('answer_mode', 'correct_answer'),
