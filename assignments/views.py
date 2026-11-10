@@ -7,7 +7,7 @@ from django.views.decorators.http import require_POST
 
 from accounts.decorators import teacher_required
 from sandbox.runner import get_runner
-from tasks.models import Task
+from tasks.models import Task, TaskBlock
 
 from .forms import AssignmentForm, ClassForm
 from .models import Assignment, ClassGroup, Submission
@@ -295,8 +295,21 @@ def solve_task(request, assignment_id, task_id):
         'task': task,
         'latest': latest,
         'history': history,
+        'gap_blocks': _gap_block_items(task),
     }
     return render(request, 'assignments/solve_task.html', context)
+
+
+def _gap_block_items(task):
+    items = []
+    number = 0
+    for block in task.blocks.all():
+        if block.kind == TaskBlock.Kind.GAP:
+            number += 1
+            items.append({'block': block, 'number': number})
+        else:
+            items.append({'block': block, 'number': None})
+    return items
 
 
 def _solve_text_task(request, assignment, task):
@@ -366,19 +379,18 @@ def _solve_programming_task(request, assignment, task):
 
 
 def _solve_gap_task(request, assignment, task):
-    gaps = {gap.number: gap for gap in task.gaps.all()}
+    gap_blocks = list(task.blocks.filter(kind=TaskBlock.Kind.GAP))
     answers = {}
     details = []
-    all_correct = bool(task.gap_numbers)
-    for number in task.gap_numbers:
-        value = request.POST.get(f'gap_{number}', '')
-        answers[str(number)] = value
-        gap = gaps.get(number)
-        if gap is not None and gap.is_correct(value):
-            details.append(f'Пропуск {number}: верно')
+    all_correct = bool(gap_blocks)
+    for index, gap in enumerate(gap_blocks, start=1):
+        value = request.POST.get(f'gap_{index}', '')
+        answers[str(index)] = value
+        if gap.is_correct(value):
+            details.append(f'Пропуск {index}: верно')
         else:
             all_correct = False
-            details.append(f'Пропуск {number}: неверно')
+            details.append(f'Пропуск {index}: неверно')
     return Submission.objects.create(
         assignment=assignment, task=task, student=request.user,
         gap_answers=answers,

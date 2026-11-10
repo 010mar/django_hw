@@ -66,24 +66,26 @@
 {% if task.type == 'gap' %}
     <div class="card mb-4">
         <div class="card-body">
-            <h6 class="text-muted mb-3">Пропуски</h6>
-            <ul class="list-group">
-                {% for gap in task.gaps.all %}
-                    <li class="list-group-item">
+            <h6 class="text-muted mb-3">Задание с пропусками</h6>
+            {% for block in task.blocks.all %}
+                {% if block.kind == 'text' %}
+                    <div class="mb-3 text-break js-math">{{ block.text|linebreaksbr }}</div>
+                {% else %}
+                    <div class="border rounded p-3 mb-3">
                         <div class="d-flex justify-content-between align-items-start gap-2">
-                            <span>Пропуск <code>[[{{ gap.number }}]]</code></span>
+                            <span class="badge bg-secondary">Пропуск</span>
                             <span class="badge bg-success">правильные ответы</span>
                         </div>
                         <div class="mt-2">
-                            {% for answer in gap.accepted_answers %}
+                            {% for answer in block.accepted_answers %}
                                 <code class="me-2">{{ answer }}</code>
                             {% endfor %}
                         </div>
-                    </li>
-                {% empty %}
-                    <li class="list-group-item text-muted">Пропуски не настроены.</li>
-                {% endfor %}
-            </ul>
+                    </div>
+                {% endif %}
+            {% empty %}
+                <p class="text-muted mb-0">Блоки задания не настроены.</p>
+            {% endfor %}
         </div>
     </div>
 {% endif %}

@@ -10,7 +10,7 @@ from .models import (
     Lesson,
     Task,
     TaskBank,
-    TaskGap,
+    TaskBlock,
     TestCase,
     Topic,
 )
@@ -158,12 +158,17 @@ TestCaseFormSet = forms.modelformset_factory(
 )
 
 
-class TaskGapForm(forms.ModelForm):
+class TaskBlockForm(forms.ModelForm):
     class Meta:
-        model = TaskGap
-        fields = ('number', 'answers')
+        model = TaskBlock
+        fields = ('kind', 'text', 'answers')
         widgets = {
-            'number': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
+            'kind': forms.HiddenInput(),
+            'text': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 2,
+                'placeholder': 'Текст задания',
+            }),
             'answers': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 2,
@@ -173,39 +178,32 @@ class TaskGapForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['number'].required = False
+        self.fields['kind'].required = False
+        self.fields['text'].required = False
         self.fields['answers'].required = False
 
 
-class BaseTaskGapFormSet(forms.BaseModelFormSet):
+class BaseTaskBlockFormSet(forms.BaseModelFormSet):
     def clean(self):
         super().clean()
-        numbers = []
         for form in self.forms:
             cleaned = getattr(form, 'cleaned_data', None)
             if not cleaned or cleaned.get('DELETE'):
                 continue
-            number = cleaned.get('number')
-            answers = (cleaned.get('answers') or '').strip()
-            if number is None and not answers:
+            kind = cleaned.get('kind') or TaskBlock.Kind.TEXT
+            if kind not in (TaskBlock.Kind.TEXT, TaskBlock.Kind.GAP):
+                form.add_error('kind', 'Неизвестный тип блока.')
                 continue
-            if number is None:
-                form.add_error('number', 'Укажите номер пропуска.')
-                continue
-            if not answers:
+            if kind == TaskBlock.Kind.GAP and not (cleaned.get('answers') or '').strip():
                 form.add_error('answers', 'Укажите хотя бы один правильный ответ.')
-                continue
-            if number in numbers:
-                form.add_error('number', 'Номер пропуска уже используется.')
-            numbers.append(number)
 
 
-TaskGapFormSet = forms.modelformset_factory(
-    TaskGap,
-    form=TaskGapForm,
-    extra=3,
+TaskBlockFormSet = forms.modelformset_factory(
+    TaskBlock,
+    form=TaskBlockForm,
+    extra=0,
     can_delete=True,
-    formset=BaseTaskGapFormSet,
+    formset=BaseTaskBlockFormSet,
 )
 
 

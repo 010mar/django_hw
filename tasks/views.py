@@ -18,7 +18,7 @@ from .forms import (
     LessonForm,
     TaskBankForm,
     TaskForm,
-    TaskGapFormSet,
+    TaskBlockFormSet,
     TestCaseFormSet,
     TopicForm,
     task_number_sort_key,
@@ -34,7 +34,7 @@ from .models import (
     Task,
     TaskAttachment,
     TaskBank,
-    TaskGap,
+    TaskBlock,
     TaskImage,
     TestCase,
     Topic,
@@ -180,19 +180,31 @@ def _save_formsets(task, option_formset, case_formset):
         obj.delete()
 
 
-def _save_gaps(task, gap_formset):
-    numbers = set(task.gap_numbers)
+def _save_blocks(task, block_formset):
     rows = []
-    for form in gap_formset.forms:
+    order = 0
+    for form in block_formset.forms:
         cleaned = getattr(form, 'cleaned_data', None)
         if not cleaned or cleaned.get('DELETE'):
             continue
-        number = cleaned.get('number')
-        answers = (cleaned.get('answers') or '').strip()
-        if number in numbers and answers:
-            rows.append(TaskGap(task=task, number=number, answers=answers))
-    task.gaps.all().delete()
-    TaskGap.objects.bulk_create(rows)
+        kind = cleaned.get('kind') or TaskBlock.Kind.TEXT
+        if kind == TaskBlock.Kind.GAP:
+            answers = (cleaned.get('answers') or '').strip()
+            if not answers:
+                continue
+            rows.append(TaskBlock(
+                task=task, kind=TaskBlock.Kind.GAP, answers=answers, order=order,
+            ))
+        else:
+            text = (cleaned.get('text') or '').strip()
+            if not text:
+                continue
+            rows.append(TaskBlock(
+                task=task, kind=TaskBlock.Kind.TEXT, text=text, order=order,
+            ))
+        order += 1
+    task.blocks.all().delete()
+    TaskBlock.objects.bulk_create(rows)
 
 
 def _attachment_errors(files):
@@ -252,7 +264,7 @@ def _sync_task_images(task):
         ).update(task=task)
 
 
-def _validate_formsets(task, option_formset, case_formset, gap_formset):
+def _validate_formsets(task, option_formset, case_formset, block_formset):
     errors = []
     real_options = [
         d for d in option_formset.cleaned_data
@@ -262,9 +274,10 @@ def _validate_formsets(task, option_formset, case_formset, gap_formset):
         d for d in case_formset.cleaned_data
         if d and not d.get('DELETE') and (d.get('expected_output') or '').strip()
     ]
-    real_gaps = [
-        d for d in gap_formset.cleaned_data
-        if d and not d.get('DELETE') and d.get('number')
+    real_gap_blocks = [
+        d for d in block_formset.cleaned_data
+        if d and not d.get('DELETE')
+        and (d.get('kind') or TaskBlock.Kind.TEXT) == TaskBlock.Kind.GAP
         and (d.get('answers') or '').strip()
     ]
     if task.type == Task.Type.PROGRAMMING and not real_cases:
@@ -274,25 +287,8 @@ def _validate_formsets(task, option_formset, case_formset, gap_formset):
             errors.append('Добавьте хотя бы один вариант ответа.')
         elif not any(d.get('is_correct') for d in real_options):
             errors.append('Отметьте хотя бы один правильный вариант.')
-    if task.type == Task.Type.GAP:
-        marker_numbers = set(task.gap_numbers)
-        if not marker_numbers:
-            errors.append('Добавьте в условие хотя бы один пропуск вида [[1]].')
-        defined_numbers = {d['number'] for d in real_gaps}
-        missing = sorted(marker_numbers - defined_numbers)
-        if missing:
-            errors.append(
-                'Нет ответов для пропусков: '
-                + ', '.join(f'[[{number}]]' for number in missing)
-                + '.'
-            )
-        extra = sorted(defined_numbers - marker_numbers)
-        if extra:
-            errors.append(
-                'В условии нет пропусков: '
-                + ', '.join(f'[[{number}]]' for number in extra)
-                + '.'
-            )
+    if task.type == Task.Type.GAP and not real_gap_blocks:
+        errors.append('Добавьте хотя бы один пропуск с правильным ответом.')
     return errors
 
 
@@ -318,10 +314,10 @@ def task_create(request):
         prefix='cases',
         queryset=TestCase.objects.none(),
     )
-    gap_formset = TaskGapFormSet(
+    block_formset = TaskBlockFormSet(
         request.POST or None,
-        prefix='gaps',
-        queryset=TaskGap.objects.none(),
+        prefix='blocks',
+        queryset=TaskBlock.objects.none(),
     )
     attachments = (
         request.FILES.getlist('attachments') if request.method == 'POST' else []
@@ -334,7 +330,7 @@ def task_create(request):
             form.is_valid()
             and option_formset.is_valid()
             and case_formset.is_valid()
-            and gap_formset.is_valid()
+            and block_formset.is_valid()
         ):
             task = form.save(commit=False)
             task.author = request.user
@@ -361,16 +357,16 @@ def task_create(request):
                 task.task_number = ''
             task.title = task.task_number or 'Без номера'
             formset_errors = _validate_formsets(
-                task, option_formset, case_formset, gap_formset,
+                task, option_formset, case_formset, block_formset,
             )
             if not formset_errors and not attachment_errors:
                 task.save()
                 _sync_task_images(task)
                 _save_formsets(task, option_formset, case_formset)
                 if task.type == Task.Type.GAP:
-                    _save_gaps(task, gap_formset)
+                    _save_blocks(task, block_formset)
                 else:
-                    task.gaps.all().delete()
+                    task.blocks.all().delete()
                 _save_attachments(task, attachments)
                 messages.success(request, 'Задача создана.')
                 return redirect(task.get_absolute_url())
@@ -380,7 +376,7 @@ def task_create(request):
         'form': form,
         'option_formset': option_formset,
         'case_formset': case_formset,
-        'gap_formset': gap_formset,
+        'block_formset': block_formset,
         'all_topics': Topic.objects.filter(bank__author=request.user).select_related('bank'),
         'inline_images': _inline_images_for_request(request),
         'is_create': True,
@@ -473,10 +469,10 @@ def task_edit(request, pk, bank_pk=None):
         prefix='cases',
         queryset=TestCase.objects.filter(task=task),
     )
-    gap_formset = TaskGapFormSet(
+    block_formset = TaskBlockFormSet(
         request.POST or None,
-        prefix='gaps',
-        queryset=TaskGap.objects.filter(task=task),
+        prefix='blocks',
+        queryset=TaskBlock.objects.filter(task=task),
     )
     attachments = (
         request.FILES.getlist('attachments') if request.method == 'POST' else []
@@ -489,20 +485,20 @@ def task_edit(request, pk, bank_pk=None):
             form.is_valid()
             and option_formset.is_valid()
             and case_formset.is_valid()
-            and gap_formset.is_valid()
+            and block_formset.is_valid()
         ):
             saved_task = form.save(commit=False)
             formset_errors = _validate_formsets(
-                saved_task, option_formset, case_formset, gap_formset,
+                saved_task, option_formset, case_formset, block_formset,
             )
             if not formset_errors and not attachment_errors:
                 saved_task.save()
                 _sync_task_images(saved_task)
                 _save_formsets(saved_task, option_formset, case_formset)
                 if saved_task.type == Task.Type.GAP:
-                    _save_gaps(saved_task, gap_formset)
+                    _save_blocks(saved_task, block_formset)
                 else:
-                    saved_task.gaps.all().delete()
+                    saved_task.blocks.all().delete()
                 remove_ids = request.POST.getlist('remove_attachments')
                 if remove_ids:
                     saved_task.attachments.filter(pk__in=remove_ids).delete()
@@ -515,7 +511,7 @@ def task_edit(request, pk, bank_pk=None):
         'form': form,
         'option_formset': option_formset,
         'case_formset': case_formset,
-        'gap_formset': gap_formset,
+        'block_formset': block_formset,
         'all_topics': Topic.objects.filter(bank__author=request.user).select_related('bank'),
         'inline_images': _inline_images_for_request(request, task),
         'attachments': task.attachments.all(),

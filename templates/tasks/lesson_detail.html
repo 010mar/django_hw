@@ -69,17 +69,23 @@
                             </p>
                         {% elif task.type == 'gap' %}
                             <details class="mb-3">
-                                <summary class="text-primary">Показать ответы</summary>
-                                <ul class="list-group mt-2">
-                                    {% for gap in task.gaps.all %}
-                                        <li class="list-group-item">
-                                            <span class="me-2">[[{{ gap.number }}]]:</span>
-                                            {% for answer in gap.accepted_answers %}
-                                                <code class="me-2">{{ answer }}</code>
-                                            {% endfor %}
-                                        </li>
+                                <summary class="text-primary">Показать задание</summary>
+                                <div class="mt-2">
+                                    {% for block in task.blocks.all %}
+                                        {% if block.kind == 'text' %}
+                                            <div class="mb-2 text-break js-math">{{ block.text|linebreaksbr }}</div>
+                                        {% else %}
+                                            <div class="mb-2">
+                                                <span class="badge bg-secondary me-2">Пропуск</span>
+                                                {% for answer in block.accepted_answers %}
+                                                    <code class="me-2">{{ answer }}</code>
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    {% empty %}
+                                        <p class="text-muted mb-0">Блоки задания не настроены.</p>
                                     {% endfor %}
-                                </ul>
+                                </div>
                             </details>
                         {% endif %}
                         {% if task.pk in lesson_task_ids %}

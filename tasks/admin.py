@@ -9,7 +9,7 @@ from .models import (
     Task,
     TaskAttachment,
     TaskBank,
-    TaskGap,
+    TaskBlock,
     TaskImage,
     TestCase,
     Topic,
@@ -21,8 +21,8 @@ class AnswerOptionInline(admin.TabularInline):
     extra = 1
 
 
-class TaskGapInline(admin.TabularInline):
-    model = TaskGap
+class TaskBlockInline(admin.TabularInline):
+    model = TaskBlock
     extra = 1
 
 
@@ -101,13 +101,14 @@ class TaskAdmin(admin.ModelAdmin):
             'classes': ('collapse',),
         }),
     )
-    inlines = [AnswerOptionInline, TaskGapInline, TestCaseInline]
+    inlines = [AnswerOptionInline, TaskBlockInline, TestCaseInline]
 
 
-@admin.register(TaskGap)
-class TaskGapAdmin(admin.ModelAdmin):
-    list_display = ('task', 'number', 'answers')
-    search_fields = ('task__title', 'answers')
+@admin.register(TaskBlock)
+class TaskBlockAdmin(admin.ModelAdmin):
+    list_display = ('task', 'kind', 'order')
+    list_filter = ('kind',)
+    search_fields = ('task__title', 'text', 'answers')
     list_select_related = ('task',)
 
 

@@ -16,9 +16,7 @@
 
 <div class="card mb-4">
     <div class="card-body">
-        {% if task.type != 'gap' %}
-            <div class="text-break js-math">{{ task.body|render_task_body:task }}</div>
-        {% endif %}
+        <div class="text-break js-math">{{ task.body|render_task_body:task }}</div>
         {% if task.image %}
             <img src="{{ task.image.url }}" alt="Условие" class="img-fluid mt-3 rounded">
         {% endif %}

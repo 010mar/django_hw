@@ -1,10 +1,21 @@
-{% load task_filters %}
 <div class="card mb-4">
     <div class="card-body">
         <h6 class="mb-3">Заполните пропуски</h6>
         <form method="post">
             {% csrf_token %}
-            <div class="text-break js-math mb-3">{{ task.body|render_gap_body:task }}</div>
+            {% for item in gap_blocks %}
+                {% if item.block.kind == 'text' %}
+                    <div class="mb-3 text-break js-math">{{ item.block.text|linebreaksbr }}</div>
+                {% else %}
+                    <div class="mb-3">
+                        <label class="form-label small text-muted" for="gap-input-{{ item.number }}">
+                            Пропуск {{ item.number }}
+                        </label>
+                        <input type="text" name="gap_{{ item.number }}" id="gap-input-{{ item.number }}"
+                               class="form-control" style="max-width:24rem" required>
+                    </div>
+                {% endif %}
+            {% endfor %}
             <button type="submit" class="btn btn-primary">Отправить</button>
         </form>
     </div>

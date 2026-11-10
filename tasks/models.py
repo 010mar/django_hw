@@ -9,7 +9,6 @@ from django.dispatch import receiver
 from django.urls import reverse
 
 IMAGE_TOKEN_PATTERN = re.compile(r'\[\[img:([0-9a-fA-F-]{36})\]\]')
-GAP_MARKER_PATTERN = re.compile(r'\[\[(\d+)\]\]')
 ALLOWED_ATTACHMENT_EXTENSIONS = ('xls', 'ods', 'txt')
 
 
@@ -209,35 +208,52 @@ class Task(models.Model):
         return self.correct_answer.strip().lower() == (answer or '').strip().lower()
 
     @property
+    def gap_blocks(self):
+        return list(self.blocks.filter(kind='gap'))
+
+    @property
     def gap_numbers(self) -> list[int]:
-        return sorted({int(number) for number in GAP_MARKER_PATTERN.findall(self.body or '')})
+        return list(range(1, len(self.gap_blocks) + 1))
 
     def is_gap_answer_correct(self, number: int, answer: str) -> bool:
-        gap = self.gaps.filter(number=number).first()
-        return gap is not None and gap.is_correct(answer)
+        blocks = self.gap_blocks
+        if 1 <= number <= len(blocks):
+            return blocks[number - 1].is_correct(answer)
+        return False
 
 
-class TaskGap(models.Model):
+class TaskBlock(models.Model):
+    class Kind(models.TextChoices):
+        TEXT = 'text', 'Текст'
+        GAP = 'gap', 'Пропуск'
+
     task = models.ForeignKey(
         Task,
         on_delete=models.CASCADE,
-        related_name='gaps',
+        related_name='blocks',
         verbose_name='Задача',
     )
-    number = models.PositiveIntegerField(verbose_name='Номер пропуска')
+    kind = models.CharField(
+        max_length=8,
+        choices=Kind.choices,
+        default=Kind.TEXT,
+        verbose_name='Тип блока',
+    )
+    text = models.TextField(blank=True, verbose_name='Текст')
     answers = models.TextField(
+        blank=True,
         verbose_name='Правильные ответы',
         help_text='По одному варианту в строке, регистр не учитывается',
     )
+    order = models.PositiveIntegerField(default=0, verbose_name='Порядок')
 
     class Meta:
-        verbose_name = 'Пропуск'
-        verbose_name_plural = 'Пропуски'
-        ordering = ('number',)
-        unique_together = ('task', 'number')
+        verbose_name = 'Блок задания'
+        verbose_name_plural = 'Блоки задания'
+        ordering = ('order', 'id')
 
     def __str__(self):
-        return f'{self.task.title} — пропуск {self.number}'
+        return f'{self.task.title} — {self.get_kind_display()} {self.order}'
 
     @property
     def accepted_answers(self) -> list[str]:

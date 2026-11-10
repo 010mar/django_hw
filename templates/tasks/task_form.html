@@ -232,62 +232,68 @@
                 <div class="card-body">
                     <h5>Задача с пропусками</h5>
                     <p class="text-muted small">
-                        Вставьте в условие маркеры <code>[[1]]</code>, <code>[[2]]</code> и т. д.
-                        В этих местах ученик увидит поля для ввода. Номер пропуска должен совпадать
-                        с числом в маркере.
+                        Добавляйте блоки в нужном порядке: текстовые фрагменты и пропуски.
+                        У каждого блока можно нажать крестик, чтобы удалить его.
                     </p>
-                    {{ gap_formset.management_form }}
-                    {% if gap_formset.non_form_errors %}
-                        <div class="alert alert-danger">{{ gap_formset.non_form_errors.0 }}</div>
+                    {{ block_formset.management_form }}
+                    {% if block_formset.non_form_errors %}
+                        <div class="alert alert-danger">{{ block_formset.non_form_errors.0 }}</div>
                     {% endif %}
-                    <div id="gap-rows">
-                        {% for gap_form in gap_formset %}
-                            <div class="row g-2 align-items-start mb-2 gap-row">
-                                {{ gap_form.id }}
-                                <div class="col-md-3">
-                                    <label class="form-label small">Номер пропуска</label>
-                                    {{ gap_form.number }}
-                                    {% if gap_form.number.errors %}
-                                        <div class="text-danger small">{{ gap_form.number.errors.0 }}</div>
+                    <div id="block-rows">
+                        {% for block_form in block_formset %}
+                            <div class="block-row border rounded p-3 mb-3 position-relative">
+                                <button type="button"
+                                        class="btn-close position-absolute top-0 end-0 m-2 block-remove"
+                                        aria-label="Удалить"></button>
+                                <div class="d-none">{{ block_form.id }}{{ block_form.kind }}{{ block_form.DELETE }}</div>
+                                <span class="badge bg-secondary block-kind-label mb-2">
+                                    {% if block_form.kind.value == 'gap' %}Пропуск{% else %}Текст{% endif %}
+                                </span>
+                                <div class="block-text-fields {% if block_form.kind.value == 'gap' %}d-none{% endif %}">
+                                    <label class="form-label small">Текст</label>
+                                    {{ block_form.text }}
+                                    {% if block_form.text.errors %}
+                                        <div class="text-danger small">{{ block_form.text.errors.0 }}</div>
                                     {% endif %}
                                 </div>
-                                <div class="col-md-7">
+                                <div class="block-gap-fields {% if block_form.kind.value != 'gap' %}d-none{% endif %}">
                                     <label class="form-label small">Правильные ответы</label>
-                                    {{ gap_form.answers }}
+                                    {{ block_form.answers }}
                                     <div class="form-text">По одному варианту в строке, регистр не учитывается.</div>
-                                    {% if gap_form.answers.errors %}
-                                        <div class="text-danger small">{{ gap_form.answers.errors.0 }}</div>
+                                    {% if block_form.answers.errors %}
+                                        <div class="text-danger small">{{ block_form.answers.errors.0 }}</div>
                                     {% endif %}
-                                </div>
-                                <div class="col-md-2">
-                                    <div class="form-check mt-4">
-                                        {{ gap_form.DELETE }}
-                                        <label class="form-check-label small" for="{{ gap_form.DELETE.id_for_label }}">Удалить</label>
-                                    </div>
                                 </div>
                             </div>
                         {% endfor %}
                     </div>
-                    <button type="button" class="btn btn-outline-primary btn-sm" id="add-gap">
-                        Добавить пропуск
-                    </button>
-                    <template id="gap-empty-form">
-                        <div class="row g-2 align-items-start mb-2 gap-row">
-                            {{ gap_formset.empty_form.id }}
-                            <div class="col-md-3">
-                                <label class="form-label small">Номер пропуска</label>
-                                {{ gap_formset.empty_form.number }}
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-success btn-sm" id="add-text-block">
+                            Добавить текст
+                        </button>
+                        <button type="button" class="btn btn-success btn-sm" id="add-gap-block">
+                            Добавить пропуск
+                        </button>
+                    </div>
+                    <template id="block-empty-form">
+                        <div class="block-row border rounded p-3 mb-3 position-relative">
+                            <button type="button"
+                                    class="btn-close position-absolute top-0 end-0 m-2 block-remove"
+                                    aria-label="Удалить"></button>
+                            <div class="d-none">
+                                {{ block_formset.empty_form.id }}
+                                {{ block_formset.empty_form.kind }}
+                                {{ block_formset.empty_form.DELETE }}
                             </div>
-                            <div class="col-md-7">
+                            <span class="badge bg-secondary block-kind-label mb-2">Текст</span>
+                            <div class="block-text-fields">
+                                <label class="form-label small">Текст</label>
+                                {{ block_formset.empty_form.text }}
+                            </div>
+                            <div class="block-gap-fields d-none">
                                 <label class="form-label small">Правильные ответы</label>
-                                {{ gap_formset.empty_form.answers }}
+                                {{ block_formset.empty_form.answers }}
                                 <div class="form-text">По одному варианту в строке, регистр не учитывается.</div>
-                            </div>
-                            <div class="col-md-2">
-                                <div class="form-check mt-4">
-                                    {{ gap_formset.empty_form.DELETE }}
-                                    <label class="form-check-label small" for="{{ gap_formset.empty_form.DELETE.id_for_label }}">Удалить</label>
-                                </div>
                             </div>
                         </div>
                     </template>
@@ -373,17 +379,65 @@
     update();
     filterTopics();
 
-    var gapRows = document.getElementById('gap-rows');
-    var addGap = document.getElementById('add-gap');
-    var gapTotalForms = document.getElementById('id_gaps-TOTAL_FORMS');
-    var gapEmptyForm = document.getElementById('gap-empty-form');
-    if (gapRows && addGap && gapTotalForms && gapEmptyForm) {
-        addGap.addEventListener('click', function () {
-            var index = parseInt(gapTotalForms.value, 10) || 0;
-            var wrapper = document.createElement('div');
-            wrapper.innerHTML = gapEmptyForm.innerHTML.replace(/__prefix__/g, index).trim();
-            gapRows.appendChild(wrapper.firstElementChild);
-            gapTotalForms.value = index + 1;
+    var blockRows = document.getElementById('block-rows');
+    var addTextBlock = document.getElementById('add-text-block');
+    var addGapBlock = document.getElementById('add-gap-block');
+    var blockTotalForms = document.getElementById('id_blocks-TOTAL_FORMS');
+    var blockEmptyForm = document.getElementById('block-empty-form');
+
+    function toggleBlockFields(row, kind) {
+        var label = row.querySelector('.block-kind-label');
+        if (label) {
+            label.textContent = kind === 'gap' ? 'Пропуск' : 'Текст';
+        }
+        var textFields = row.querySelector('.block-text-fields');
+        var gapFields = row.querySelector('.block-gap-fields');
+        if (textFields) {
+            textFields.classList.toggle('d-none', kind === 'gap');
+        }
+        if (gapFields) {
+            gapFields.classList.toggle('d-none', kind !== 'gap');
+        }
+    }
+
+    function addBlock(kind) {
+        if (!blockRows || !blockTotalForms || !blockEmptyForm) {
+            return;
+        }
+        var index = parseInt(blockTotalForms.value, 10) || 0;
+        var wrapper = document.createElement('div');
+        wrapper.innerHTML = blockEmptyForm.innerHTML.replace(/__prefix__/g, index).trim();
+        var row = wrapper.firstElementChild;
+        var kindInput = row.querySelector('input[name$="-kind"]');
+        if (kindInput) {
+            kindInput.value = kind;
+        }
+        toggleBlockFields(row, kind);
+        blockRows.appendChild(row);
+        blockTotalForms.value = index + 1;
+    }
+
+    if (addTextBlock) {
+        addTextBlock.addEventListener('click', function () { addBlock('text'); });
+    }
+    if (addGapBlock) {
+        addGapBlock.addEventListener('click', function () { addBlock('gap'); });
+    }
+    if (blockRows) {
+        blockRows.addEventListener('click', function (event) {
+            var button = event.target.closest('.block-remove');
+            if (!button) {
+                return;
+            }
+            var row = button.closest('.block-row');
+            if (!row) {
+                return;
+            }
+            var deleteInput = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+            if (deleteInput) {
+                deleteInput.checked = true;
+            }
+            row.classList.add('d-none');
         });
     }
 })();

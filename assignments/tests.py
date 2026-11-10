@@ -7,7 +7,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
-from tasks.models import AnswerOption, Lesson, LessonTask, Task, TaskGap
+from tasks.models import AnswerOption, Lesson, LessonTask, Task, TaskBlock
 from tasks.models import TestCase as TaskTestCase
 
 from .models import Assignment, ClassGroup, Submission
@@ -47,10 +47,20 @@ class AssignmentFlowTests(DjangoTestCase):
         )
         self.gap_task = Task.objects.create(
             title='Пропуски', type=Task.Type.GAP, author=self.teacher,
-            body='2 + 2 = [[1]], а 3 × 3 = [[2]].',
+            body='Заполните пропуски.',
         )
-        TaskGap.objects.create(task=self.gap_task, number=1, answers='4\nчетыре')
-        TaskGap.objects.create(task=self.gap_task, number=2, answers='9')
+        TaskBlock.objects.create(
+            task=self.gap_task, kind=TaskBlock.Kind.TEXT, text='2 + 2 = ', order=0,
+        )
+        TaskBlock.objects.create(
+            task=self.gap_task, kind=TaskBlock.Kind.GAP, answers='4\nчетыре', order=1,
+        )
+        TaskBlock.objects.create(
+            task=self.gap_task, kind=TaskBlock.Kind.TEXT, text=', а 3 × 3 = ', order=2,
+        )
+        TaskBlock.objects.create(
+            task=self.gap_task, kind=TaskBlock.Kind.GAP, answers='9', order=3,
+        )
         self.class_group = ClassGroup.objects.create(title='9А', teacher=self.teacher)
         self.class_group.students.set([self.student, self.other_student])
         self.assignment = Assignment.objects.create(

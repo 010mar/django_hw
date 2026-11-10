@@ -20,7 +20,7 @@ from .models import (
     Task,
     TaskAttachment,
     TaskBank,
-    TaskGap,
+    TaskBlock,
     TaskImage,
     Topic,
 )
@@ -75,10 +75,14 @@ class TaskModelTests(DjangoTestCase):
         task = Task.objects.create(
             title='Пропуски',
             type=Task.Type.GAP,
-            body='2 + 2 = [[1]], столица России — [[2]].',
+            body='Заполните пропуски.',
         )
-        TaskGap.objects.create(task=task, number=1, answers='4\nчетыре')
-        TaskGap.objects.create(task=task, number=2, answers='Москва')
+        TaskBlock.objects.create(
+            task=task, kind=TaskBlock.Kind.GAP, answers='4\nчетыре', order=0,
+        )
+        TaskBlock.objects.create(
+            task=task, kind=TaskBlock.Kind.GAP, answers='Москва', order=1,
+        )
         self.assertEqual(task.gap_numbers, [1, 2])
         self.assertTrue(task.is_gap_answer_correct(1, ' четыре '))
         self.assertTrue(task.is_gap_answer_correct(2, 'москва'))
@@ -396,7 +400,7 @@ class TaskCrudViewTests(DjangoTestCase):
             'bank': str(self.bank.pk),
             'topic': str(self.topic.pk),
         }
-        data.update(self._formset_data('gaps', []))
+        data.update(self._formset_data('blocks', []))
         return data
 
     def test_create_choice_task(self):
@@ -458,41 +462,46 @@ class TaskCrudViewTests(DjangoTestCase):
             'type': 'gap',
             'difficulty': 'easy',
             'source': 'author',
-            'body': '2 + 2 = [[1]], а 3 × 3 = [[2]].',
+            'body': 'Заполните пропуски.',
         }
         data.update(self._base_data())
         data.update(self._formset_data('options', []))
         data.update(self._formset_data('cases', []))
-        data.update(self._formset_data('gaps', [
-            {'number': '1', 'answers': '4\nчетыре'},
-            {'number': '2', 'answers': '9'},
+        data.update(self._formset_data('blocks', [
+            {'kind': 'text', 'text': '2 + 2 = '},
+            {'kind': 'gap', 'answers': '4\nчетыре'},
+            {'kind': 'text', 'text': ', а 3 × 3 = '},
+            {'kind': 'gap', 'answers': '9'},
         ]))
         response = self.client.post(reverse('task_create'), data)
         task = Task.objects.latest('pk')
         self.assertRedirects(response, task.get_absolute_url())
         self.assertEqual(task.type, Task.Type.GAP)
-        self.assertEqual(task.gaps.count(), 2)
+        self.assertEqual(task.blocks.count(), 4)
+        self.assertEqual(task.gap_numbers, [1, 2])
         self.assertTrue(task.is_gap_answer_correct(1, 'Четыре'))
         self.assertTrue(task.is_gap_answer_correct(2, '9'))
 
     def test_task_form_has_gap_section(self):
         response = self.client.get(reverse('task_create'))
         self.assertContains(response, 'Задача с пропусками')
-        self.assertContains(response, 'gaps-TOTAL_FORMS')
-        self.assertContains(response, 'gap-empty-form')
+        self.assertContains(response, 'blocks-TOTAL_FORMS')
+        self.assertContains(response, 'block-empty-form')
+        self.assertContains(response, 'Добавить текст')
+        self.assertContains(response, 'Добавить пропуск')
 
-    def test_gap_task_requires_answer_for_each_marker(self):
+    def test_gap_task_requires_gap_block(self):
         data = {
             'type': 'gap',
             'difficulty': 'easy',
             'source': 'author',
-            'body': 'Первый [[1]], второй [[2]].',
+            'body': 'Заполните пропуски.',
         }
         data.update(self._base_data())
         data.update(self._formset_data('options', []))
         data.update(self._formset_data('cases', []))
-        data.update(self._formset_data('gaps', [
-            {'number': '1', 'answers': 'один'},
+        data.update(self._formset_data('blocks', [
+            {'kind': 'text', 'text': 'Только текст без пропуска'},
         ]))
         response = self.client.post(reverse('task_create'), data)
         self.assertEqual(response.status_code, 200)
@@ -557,7 +566,7 @@ class TaskCrudViewTests(DjangoTestCase):
         }
         data.update(self._formset_data('options', []))
         data.update(self._formset_data('cases', []))
-        data.update(self._formset_data('gaps', []))
+        data.update(self._formset_data('blocks', []))
         response = self.client.post(reverse('task_create'), data)
         self.assertEqual(response.status_code, 200)
         self.assertFalse(Task.objects.filter(author=self.teacher).exists())
@@ -755,10 +764,10 @@ class TaskBankTests(DjangoTestCase):
                 'cases-INITIAL_FORMS': '0',
                 'cases-MIN_NUM_FORMS': '0',
                 'cases-MAX_NUM_FORMS': '1000',
-                'gaps-TOTAL_FORMS': '0',
-                'gaps-INITIAL_FORMS': '0',
-                'gaps-MIN_NUM_FORMS': '0',
-                'gaps-MAX_NUM_FORMS': '1000',
+                'blocks-TOTAL_FORMS': '0',
+                'blocks-INITIAL_FORMS': '0',
+                'blocks-MIN_NUM_FORMS': '0',
+                'blocks-MAX_NUM_FORMS': '1000',
             },
         )
         task = Task.objects.latest('pk')
@@ -887,10 +896,10 @@ class TaskTopicTests(DjangoTestCase):
             'cases-INITIAL_FORMS': '0',
             'cases-MIN_NUM_FORMS': '0',
             'cases-MAX_NUM_FORMS': '1000',
-            'gaps-TOTAL_FORMS': '0',
-            'gaps-INITIAL_FORMS': '0',
-            'gaps-MIN_NUM_FORMS': '0',
-            'gaps-MAX_NUM_FORMS': '1000',
+            'blocks-TOTAL_FORMS': '0',
+            'blocks-INITIAL_FORMS': '0',
+            'blocks-MIN_NUM_FORMS': '0',
+            'blocks-MAX_NUM_FORMS': '1000',
         })
         task = Task.objects.latest('pk')
         self.assertEqual(task.topic, topic)
@@ -918,10 +927,10 @@ class TaskTopicTests(DjangoTestCase):
             'cases-INITIAL_FORMS': '0',
             'cases-MIN_NUM_FORMS': '0',
             'cases-MAX_NUM_FORMS': '1000',
-            'gaps-TOTAL_FORMS': '0',
-            'gaps-INITIAL_FORMS': '0',
-            'gaps-MIN_NUM_FORMS': '0',
-            'gaps-MAX_NUM_FORMS': '1000',
+            'blocks-TOTAL_FORMS': '0',
+            'blocks-INITIAL_FORMS': '0',
+            'blocks-MIN_NUM_FORMS': '0',
+            'blocks-MAX_NUM_FORMS': '1000',
         })
         task = Task.objects.latest('pk')
         self.assertRedirects(response, task.get_absolute_url())
@@ -997,10 +1006,10 @@ class TaskAttachmentTests(DjangoTestCase):
             'cases-INITIAL_FORMS': '0',
             'cases-MIN_NUM_FORMS': '0',
             'cases-MAX_NUM_FORMS': '1000',
-            'gaps-TOTAL_FORMS': '0',
-            'gaps-INITIAL_FORMS': '0',
-            'gaps-MIN_NUM_FORMS': '0',
-            'gaps-MAX_NUM_FORMS': '1000',
+            'blocks-TOTAL_FORMS': '0',
+            'blocks-INITIAL_FORMS': '0',
+            'blocks-MIN_NUM_FORMS': '0',
+            'blocks-MAX_NUM_FORMS': '1000',
         }
 
     def _upload(self, name='data.txt', content=b'hello'):
@@ -1116,7 +1125,7 @@ class TaskImageTests(DjangoTestCase):
         }
         data.update(self._formset_data('options', []))
         data.update(self._formset_data('cases', []))
-        data.update(self._formset_data('gaps', []))
+        data.update(self._formset_data('blocks', []))
         return data
 
     def test_upload_requires_teacher(self):
