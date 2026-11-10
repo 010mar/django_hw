@@ -97,7 +97,16 @@
         }
         .result-table td.answer-cell {
             text-align: left;
-            white-space: pre-line;
+            word-break: break-word;
+        }
+        .answer-pairs {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 2px 16px;
+            text-align: left;
+        }
+        .answer-pairs span {
+            min-width: 0;
             word-break: break-word;
         }
         .result-table .col-number {
@@ -169,8 +178,24 @@
                                     <tr>
                                         <td>{{ row.index }}</td>
                                         <td>{{ row.score|floatformat:'-2' }}</td>
-                                        <td>{% if row.user_answer %}{{ row.user_answer|linebreaksbr }}{% endif %}</td>
-                                        <td class="answer-cell">{{ row.correct_answer|linebreaksbr }}</td>
+                                        <td>
+                                            {% if row.user_answers|length == 1 %}
+                                                {{ row.user_answers.0 }}
+                                            {% elif row.user_answers %}
+                                                <div class="answer-pairs">
+                                                    {% for value in row.user_answers %}<span>{{ value }}</span>{% endfor %}
+                                                </div>
+                                            {% endif %}
+                                        </td>
+                                        <td class="answer-cell">
+                                            {% if row.correct_answers|length == 1 %}
+                                                {{ row.correct_answers.0 }}
+                                            {% elif row.correct_answers %}
+                                                <div class="answer-pairs">
+                                                    {% for value in row.correct_answers %}<span>{{ value }}</span>{% endfor %}
+                                                </div>
+                                            {% endif %}
+                                        </td>
                                     </tr>
                                 {% endfor %}
                             </tbody>

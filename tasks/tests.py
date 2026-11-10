@@ -558,7 +558,9 @@ class LessonExamTests(DjangoTestCase):
             reverse('lesson_exam', args=[self.lesson.pk]) + '?task=2',
         )
         self.assertContains(response, 'exam-answer-panel')
-        self.assertContains(response, 'Введите или скопируйте свой ответ в поля таблицы')
+        self.assertContains(
+            response, 'Введите или скопируйте свой ответ в поля таблицы',
+        )
         self.assertContains(response, 'exam-gap-table')
         self.assertContains(response, 'name="gap_1"')
         self.assertContains(response, 'Очистить')
@@ -580,6 +582,19 @@ class LessonExamTests(DjangoTestCase):
         self.assertEqual(
             result.content.decode().count('<div class="result-table-wrap">'), 2,
         )
+
+    def test_result_shows_answers_two_per_row(self):
+        TaskBlock.objects.create(
+            task=self.gap_task, kind=TaskBlock.Kind.GAP,
+            answers='a\nb\nc', order=1,
+        )
+        response = self.client.get(
+            reverse('lesson_exam_result', args=[self.lesson.pk]),
+        )
+        html = response.content.decode()
+        self.assertIn('<div class="answer-pairs">', html)
+        self.assertIn('<span>4</span>', html)
+        self.assertIn('<span>a</span>', html)
 
     def test_author_can_preview_exam_without_exam_mode(self):
         self.course.exam_mode = False

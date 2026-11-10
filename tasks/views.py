@@ -878,37 +878,35 @@ def lesson_exam(request, pk):
     })
 
 
-def _task_correct_answer(task):
+def _task_correct_answers(task):
     if task.type == Task.Type.TEXT:
         if task.answer_mode == Task.AnswerMode.CHOICE:
-            values = [
+            return [
                 option.text
                 for option in task.answer_options.filter(is_correct=True)
             ]
-            return ', '.join(values)
-        return task.correct_answer
+        return [task.correct_answer] if task.correct_answer else []
     if task.type == Task.Type.GAP:
-        groups = [
-            '\n'.join(block.accepted_answers)
+        return [
+            answer
             for block in task.gap_blocks
-            if block.accepted_answers
+            for answer in block.accepted_answers
         ]
-        return '\n\n'.join(groups)
-    return '—'
+    return []
 
 
-def _submission_user_answer(submission):
+def _submission_user_answers(submission):
     if submission is None:
-        return ''
+        return []
     if submission.answer_option_id:
-        return submission.answer_option.text
+        return [submission.answer_option.text]
     if submission.answer_text:
-        return submission.answer_text
+        return [submission.answer_text]
     if submission.gap_answers:
-        return '\n'.join(str(value) for value in submission.gap_answers.values())
+        return [str(value) for value in submission.gap_answers.values()]
     if submission.code:
-        return 'Код отправлен'
-    return ''
+        return ['Код отправлен']
+    return []
 
 
 @login_required
@@ -931,8 +929,8 @@ def lesson_exam_result(request, pk):
             'task': task,
             'submission': submission,
             'score': score,
-            'user_answer': _submission_user_answer(submission),
-            'correct_answer': _task_correct_answer(task),
+            'user_answers': _submission_user_answers(submission),
+            'correct_answers': _task_correct_answers(task),
         })
     middle = (len(rows) + 1) // 2
     return render(request, 'tasks/lesson_exam_result.html', {
