@@ -262,7 +262,7 @@ TaskBlockFormSet = forms.modelformset_factory(
 class CourseForm(forms.ModelForm):
     class Meta:
         model = Course
-        fields = ('title', 'description')
+        fields = ('title', 'description', 'exam_mode')
         widgets = {
             'title': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -273,6 +273,7 @@ class CourseForm(forms.ModelForm):
                 'rows': 3,
                 'placeholder': 'Описание курса',
             }),
+            'exam_mode': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
 

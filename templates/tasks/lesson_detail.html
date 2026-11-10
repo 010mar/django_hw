@@ -12,6 +12,13 @@
 <div class="d-flex justify-content-between align-items-center mb-2">
     <h2>{{ lesson.title }}</h2>
     <div class="d-flex gap-2">
+        {% if lesson.module and lesson.module.course.exam_mode %}
+            <a href="{% url 'lesson_exam' lesson.pk %}" class="btn btn-outline-success btn-sm">Открыть экзамен</a>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="copy-exam-link"
+                    data-url="{{ request.scheme }}://{{ request.get_host }}{% url 'lesson_exam' lesson.pk %}">
+                Ссылка для учеников
+            </button>
+        {% endif %}
         <a href="{% url 'lesson_edit' lesson.pk %}" class="btn btn-outline-primary btn-sm">Редактировать</a>
         <form method="post" action="{% url 'lesson_delete' lesson.pk %}"
               onsubmit="return confirm('Удалить урок?');">
@@ -203,6 +210,20 @@
 {% include 'tasks/_katex_scripts.html' %}
 <script>
 (function () {
+    var copyButton = document.getElementById('copy-exam-link');
+    if (copyButton) {
+        copyButton.addEventListener('click', function () {
+            var url = copyButton.dataset.url;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url).then(function () {
+                    copyButton.textContent = 'Скопировано!';
+                    setTimeout(function () {
+                        copyButton.textContent = 'Ссылка для учеников';
+                    }, 1500);
+                });
+            }
+        });
+    }
     var list = document.getElementById('lesson-task-list');
     if (!list) {
         return;

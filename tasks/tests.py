@@ -2,6 +2,7 @@ import importlib
 import os
 import shutil
 import tempfile
+from decimal import Decimal
 from io import BytesIO
 
 from django.contrib.auth import get_user_model
@@ -10,6 +11,8 @@ from django.test import TestCase as DjangoTestCase
 from django.test import override_settings
 from django.urls import reverse
 from PIL import Image as PILImage
+
+from assignments.models import Submission
 
 from .forms import TaskForm
 from .models import (
@@ -455,12 +458,110 @@ class CourseViewTests(DjangoTestCase):
             f'action="{reverse("course_delete", args=[course.pk])}"',
         )
 
+    def test_course_form_has_exam_mode(self):
+        course = Course.objects.create(title='Курс', author=self.teacher)
+        response = self.client.get(reverse('course_edit', args=[course.pk]))
+        self.assertContains(response, 'Режим экзамена')
+
     def test_deleting_user_removes_courses_and_lessons(self):
         course = Course.objects.create(title='Курс', author=self.teacher)
         lesson = Lesson.objects.create(title='Урок', author=self.teacher)
         self.teacher.delete()
         self.assertFalse(Course.objects.filter(pk=course.pk).exists())
         self.assertFalse(Lesson.objects.filter(pk=lesson.pk).exists())
+
+
+class LessonExamTests(DjangoTestCase):
+    def setUp(self):
+        self.teacher = User.objects.create_user(
+            username='teacher', password='pass12345', role=User.Role.TEACHER,
+        )
+        self.student = User.objects.create_user(
+            username='student', password='pass12345', role=User.Role.STUDENT,
+        )
+        self.course = Course.objects.create(
+            title='probniki ЕГЭ', author=self.teacher, exam_mode=True,
+        )
+        self.module = CourseModule.objects.create(
+            course=self.course, title='Модуль',
+        )
+        self.lesson = Lesson.objects.create(
+            title='Пробник 1', author=self.teacher, module=self.module,
+        )
+        self.text_task = Task.objects.create(
+            title='Краткий', type=Task.Type.TEXT, author=self.teacher,
+            answer_mode=Task.AnswerMode.SHORT, correct_answer='42', points=2,
+        )
+        self.gap_task = Task.objects.create(
+            title='Пропуски', type=Task.Type.GAP, author=self.teacher, points=2,
+        )
+        TaskBlock.objects.create(
+            task=self.gap_task, kind=TaskBlock.Kind.GAP, answers='4', order=0,
+        )
+        LessonTask.objects.create(lesson=self.lesson, task=self.text_task, order=1)
+        LessonTask.objects.create(lesson=self.lesson, task=self.gap_task, order=2)
+        self.client.force_login(self.student)
+
+    def test_exam_requires_exam_mode(self):
+        self.course.exam_mode = False
+        self.course.save(update_fields=['exam_mode'])
+        response = self.client.get(reverse('lesson_exam', args=[self.lesson.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_exam_requires_login(self):
+        self.client.logout()
+        response = self.client.get(reverse('lesson_exam', args=[self.lesson.pk]))
+        self.assertEqual(response.status_code, 302)
+
+    def test_student_opens_exam(self):
+        response = self.client.get(reverse('lesson_exam', args=[self.lesson.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Краткий')
+        self.assertContains(response, 'Задание 1')
+        self.assertContains(response, 'Дано ответов')
+        self.assertContains(response, '0/2')
+
+    def test_exam_saves_text_answer(self):
+        response = self.client.post(
+            reverse('lesson_exam', args=[self.lesson.pk]) + '?task=1',
+            {'task_id': self.text_task.pk, 'answer_text': '42'},
+        )
+        self.assertRedirects(
+            response,
+            f'{reverse("lesson_exam", args=[self.lesson.pk])}?task=1&saved=1',
+        )
+        submission = Submission.objects.get(
+            lesson=self.lesson, task=self.text_task,
+        )
+        self.assertIsNone(submission.assignment)
+        self.assertEqual(submission.student, self.student)
+        self.assertEqual(submission.status, Submission.Status.CORRECT)
+        self.assertEqual(submission.score, Decimal('2.00'))
+
+    def test_exam_saves_gap_answer(self):
+        self.client.post(
+            reverse('lesson_exam', args=[self.lesson.pk]) + '?task=2',
+            {'task_id': self.gap_task.pk, 'gap_1': '4'},
+        )
+        submission = Submission.objects.get(
+            lesson=self.lesson, task=self.gap_task,
+        )
+        self.assertEqual(submission.gap_answers, {'1': '4'})
+        self.assertEqual(submission.status, Submission.Status.CORRECT)
+        self.assertEqual(submission.score, Decimal('2.00'))
+
+    def test_exam_counts_answered_and_shows_result(self):
+        self.client.post(
+            reverse('lesson_exam', args=[self.lesson.pk]) + '?task=1',
+            {'task_id': self.text_task.pk, 'answer_text': '42'},
+        )
+        response = self.client.get(reverse('lesson_exam', args=[self.lesson.pk]))
+        self.assertContains(response, '1/2')
+        result = self.client.get(
+            reverse('lesson_exam_result', args=[self.lesson.pk]),
+        )
+        self.assertContains(result, '1/2')
+        self.assertContains(result, '2 из 4')
 
 
 class TaskCrudViewTests(DjangoTestCase):

@@ -1,0 +1,517 @@
+{% load task_filters %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ lesson.title }} — экзамен</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    {% include 'tasks/_katex_head.html' %}
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+            background: #fff;
+            color: #1f2937;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        }
+        .exam-topbar {
+            height: 56px;
+            flex: 0 0 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+            padding: 0 28px;
+            background: #1f3864;
+            color: #fff;
+        }
+        .exam-topbar-left {
+            display: flex;
+            align-items: baseline;
+            gap: 48px;
+            min-width: 0;
+        }
+        .exam-id {
+            font-size: 18px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .exam-topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            font-size: 15px;
+        }
+        .exam-topbar-right a,
+        .exam-topbar-right span {
+            color: #fff;
+            text-decoration: none;
+        }
+        .exam-topbar-right a:hover {
+            color: #dce6f8;
+        }
+        .exam-icon {
+            font-size: 22px;
+            line-height: 1;
+            opacity: .85;
+        }
+        .exam-layout {
+            display: flex;
+            height: calc(100vh - 56px);
+        }
+        .exam-sidebar {
+            flex: 0 0 132px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 10px;
+            background: #eef3fb;
+            border-right: 1px solid #dbe3f0;
+            overflow: hidden;
+        }
+        .exam-answered-label {
+            color: #6b7280;
+            font-size: 13px;
+            text-align: center;
+            line-height: 1.2;
+        }
+        .exam-answered-count {
+            font-size: 32px;
+            line-height: 1.1;
+            margin-bottom: 4px;
+        }
+        .exam-nav-scroll {
+            flex: 1;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            min-height: 0;
+        }
+        .exam-task-list {
+            flex: 1;
+            width: 100%;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 2px 0;
+            scrollbar-width: thin;
+        }
+        .exam-scroll-btn {
+            width: 42px;
+            height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            border: 1px solid #cfd8e8;
+            background: #fff;
+            color: #1f3864;
+            text-decoration: none;
+            font-size: 18px;
+        }
+        .exam-scroll-btn:hover {
+            background: #e2e9f6;
+            color: #1f3864;
+        }
+        .exam-task-btn {
+            width: 48px;
+            min-height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            border: 1px solid #cfd8e8;
+            background: #fff;
+            color: #1f2937;
+            text-decoration: none;
+            font-size: 16px;
+        }
+        .exam-task-btn:hover {
+            background: #e2e9f6;
+            color: #1f2937;
+        }
+        .exam-task-btn.answered {
+            border-color: #9fc0ea;
+            background: #dbe8fb;
+        }
+        .exam-task-btn.active {
+            background: #1f3864;
+            border-color: #1f3864;
+            color: #fff;
+            font-weight: 600;
+        }
+        .exam-main {
+            position: relative;
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .exam-content-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 28px 84px 24px;
+        }
+        .exam-content {
+            max-width: 1180px;
+        }
+        .exam-task-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin: 0 0 12px;
+        }
+        .exam-condition {
+            font-size: 17px;
+            line-height: 1.45;
+            margin-bottom: 18px;
+        }
+        .exam-condition img {
+            max-width: 100%;
+            height: auto;
+        }
+        .exam-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            border: 2px solid #b9cdf0;
+            background: #fff;
+            color: #2b4d8f;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            text-decoration: none;
+        }
+        .exam-arrow:hover {
+            background: #f1f5fd;
+            color: #1f3864;
+        }
+        .exam-arrow.disabled {
+            opacity: .35;
+            pointer-events: none;
+        }
+        .exam-arrow-left {
+            left: 12px;
+        }
+        .exam-arrow-right {
+            right: 12px;
+        }
+        .exam-footer {
+            flex: 0 0 auto;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            padding: 12px 28px;
+            border-top: 1px solid #e5e7eb;
+            background: #fff;
+        }
+        .exam-save {
+            min-width: 150px;
+            padding: 9px 18px;
+            border: 0;
+            border-radius: 6px;
+            background: #00a896;
+            color: #fff;
+            font-size: 15px;
+        }
+        .exam-save:hover {
+            background: #009182;
+        }
+        .exam-saved {
+            display: inline-block;
+            margin-bottom: 14px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            background: #e6f7f2;
+            color: #007a6c;
+            font-size: 14px;
+        }
+        .exam-option {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+        }
+        .exam-option:hover {
+            border-color: #b9cdf0;
+            background: #f8faff;
+        }
+        .exam-option input {
+            margin-top: 4px;
+            flex: 0 0 auto;
+        }
+        .exam-answer-input,
+        .exam-answer-code {
+            max-width: 640px;
+        }
+        .exam-answer-code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 14px;
+        }
+        .exam-gap-text {
+            margin-bottom: 14px;
+        }
+        .exam-gap-table th,
+        .exam-gap-table td {
+            vertical-align: middle;
+            text-align: center;
+        }
+        .exam-gap-table th {
+            background: #e3ebf6;
+            font-weight: 500;
+        }
+        .exam-gap-table input {
+            text-align: center;
+        }
+        .exam-tests {
+            margin-top: 16px;
+        }
+        .exam-empty {
+            padding: 40px;
+            color: #6b7280;
+        }
+        @media (max-width: 900px) {
+            .exam-content-scroll { padding: 20px 56px; }
+            .exam-sidebar { flex-basis: 96px; }
+            .exam-id { font-size: 15px; }
+        }
+    </style>
+</head>
+<body>
+<div class="exam-topbar">
+    <div class="exam-topbar-left">
+        <span class="exam-id">КИМ № {{ lesson.pk }}</span>
+        <span class="exam-id">БР № {{ request.user.pk }}</span>
+    </div>
+    <div class="exam-topbar-right">
+        <a href="{% url 'lesson_exam_result' lesson.pk %}">Завершить экзамен досрочно</a>
+        <span class="exam-icon" title="Экзаменационный режим">?</span>
+        <a href="{% url 'home' %}" class="exam-icon" title="Свернуть">&#8211;</a>
+        <a href="{% url 'home' %}" class="exam-icon" title="Закрыть">&#215;</a>
+    </div>
+</div>
+
+<div class="exam-layout">
+    <aside class="exam-sidebar">
+        <div class="exam-answered-label">Дано ответов</div>
+        <div class="exam-answered-count" id="exam-answered-count">{{ answered_count }}/{{ task_count }}</div>
+        {% if tasks %}
+            <div class="exam-nav-scroll">
+                <a href="#" class="exam-scroll-btn" id="exam-scroll-top" aria-label="Вверх">&uarr;</a>
+                <div class="exam-task-list" id="exam-task-list">
+                    {% for item in tasks %}
+                        <a href="{% url 'lesson_exam' lesson.pk %}?task={{ forloop.counter }}"
+                           class="exam-task-btn{% if item.pk in answered_ids %} answered{% endif %}{% if forloop.counter == task_index %} active{% endif %}">
+                            {{ forloop.counter }}
+                        </a>
+                    {% endfor %}
+                </div>
+                <a href="#" class="exam-scroll-btn" id="exam-scroll-bottom" aria-label="Вниз">&darr;</a>
+            </div>
+        {% endif %}
+    </aside>
+
+    <main class="exam-main">
+        {% if tasks %}
+            <form method="post"
+                  action="{% url 'lesson_exam' lesson.pk %}?task={{ task_index }}"
+                  class="d-flex flex-column flex-grow-1 min-vh-0 h-100">
+                {% csrf_token %}
+                <input type="hidden" name="task_id" value="{{ current_task.pk }}">
+                <div class="exam-content-scroll">
+                    <div class="exam-content">
+                        {% if saved %}
+                            <div class="exam-saved">Ответ сохранён</div>
+                        {% endif %}
+                        <h1 class="exam-task-title">
+                            Задание {{ task_index }}{% if current_task.task_number %} (№{{ current_task.task_number }}){% endif %}.
+                        </h1>
+                        <div class="exam-condition js-math">
+                            {{ current_task.body|render_task_body:current_task }}
+                        </div>
+                        {% if current_task.image %}
+                            <div class="mb-4">
+                                <img src="{{ current_task.image.url }}" alt="Иллюстрация">
+                            </div>
+                        {% endif %}
+                        {% if current_task.attachments.all %}
+                            <ul class="list-group mb-4">
+                                {% for attachment in current_task.attachments.all %}
+                                    <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+                                        <span class="text-break">{{ attachment.filename }}</span>
+                                        <a class="btn btn-sm btn-outline-secondary"
+                                           href="{{ attachment.file.url }}" download>Скачать</a>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% endif %}
+
+                        {% if current_task.type == 'text' %}
+                            {% if current_task.answer_mode == 'choice' %}
+                                <div class="mt-4">
+                                    {% for option in current_task.answer_options.all %}
+                                        <label class="exam-option">
+                                            <input class="form-check-input" type="radio" name="answer_option"
+                                                   value="{{ option.pk }}"
+                                                   {% if latest.answer_option_id == option.pk %}checked{% endif %}
+                                                   required>
+                                            <span class="js-math">{{ option.text }}</span>
+                                        </label>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="mt-4">
+                                    <input type="text" name="answer_text" class="form-control exam-answer-input"
+                                           maxlength="500" placeholder="Краткий ответ"
+                                           value="{{ latest.answer_text|default:'' }}" required>
+                                </div>
+                            {% endif %}
+                        {% elif current_task.type == 'gap' %}
+                            <div class="mt-4">
+                                {% for item in gap_blocks %}
+                                    {% if item.block.kind == 'text' %}
+                                        <div class="exam-gap-text js-math">{{ item.block.text|render_block_text }}</div>
+                                    {% endif %}
+                                {% endfor %}
+                                {% if gap_grid.columns %}
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered exam-gap-table mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width:5rem;"></th>
+                                                    {% for column in gap_grid.columns %}
+                                                        <th style="min-width:8rem; font-size:1.1rem;">{{ column }}</th>
+                                                    {% endfor %}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for row in gap_grid.rows %}
+                                                    <tr>
+                                                        <th style="font-size:1.1rem;">{{ row.number }}</th>
+                                                        {% for cell in row.cells %}
+                                                            <td>
+                                                                {% if cell %}
+                                                                    <input type="text" name="gap_{{ cell.number }}"
+                                                                           id="gap-input-{{ cell.number }}"
+                                                                           class="form-control form-control-sm{% if cell.state == 'valid' %} is-valid{% elif cell.state == 'invalid' %} is-invalid{% endif %}"
+                                                                           value="{{ cell.answer|default:'' }}" required>
+                                                                {% endif %}
+                                                            </td>
+                                                        {% endfor %}
+                                                    </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            {% if current_task.test_cases.all %}
+                                <div class="exam-tests">
+                                    <h6 class="mb-2">Примеры тестов</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-bordered">
+                                            <tbody>
+                                            {% for test in current_task.test_cases.all %}
+                                                {% if test.is_public %}
+                                                    <tr>
+                                                        <th class="align-top" style="width:120px">Вход</th>
+                                                        <td><pre class="mb-0">{{ test.input_data }}</pre></td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th class="align-top">Вывод</th>
+                                                        <td><pre class="mb-0">{{ test.expected_output }}</pre></td>
+                                                    </tr>
+                                                {% endif %}
+                                            {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            {% endif %}
+                            <div class="mt-4">
+                                <textarea name="code" class="form-control exam-answer-code" rows="14"
+                                          spellcheck="false" required
+                                          placeholder="print('Hello, world!')">{{ latest.code|default:'' }}</textarea>
+                                <div class="form-text">
+                                    Время: {{ current_task.time_limit_ms }} мс, память: {{ current_task.memory_limit_mb }} МБ.
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if prev_index %}
+                    <a class="exam-arrow exam-arrow-left"
+                       href="{% url 'lesson_exam' lesson.pk %}?task={{ prev_index }}"
+                       aria-label="Предыдущее задание">&#8592;</a>
+                {% else %}
+                    <span class="exam-arrow exam-arrow-left disabled" aria-label="Предыдущее задание">&#8592;</span>
+                {% endif %}
+                {% if next_index %}
+                    <a class="exam-arrow exam-arrow-right"
+                       href="{% url 'lesson_exam' lesson.pk %}?task={{ next_index }}"
+                       aria-label="Следующее задание">&#8594;</a>
+                {% else %}
+                    <span class="exam-arrow exam-arrow-right disabled" aria-label="Следующее задание">&#8594;</span>
+                {% endif %}
+
+                <div class="exam-footer">
+                    <button type="submit" class="exam-save">
+                        {% if current_task.type == 'programming' %}Проверить{% else %}Сохранить ответ{% endif %}
+                    </button>
+                </div>
+            </form>
+        {% else %}
+            <div class="exam-empty">В этом уроке пока нет заданий.</div>
+            <div class="exam-footer">
+                <a href="{% url 'lesson_exam_result' lesson.pk %}" class="exam-save text-decoration-none text-center">
+                    Завершить
+                </a>
+            </div>
+        {% endif %}
+    </main>
+</div>
+
+{% include 'tasks/_katex_scripts.html' %}
+<script>
+(function () {
+    var list = document.getElementById('exam-task-list');
+    var top = document.getElementById('exam-scroll-top');
+    var bottom = document.getElementById('exam-scroll-bottom');
+    if (list && top) {
+        top.addEventListener('click', function (event) {
+            event.preventDefault();
+            list.scrollTop = 0;
+        });
+    }
+    if (list && bottom) {
+        bottom.addEventListener('click', function (event) {
+            event.preventDefault();
+            list.scrollTop = list.scrollHeight;
+        });
+    }
+    var active = list ? list.querySelector('.exam-task-btn.active') : null;
+    if (active && active.scrollIntoView) {
+        active.scrollIntoView({block: 'nearest'});
+    }
+})();
+</script>
+</body>
+</html>

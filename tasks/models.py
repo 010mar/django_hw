@@ -438,6 +438,11 @@ class TestCase(models.Model):
 class Course(models.Model):
     title = models.CharField(max_length=255, verbose_name='Название')
     description = models.TextField(blank=True, verbose_name='Описание')
+    exam_mode = models.BooleanField(
+        default=False,
+        verbose_name='Режим экзамена',
+        help_text='Уроки курса открываются в полноэкранном экзаменационном виде',
+    )
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,

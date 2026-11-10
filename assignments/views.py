@@ -383,13 +383,13 @@ def _full_score(task):
     return _round_score(task.points)
 
 
-def _solve_text_task(request, assignment, task):
+def _solve_text_task(request, assignment, task, lesson=None):
     if task.answer_mode == Task.AnswerMode.CHOICE:
         option_id = request.POST.get('answer_option')
         option = get_object_or_404(task.answer_options, pk=option_id)
         is_correct = option.is_correct
         return Submission.objects.create(
-            assignment=assignment, task=task, student=request.user,
+            assignment=assignment, lesson=lesson, task=task, student=request.user,
             answer_option=option,
             status=Submission.Status.CORRECT if is_correct else Submission.Status.INCORRECT,
             score=_full_score(task) if is_correct else 0,
@@ -397,19 +397,19 @@ def _solve_text_task(request, assignment, task):
     answer_text = request.POST.get('answer_text', '')
     is_correct = task.is_short_answer_correct(answer_text)
     return Submission.objects.create(
-        assignment=assignment, task=task, student=request.user,
+        assignment=assignment, lesson=lesson, task=task, student=request.user,
         answer_text=answer_text,
         status=Submission.Status.CORRECT if is_correct else Submission.Status.INCORRECT,
         score=_full_score(task) if is_correct else 0,
     )
 
 
-def _solve_programming_task(request, assignment, task):
+def _solve_programming_task(request, assignment, task, lesson=None):
     code = request.POST.get('code', '')
     tests = list(task.test_cases.all().order_by('order', 'id'))
     if not tests:
         return Submission.objects.create(
-            assignment=assignment, task=task, student=request.user,
+            assignment=assignment, lesson=lesson, task=task, student=request.user,
             code=code, status=Submission.Status.WA,
             details='У задачи не настроены тесты. Обратитесь к учителю.',
         )
@@ -444,13 +444,13 @@ def _solve_programming_task(request, assignment, task):
             details_lines.append(f'Тест {label}: неправильный ответ\n{result.details}')
             break
     return Submission.objects.create(
-        assignment=assignment, task=task, student=request.user,
+        assignment=assignment, lesson=lesson, task=task, student=request.user,
         code=code, status=final_verdict, details='\n'.join(details_lines),
         score=_full_score(task) if final_verdict == Submission.Status.OK else 0,
     )
 
 
-def _solve_gap_task(request, assignment, task):
+def _solve_gap_task(request, assignment, task, lesson=None):
     gap_blocks = list(task.blocks.filter(kind=TaskBlock.Kind.GAP))
     answers = {}
     details = []
@@ -469,7 +469,7 @@ def _solve_gap_task(request, assignment, task):
     else:
         score = _full_score(task) if all_correct else 0
     return Submission.objects.create(
-        assignment=assignment, task=task, student=request.user,
+        assignment=assignment, lesson=lesson, task=task, student=request.user,
         gap_answers=answers,
         status=Submission.Status.CORRECT if all_correct else Submission.Status.INCORRECT,
         details='\n'.join(details),

@@ -2,9 +2,10 @@ import os
 from urllib.parse import urlencode
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.db import connection
 from django.db.models import Max, Prefetch
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from PIL import Image
@@ -758,6 +759,135 @@ def lesson_remove_task(request, pk, task_id):
             return _lesson_entries_payload(lesson)
         messages.success(request, 'Задача удалена из урока.')
     return redirect(_lesson_redirect(pk, request.POST))
+
+
+def _get_exam_lesson(pk):
+    lesson = get_object_or_404(
+        Lesson.objects.select_related('module__course'), pk=pk,
+    )
+    course = lesson.module.course if lesson.module_id else None
+    if course is None or not course.exam_mode:
+        raise Http404
+    return lesson, course
+
+
+def _lesson_latest_submissions(lesson, user):
+    from assignments.models import Submission
+
+    submissions = (
+        Submission.objects
+        .filter(lesson=lesson, student=user)
+        .select_related('answer_option', 'task')
+        .order_by('task_id', '-created_at')
+    )
+    latest = {}
+    for submission in submissions:
+        latest.setdefault(submission.task_id, submission)
+    return latest
+
+
+@login_required
+def lesson_exam(request, pk):
+    lesson, course = _get_exam_lesson(pk)
+    tasks = lesson.tasks_ordered
+    if not tasks:
+        return render(request, 'tasks/lesson_exam.html', {
+            'lesson': lesson,
+            'course': course,
+            'tasks': [],
+            'task_count': 0,
+        })
+
+    task_index = _parse_id(request.GET.get('task')) or 1
+    task_index = max(1, min(task_index, len(tasks)))
+
+    if request.method == 'POST':
+        task_id = _parse_id(request.POST.get('task_id'))
+        target_index = next(
+            (index for index, item in enumerate(tasks, start=1) if item.pk == task_id),
+            None,
+        )
+        if target_index is None:
+            raise Http404
+        target_task = tasks[target_index - 1]
+        from assignments.views import (
+            _solve_gap_task,
+            _solve_programming_task,
+            _solve_text_task,
+        )
+
+        if target_task.type == Task.Type.TEXT:
+            _solve_text_task(request, None, target_task, lesson=lesson)
+        elif target_task.type == Task.Type.PROGRAMMING:
+            _solve_programming_task(request, None, target_task, lesson=lesson)
+        else:
+            _solve_gap_task(request, None, target_task, lesson=lesson)
+        url = reverse('lesson_exam', args=[lesson.pk])
+        query = urlencode({'task': target_index, 'saved': '1'})
+        return redirect(f'{url}?{query}')
+
+    current_task = tasks[task_index - 1]
+    latest_by_task = _lesson_latest_submissions(lesson, request.user)
+    answered_ids = set(latest_by_task)
+    latest = latest_by_task.get(current_task.pk)
+
+    gap_blocks = []
+    gap_grid = None
+    if current_task.type == Task.Type.GAP:
+        from assignments.views import (
+            _decorate_gap_grid,
+            _gap_block_items,
+            _gap_grid,
+        )
+
+        gap_blocks = _gap_block_items(current_task)
+        gap_grid = _gap_grid(gap_blocks)
+        _decorate_gap_grid(gap_grid, current_task, latest)
+
+    return render(request, 'tasks/lesson_exam.html', {
+        'lesson': lesson,
+        'course': course,
+        'tasks': tasks,
+        'task_index': task_index,
+        'task_count': len(tasks),
+        'current_task': current_task,
+        'latest': latest,
+        'answered_count': len(answered_ids),
+        'answered_ids': answered_ids,
+        'prev_index': task_index - 1 if task_index > 1 else None,
+        'next_index': task_index + 1 if task_index < len(tasks) else None,
+        'gap_blocks': gap_blocks,
+        'gap_grid': gap_grid,
+        'saved': request.GET.get('saved') == '1',
+    })
+
+
+@login_required
+def lesson_exam_result(request, pk):
+    lesson, course = _get_exam_lesson(pk)
+    tasks = lesson.tasks_ordered
+    latest_by_task = _lesson_latest_submissions(lesson, request.user)
+    rows = []
+    total_score = 0
+    for index, task in enumerate(tasks, start=1):
+        submission = latest_by_task.get(task.pk)
+        score = submission.score if submission else 0
+        total_score += score
+        rows.append({
+            'index': index,
+            'task': task,
+            'submission': submission,
+            'score': score,
+        })
+    return render(request, 'tasks/lesson_exam_result.html', {
+        'lesson': lesson,
+        'course': course,
+        'rows': rows,
+        'task_count': len(tasks),
+        'answered_count': len(latest_by_task),
+        'total_score': total_score,
+        'max_score': sum(task.points for task in tasks),
+    })
 
 
 @teacher_required

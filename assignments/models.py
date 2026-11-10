@@ -141,8 +141,18 @@ class Submission(models.Model):
     assignment = models.ForeignKey(
         Assignment,
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
         related_name='submissions',
         verbose_name='Задание',
+    )
+    lesson = models.ForeignKey(
+        Lesson,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='submissions',
+        verbose_name='Урок',
     )
     task = models.ForeignKey(
         Task,
