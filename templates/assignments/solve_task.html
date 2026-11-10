@@ -16,7 +16,9 @@
 
 <div class="card mb-4">
     <div class="card-body">
-        <div class="text-break js-math">{{ task.body|render_task_body:task }}</div>
+        {% if task.type != 'gap' %}
+            <div class="text-break js-math">{{ task.body|render_task_body:task }}</div>
+        {% endif %}
         {% if task.image %}
             <img src="{{ task.image.url }}" alt="Условие" class="img-fluid mt-3 rounded">
         {% endif %}
@@ -64,8 +66,8 @@
 
 {% if task.type == 'text' %}
     {% include 'assignments/_solve_text.html' %}
-{% elif task.type == 'image' %}
-    {% include 'assignments/_solve_image.html' %}
+{% elif task.type == 'gap' %}
+    {% include 'assignments/_solve_gap.html' %}
 {% else %}
     {% include 'assignments/_solve_programming.html' %}
 {% endif %}
@@ -85,6 +87,16 @@
             {% endif %}
             {% if latest.answer_option %}
                 <p>Ваш ответ: {{ latest.answer_option.text }}</p>
+            {% endif %}
+            {% if latest.gap_answers %}
+                <div class="mb-2">
+                    <span class="text-muted">Ваши ответы:</span>
+                    <ul class="mb-0">
+                        {% for number, answer in latest.gap_answers.items %}
+                            <li>Пропуск {{ number }}: <code>{{ answer|default:"—" }}</code></li>
+                        {% endfor %}
+                    </ul>
+                </div>
             {% endif %}
             {% if latest.code %}
                 <pre class="bg-light p-3 rounded">{{ latest.code }}</pre>

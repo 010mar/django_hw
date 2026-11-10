@@ -200,11 +200,8 @@ def assignment_grade(request, pk):
     assignment = get_object_or_404(Assignment, pk=pk, author=request.user)
     submissions = _with_attempt_numbers(
         Submission.objects
-        .filter(assignment=assignment, task__type=Task.Type.IMAGE)
+        .filter(assignment=assignment, status=Submission.Status.PENDING)
         .select_related('student', 'task')
-        .exclude(status__in=[Submission.Status.CORRECT, Submission.Status.INCORRECT,
-                             Submission.Status.OK, Submission.Status.WA,
-                             Submission.Status.TLE, Submission.Status.RE, Submission.Status.CE])
     ).order_by('-created_at')
     return render(request, 'assignments/assignment_grade.html', {
         'assignment': assignment,
@@ -289,7 +286,7 @@ def solve_task(request, assignment_id, task_id):
         elif task.type == Task.Type.PROGRAMMING:
             submission = _solve_programming_task(request, assignment, task)
         else:
-            submission = _solve_image_task(request, assignment, task)
+            submission = _solve_gap_task(request, assignment, task)
         messages.info(request, f'Результат: {submission.get_status_display()}')
         return redirect('solve_task', assignment_id=assignment.pk, task_id=task.pk)
 
@@ -368,9 +365,23 @@ def _solve_programming_task(request, assignment, task):
     )
 
 
-def _solve_image_task(request, assignment, task):
-    image = request.FILES.get('image')
+def _solve_gap_task(request, assignment, task):
+    gaps = {gap.number: gap for gap in task.gaps.all()}
+    answers = {}
+    details = []
+    all_correct = bool(task.gap_numbers)
+    for number in task.gap_numbers:
+        value = request.POST.get(f'gap_{number}', '')
+        answers[str(number)] = value
+        gap = gaps.get(number)
+        if gap is not None and gap.is_correct(value):
+            details.append(f'Пропуск {number}: верно')
+        else:
+            all_correct = False
+            details.append(f'Пропуск {number}: неверно')
     return Submission.objects.create(
         assignment=assignment, task=task, student=request.user,
-        image=image, status=Submission.Status.PENDING,
+        gap_answers=answers,
+        status=Submission.Status.CORRECT if all_correct else Submission.Status.INCORRECT,
+        details='\n'.join(details),
     )

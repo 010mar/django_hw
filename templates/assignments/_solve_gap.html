@@ -1,0 +1,11 @@
+{% load task_filters %}
+<div class="card mb-4">
+    <div class="card-body">
+        <h6 class="mb-3">Заполните пропуски</h6>
+        <form method="post">
+            {% csrf_token %}
+            <div class="text-break js-math mb-3">{{ task.body|render_gap_body:task }}</div>
+            <button type="submit" class="btn btn-primary">Отправить</button>
+        </form>
+    </div>
+</div>

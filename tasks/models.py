@@ -9,6 +9,7 @@ from django.dispatch import receiver
 from django.urls import reverse
 
 IMAGE_TOKEN_PATTERN = re.compile(r'\[\[img:([0-9a-fA-F-]{36})\]\]')
+GAP_MARKER_PATTERN = re.compile(r'\[\[(\d+)\]\]')
 ALLOWED_ATTACHMENT_EXTENSIONS = ('xls', 'ods', 'txt')
 
 
@@ -61,7 +62,7 @@ class Topic(models.Model):
 class Task(models.Model):
     class Type(models.TextChoices):
         TEXT = 'text', 'Текстовая'
-        IMAGE = 'image', 'С картинкой'
+        GAP = 'gap', 'Пропуски'
         PROGRAMMING = 'programming', 'Программирование'
 
     class Difficulty(models.TextChoices):
@@ -129,8 +130,8 @@ class Task(models.Model):
         upload_to='tasks/',
         blank=True,
         null=True,
-        verbose_name='Изображение',
-        help_text='Для задач с картинкой или иллюстрация к условию',
+        verbose_name='Иллюстрация',
+        help_text='Необязательная иллюстрация к условию',
     )
 
     answer_mode = models.CharField(
@@ -206,6 +207,47 @@ class Task(models.Model):
 
     def is_short_answer_correct(self, answer: str) -> bool:
         return self.correct_answer.strip().lower() == (answer or '').strip().lower()
+
+    @property
+    def gap_numbers(self) -> list[int]:
+        return sorted({int(number) for number in GAP_MARKER_PATTERN.findall(self.body or '')})
+
+    def is_gap_answer_correct(self, number: int, answer: str) -> bool:
+        gap = self.gaps.filter(number=number).first()
+        return gap is not None and gap.is_correct(answer)
+
+
+class TaskGap(models.Model):
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        related_name='gaps',
+        verbose_name='Задача',
+    )
+    number = models.PositiveIntegerField(verbose_name='Номер пропуска')
+    answers = models.TextField(
+        verbose_name='Правильные ответы',
+        help_text='По одному варианту в строке, регистр не учитывается',
+    )
+
+    class Meta:
+        verbose_name = 'Пропуск'
+        verbose_name_plural = 'Пропуски'
+        ordering = ('number',)
+        unique_together = ('task', 'number')
+
+    def __str__(self):
+        return f'{self.task.title} — пропуск {self.number}'
+
+    @property
+    def accepted_answers(self) -> list[str]:
+        return [line.strip() for line in self.answers.splitlines() if line.strip()]
+
+    def is_correct(self, answer: str) -> bool:
+        normalized = (answer or '').strip().lower()
+        return bool(normalized) and any(
+            normalized == accepted.lower() for accepted in self.accepted_answers
+        )
 
 
 class TaskImage(models.Model):

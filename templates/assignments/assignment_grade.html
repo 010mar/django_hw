@@ -3,7 +3,7 @@
 {% block title %}Проверка — {{ assignment.title }}{% endblock %}
 
 {% block content %}
-<h2 class="mb-4">Проверка изображений — {{ assignment.title }}</h2>
+<h2 class="mb-4">Проверка работ — {{ assignment.title }}</h2>
 
 {% if submissions %}
     {% for submission in submissions %}
@@ -24,8 +24,16 @@
                             <a href="{{ submission.image.url }}" target="_blank">
                                 <img src="{{ submission.image.url }}" alt="Решение" class="img-fluid rounded border">
                             </a>
+                        {% elif submission.gap_answers %}
+                            <ul class="list-group">
+                                {% for number, answer in submission.gap_answers.items %}
+                                    <li class="list-group-item">
+                                        Пропуск {{ number }}: <code>{{ answer|default:"—" }}</code>
+                                    </li>
+                                {% endfor %}
+                            </ul>
                         {% else %}
-                            <p class="text-muted mb-0">Изображение отсутствует.</p>
+                            <p class="text-muted mb-0">Ответ отсутствует.</p>
                         {% endif %}
                     </div>
                     <div class="col-md-4">
@@ -48,7 +56,7 @@
         </div>
     {% endfor %}
 {% else %}
-    <div class="alert alert-secondary">Нет изображений для проверки.</div>
+    <div class="alert alert-secondary">Нет работ для проверки.</div>
 {% endif %}
 <a href="{% url 'assignment_detail' assignment.pk %}" class="btn btn-outline-secondary">К заданию</a>
 {% endblock %}

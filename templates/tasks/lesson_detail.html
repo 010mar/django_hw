@@ -67,6 +67,20 @@
                             <p class="text-muted small mb-3">
                                 Лимит времени: {{ task.time_limit_ms }} мс, память: {{ task.memory_limit_mb }} МБ
                             </p>
+                        {% elif task.type == 'gap' %}
+                            <details class="mb-3">
+                                <summary class="text-primary">Показать ответы</summary>
+                                <ul class="list-group mt-2">
+                                    {% for gap in task.gaps.all %}
+                                        <li class="list-group-item">
+                                            <span class="me-2">[[{{ gap.number }}]]:</span>
+                                            {% for answer in gap.accepted_answers %}
+                                                <code class="me-2">{{ answer }}</code>
+                                            {% endfor %}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </details>
                         {% endif %}
                         {% if task.pk in lesson_task_ids %}
                             <form method="post" action="{% url 'lesson_remove_task' lesson.pk task.pk %}">

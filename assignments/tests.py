@@ -7,7 +7,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
-from tasks.models import AnswerOption, Lesson, LessonTask, Task
+from tasks.models import AnswerOption, Lesson, LessonTask, Task, TaskGap
 from tasks.models import TestCase as TaskTestCase
 
 from .models import Assignment, ClassGroup, Submission
@@ -45,15 +45,18 @@ class AssignmentFlowTests(DjangoTestCase):
         TaskTestCase.objects.create(
             task=self.prog_task, input_data='2 3\n', expected_output='5\n', is_public=True,
         )
-        self.image_task = Task.objects.create(
-            title='Фото', type=Task.Type.IMAGE, author=self.teacher,
+        self.gap_task = Task.objects.create(
+            title='Пропуски', type=Task.Type.GAP, author=self.teacher,
+            body='2 + 2 = [[1]], а 3 × 3 = [[2]].',
         )
+        TaskGap.objects.create(task=self.gap_task, number=1, answers='4\nчетыре')
+        TaskGap.objects.create(task=self.gap_task, number=2, answers='9')
         self.class_group = ClassGroup.objects.create(title='9А', teacher=self.teacher)
         self.class_group.students.set([self.student, self.other_student])
         self.assignment = Assignment.objects.create(
             title='ДЗ №1', author=self.teacher, class_group=self.class_group,
         )
-        self.assignment.tasks.set([self.choice_task, self.short_task, self.prog_task, self.image_task])
+        self.assignment.tasks.set([self.choice_task, self.short_task, self.prog_task, self.gap_task])
         self.client.force_login(self.student)
 
     def test_effective_students_from_class(self):
@@ -129,25 +132,43 @@ class AssignmentFlowTests(DjangoTestCase):
         self.assertEqual(sub.status, Submission.Status.WA)
         self.assertIn('не настроены тесты', sub.details)
 
-    def test_solve_image_pending(self):
-        from io import BytesIO
-
-        from PIL import Image
-
-        buf = BytesIO()
-        Image.new('RGB', (4, 4), color='red').save(buf, format='PNG')
-        buf.seek(0)
-        self.client.post(
-            reverse('solve_task', args=[self.assignment.pk, self.image_task.pk]),
-            {'image': buf},
+    def test_solve_gap_correct(self):
+        response = self.client.post(
+            reverse('solve_task', args=[self.assignment.pk, self.gap_task.pk]),
+            {'gap_1': '4', 'gap_2': '9'},
         )
-        sub = Submission.objects.get(task=self.image_task)
-        self.assertEqual(sub.status, Submission.Status.PENDING)
-        self.assertTrue(sub.image)
+        self.assertEqual(response.status_code, 302)
+        sub = Submission.objects.get(task=self.gap_task)
+        self.assertEqual(sub.status, Submission.Status.CORRECT)
+        self.assertEqual(sub.gap_answers, {'1': '4', '2': '9'})
+
+    def test_solve_gap_incorrect(self):
+        self.client.post(
+            reverse('solve_task', args=[self.assignment.pk, self.gap_task.pk]),
+            {'gap_1': '4', 'gap_2': '8'},
+        )
+        sub = Submission.objects.get(task=self.gap_task)
+        self.assertEqual(sub.status, Submission.Status.INCORRECT)
+        self.assertEqual(sub.gap_answers, {'1': '4', '2': '8'})
+
+    def test_solve_gap_accepts_any_listed_answer(self):
+        self.client.post(
+            reverse('solve_task', args=[self.assignment.pk, self.gap_task.pk]),
+            {'gap_1': 'Четыре', 'gap_2': '9'},
+        )
+        sub = Submission.objects.get(task=self.gap_task)
+        self.assertEqual(sub.status, Submission.Status.CORRECT)
+
+    def test_solve_page_renders_gap_inputs(self):
+        response = self.client.get(
+            reverse('solve_task', args=[self.assignment.pk, self.gap_task.pk]),
+        )
+        self.assertContains(response, 'name="gap_1"')
+        self.assertContains(response, 'name="gap_2"')
 
     def test_teacher_grades_image(self):
         sub = Submission.objects.create(
-            assignment=self.assignment, task=self.image_task,
+            assignment=self.assignment, task=self.gap_task,
             student=self.student, status=Submission.Status.PENDING,
         )
         self.client.force_login(self.teacher)
@@ -158,14 +179,14 @@ class AssignmentFlowTests(DjangoTestCase):
 
     def test_grade_page_shows_attempt_numbers(self):
         first = Submission.objects.create(
-            assignment=self.assignment, task=self.image_task,
+            assignment=self.assignment, task=self.gap_task,
             student=self.student, status=Submission.Status.PENDING,
         )
         Submission.objects.filter(pk=first.pk).update(
             created_at=timezone.now() - timedelta(minutes=1),
         )
         Submission.objects.create(
-            assignment=self.assignment, task=self.image_task,
+            assignment=self.assignment, task=self.gap_task,
             student=self.student, status=Submission.Status.PENDING,
         )
         self.client.force_login(self.teacher)

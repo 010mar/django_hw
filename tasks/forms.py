@@ -10,6 +10,7 @@ from .models import (
     Lesson,
     Task,
     TaskBank,
+    TaskGap,
     TestCase,
     Topic,
 )
@@ -154,6 +155,57 @@ TestCaseFormSet = forms.modelformset_factory(
     extra=2,
     can_delete=True,
     formset=BaseTaskFormSet,
+)
+
+
+class TaskGapForm(forms.ModelForm):
+    class Meta:
+        model = TaskGap
+        fields = ('number', 'answers')
+        widgets = {
+            'number': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
+            'answers': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 2,
+                'placeholder': 'По одному ответу в строке',
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['number'].required = False
+        self.fields['answers'].required = False
+
+
+class BaseTaskGapFormSet(forms.BaseModelFormSet):
+    def clean(self):
+        super().clean()
+        numbers = []
+        for form in self.forms:
+            cleaned = getattr(form, 'cleaned_data', None)
+            if not cleaned or cleaned.get('DELETE'):
+                continue
+            number = cleaned.get('number')
+            answers = (cleaned.get('answers') or '').strip()
+            if number is None and not answers:
+                continue
+            if number is None:
+                form.add_error('number', 'Укажите номер пропуска.')
+                continue
+            if not answers:
+                form.add_error('answers', 'Укажите хотя бы один правильный ответ.')
+                continue
+            if number in numbers:
+                form.add_error('number', 'Номер пропуска уже используется.')
+            numbers.append(number)
+
+
+TaskGapFormSet = forms.modelformset_factory(
+    TaskGap,
+    form=TaskGapForm,
+    extra=3,
+    can_delete=True,
+    formset=BaseTaskGapFormSet,
 )
 
 

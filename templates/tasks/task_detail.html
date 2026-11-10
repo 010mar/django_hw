@@ -63,6 +63,31 @@
     </div>
 {% endif %}
 
+{% if task.type == 'gap' %}
+    <div class="card mb-4">
+        <div class="card-body">
+            <h6 class="text-muted mb-3">Пропуски</h6>
+            <ul class="list-group">
+                {% for gap in task.gaps.all %}
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start gap-2">
+                            <span>Пропуск <code>[[{{ gap.number }}]]</code></span>
+                            <span class="badge bg-success">правильные ответы</span>
+                        </div>
+                        <div class="mt-2">
+                            {% for answer in gap.accepted_answers %}
+                                <code class="me-2">{{ answer }}</code>
+                            {% endfor %}
+                        </div>
+                    </li>
+                {% empty %}
+                    <li class="list-group-item text-muted">Пропуски не настроены.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+{% endif %}
+
 {% if task.type == 'text' %}
     <div class="card mb-4">
         <div class="card-body">

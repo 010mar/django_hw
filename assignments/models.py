@@ -165,6 +165,11 @@ class Submission(models.Model):
         verbose_name='Выбранный вариант',
     )
     answer_text = models.CharField(max_length=500, blank=True, verbose_name='Краткий ответ')
+    gap_answers = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name='Ответы по пропускам',
+    )
     image = models.ImageField(
         upload_to='submissions/',
         blank=True,
