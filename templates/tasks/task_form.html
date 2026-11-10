@@ -32,12 +32,16 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label" for="id_related_tasks">{{ form.related_tasks.label }}</label>
+                        <label class="form-label" for="related-search">{{ form.related_tasks.label }}</label>
+                        <input type="text" id="related-search" class="form-control" autocomplete="off"
+                               placeholder="Начните вводить номер или название задачи">
+                        <div id="related-results" class="list-group mt-1"
+                             style="max-height:240px;overflow-y:auto;"></div>
+                        <div id="related-selected" class="d-flex flex-wrap gap-2 mt-2">
+                            <span id="related-empty" class="badge bg-light text-dark border">Не связана</span>
+                        </div>
                         {% with selected_related=form.related_tasks.value %}
-                            <select name="related_tasks" id="id_related_tasks"
-                                    class="form-select" multiple size="6">
-                                <option value="" class="related-none"
-                                        {% if not selected_related %}selected{% endif %}>Не связана</option>
+                            <select name="related_tasks" id="id_related_tasks" multiple class="d-none">
                                 {% for related in form.fields.related_tasks.queryset %}
                                     <option value="{{ related.pk }}"
                                             {% if selected_related and related.pk|stringformat:'s' in selected_related %}selected{% endif %}>
@@ -399,18 +403,86 @@
     filterTopics();
 
     var relatedSelect = document.getElementById('id_related_tasks');
-    if (relatedSelect) {
-        var relatedNone = relatedSelect.querySelector('option.related-none');
-        var syncRelatedNone = function () {
-            var hasReal = Array.prototype.some.call(relatedSelect.options, function (option) {
-                return option.selected && option.value !== '';
+    var relatedSearch = document.getElementById('related-search');
+    var relatedResults = document.getElementById('related-results');
+    var relatedSelected = document.getElementById('related-selected');
+    var relatedEmpty = document.getElementById('related-empty');
+    if (relatedSelect && relatedSearch && relatedResults && relatedSelected) {
+        var relatedOptions = Array.prototype.slice.call(relatedSelect.options);
+
+        function relatedLabel(option) {
+            return option.textContent.trim();
+        }
+
+        function renderRelatedChips() {
+            relatedSelected.querySelectorAll('.related-chip').forEach(function (chip) {
+                chip.remove();
             });
-            if (relatedNone) {
-                relatedNone.selected = !hasReal;
+            var hasSelected = false;
+            relatedOptions.forEach(function (option) {
+                if (!option.selected) {
+                    return;
+                }
+                hasSelected = true;
+                var chip = document.createElement('span');
+                chip.className = 'badge bg-primary d-inline-flex align-items-center gap-1 related-chip';
+                chip.appendChild(document.createTextNode(relatedLabel(option)));
+                var remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'btn-close btn-close-white';
+                remove.style.fontSize = '0.6em';
+                remove.setAttribute('aria-label', 'Убрать');
+                remove.addEventListener('click', function () {
+                    option.selected = false;
+                    renderRelatedChips();
+                });
+                chip.appendChild(remove);
+                relatedSelected.insertBefore(chip, relatedEmpty);
+            });
+            if (relatedEmpty) {
+                relatedEmpty.classList.toggle('d-none', hasSelected);
             }
-        };
-        relatedSelect.addEventListener('change', syncRelatedNone);
-        syncRelatedNone();
+        }
+
+        function renderRelatedResults() {
+            var query = relatedSearch.value.trim().toLowerCase();
+            relatedResults.innerHTML = '';
+            if (!query) {
+                return;
+            }
+            var matches = relatedOptions.filter(function (option) {
+                return !option.selected
+                    && relatedLabel(option).toLowerCase().indexOf(query) !== -1;
+            }).slice(0, 10);
+            if (!matches.length) {
+                var empty = document.createElement('div');
+                empty.className = 'list-group-item text-muted small';
+                empty.textContent = 'Ничего не найдено';
+                relatedResults.appendChild(empty);
+                return;
+            }
+            matches.forEach(function (option) {
+                var button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'list-group-item list-group-item-action';
+                button.textContent = relatedLabel(option);
+                button.addEventListener('click', function () {
+                    option.selected = true;
+                    relatedSearch.value = '';
+                    relatedResults.innerHTML = '';
+                    renderRelatedChips();
+                });
+                relatedResults.appendChild(button);
+            });
+        }
+
+        relatedSearch.addEventListener('input', renderRelatedResults);
+        relatedSearch.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+            }
+        });
+        renderRelatedChips();
     }
 
     var blockRows = document.getElementById('block-rows');    var addTextBlock = document.getElementById('add-text-block');

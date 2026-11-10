@@ -520,6 +520,7 @@ class TaskCrudViewTests(DjangoTestCase):
         response = self.client.get(reverse('task_create'))
         self.assertContains(response, 'Связанные задачи')
         self.assertContains(response, 'Не связана')
+        self.assertContains(response, 'id="related-search"')
         self.assertContains(response, other.title)
 
     def test_empty_related_choice_is_ignored(self):
