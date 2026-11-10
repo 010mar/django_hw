@@ -637,18 +637,47 @@ def _lesson_redirect(pk, data):
     return url
 
 
+def _is_ajax(request):
+    return request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+
+def _lesson_entries_payload(lesson):
+    entries = list(
+        lesson.entries.select_related('task').order_by('order', 'id')
+    )
+    return JsonResponse({
+        'ok': True,
+        'count': len(entries),
+        'lesson_task_ids': [entry.task_id for entry in entries],
+        'entries': [
+            {
+                'task_id': entry.task_id,
+                'order': entry.order,
+                'title': entry.task.title,
+                'type': entry.task.get_type_display(),
+            }
+            for entry in entries
+        ],
+    })
+
+
 @teacher_required
 def lesson_quick_add_task(request, pk, task_id):
     lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
     if request.method != 'POST':
         return redirect('lesson_detail', pk=pk)
     task = get_object_or_404(Task, pk=task_id, author=request.user)
+    ajax = _is_ajax(request)
     if lesson.entries.filter(task=task).exists():
-        messages.info(request, 'Задача уже добавлена в урок.')
+        if not ajax:
+            messages.info(request, 'Задача уже добавлена в урок.')
     else:
         next_order = (lesson.entries.aggregate(Max('order'))['order__max'] or 0) + 1
         LessonTask.objects.create(lesson=lesson, task=task, order=next_order)
-        messages.success(request, 'Задача добавлена в урок.')
+        if not ajax:
+            messages.success(request, 'Задача добавлена в урок.')
+    if ajax:
+        return _lesson_entries_payload(lesson)
     return redirect(_lesson_redirect(pk, request.POST))
 
 
@@ -658,12 +687,15 @@ def lesson_quick_add_related_tasks(request, pk, task_id):
     if request.method != 'POST':
         return redirect('lesson_detail', pk=pk)
     task = get_object_or_404(Task, pk=task_id, author=request.user)
+    ajax = _is_ajax(request)
     related = list(
         task.related_tasks
         .filter(author=request.user)
         .select_related('bank', 'topic')
     )
     if not related:
+        if ajax:
+            return _lesson_entries_payload(lesson)
         messages.info(request, 'У задачи нет связанных задач.')
         return redirect(_lesson_redirect(pk, request.POST))
     tasks_to_add = [task] + related
@@ -684,6 +716,8 @@ def lesson_quick_add_related_tasks(request, pk, task_id):
         )
         next_order += 1
         added += 1
+    if ajax:
+        return _lesson_entries_payload(lesson)
     if added:
         messages.success(request, f'Добавлено задач: {added}.')
     else:
@@ -720,6 +754,8 @@ def lesson_remove_task(request, pk, task_id):
     lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
     if request.method == 'POST':
         LessonTask.objects.filter(lesson=lesson, task_id=task_id).delete()
+        if _is_ajax(request):
+            return _lesson_entries_payload(lesson)
         messages.success(request, 'Задача удалена из урока.')
     return redirect(_lesson_redirect(pk, request.POST))
 

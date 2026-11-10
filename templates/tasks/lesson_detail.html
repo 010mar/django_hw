@@ -88,32 +88,34 @@
                                 </div>
                             </details>
                         {% endif %}
-                        {% if task.pk in lesson_task_ids %}
-                            <form method="post" action="{% url 'lesson_remove_task' lesson.pk task.pk %}">
+                        <div class="task-actions" data-task-id="{{ task.pk }}">
+                            <form method="post" action="{% url 'lesson_remove_task' lesson.pk task.pk %}"
+                                  class="js-lesson-form task-remove-form {% if task.pk not in lesson_task_ids %}d-none{% endif %}">
                                 {% csrf_token %}
                                 <input type="hidden" name="bank" value="{{ current_bank_id|default:'' }}">
                                 <input type="hidden" name="topic" value="{{ current_topic.pk|default:'' }}">
                                 <button type="submit" class="btn btn-success w-100"
                                         title="Нажмите, чтобы убрать задачу из урока">Добавлена в урок</button>
                             </form>
-                        {% else %}
-                            <form method="post" action="{% url 'lesson_quick_add_task' lesson.pk task.pk %}">
+                            <form method="post" action="{% url 'lesson_quick_add_task' lesson.pk task.pk %}"
+                                  class="js-lesson-form task-add-form {% if task.pk in lesson_task_ids %}d-none{% endif %}">
                                 {% csrf_token %}
                                 <input type="hidden" name="bank" value="{{ current_bank_id|default:'' }}">
                                 <input type="hidden" name="topic" value="{{ current_topic.pk|default:'' }}">
                                 <button type="submit" class="btn btn-outline-primary w-100">Добавить эту задачу</button>
                             </form>
-                        {% endif %}
-                        {% if task.related_tasks.all %}
-                            <form method="post" action="{% url 'lesson_quick_add_related_tasks' lesson.pk task.pk %}" class="mt-2">
-                                {% csrf_token %}
-                                <input type="hidden" name="bank" value="{{ current_bank_id|default:'' }}">
-                                <input type="hidden" name="topic" value="{{ current_topic.pk|default:'' }}">
-                                <button type="submit" class="btn btn-outline-primary w-100">
-                                    Добавить все связанные задачи ({{ task.related_tasks.all|length }})
-                                </button>
-                            </form>
-                        {% endif %}
+                            {% if task.related_tasks.all %}
+                                <form method="post" action="{% url 'lesson_quick_add_related_tasks' lesson.pk task.pk %}"
+                                      class="js-lesson-form task-add-related-form mt-2 {% if task.pk in lesson_task_ids %}d-none{% endif %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="bank" value="{{ current_bank_id|default:'' }}">
+                                    <input type="hidden" name="topic" value="{{ current_topic.pk|default:'' }}">
+                                    <button type="submit" class="btn btn-outline-primary w-100">
+                                        Добавить все связанные задачи ({{ task.related_tasks.all|length }})
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             {% empty %}
@@ -162,9 +164,13 @@
 
         <div class="card">
             <div class="card-body">
-                <h5 class="mb-3">Задачи урока ({{ lesson.entries.count }})</h5>
-                {% if lesson.task_entries %}
-                    <div class="list-group">
+                <h5 class="mb-3">Задачи урока (<span id="lesson-task-count">{{ lesson.entries.count }}</span>)</h5>
+                <div id="lesson-task-list"
+                     data-remove-url-template="{% url 'lesson_remove_task' lesson.pk 0 %}"
+                     data-csrf="{{ csrf_token }}"
+                     data-bank="{{ current_bank_id|default:'' }}"
+                     data-topic="{{ current_topic.pk|default:'' }}">
+                    <div class="list-group" id="lesson-task-items">
                         {% for entry in lesson.task_entries %}
                             <div class="list-group-item d-flex justify-content-between align-items-center gap-2">
                                 <div>
@@ -173,7 +179,8 @@
                                     <strong class="ms-1">{{ entry.task.title }}</strong>
                                 </div>
                                 <form method="post" action="{% url 'lesson_remove_task' lesson.pk entry.task.pk %}"
-                                      onsubmit="return confirm('Убрать задачу из урока?');">
+                                      class="js-lesson-form"
+                                      data-confirm="Убрать задачу из урока?">
                                     {% csrf_token %}
                                     <input type="hidden" name="bank" value="{{ current_bank_id|default:'' }}">
                                     <input type="hidden" name="topic" value="{{ current_topic.pk|default:'' }}">
@@ -182,9 +189,9 @@
                             </div>
                         {% endfor %}
                     </div>
-                {% else %}
-                    <div class="alert alert-secondary mb-0">В уроке пока нет задач.</div>
-                {% endif %}
+                    <div class="alert alert-secondary mb-0 {% if lesson.task_entries %}d-none{% endif %}"
+                         id="lesson-tasks-empty">В уроке пока нет задач.</div>
+                </div>
             </div>
         </div>
         </div>
@@ -196,31 +203,141 @@
 {% include 'tasks/_katex_scripts.html' %}
 <script>
 (function () {
-    var key = 'lesson-scroll-{{ lesson.pk }}';
-    var position = null;
-    try {
-        var saved = sessionStorage.getItem(key);
-        if (saved !== null) {
-            sessionStorage.removeItem(key);
-            position = parseInt(saved, 10);
+    var list = document.getElementById('lesson-task-list');
+    if (!list) {
+        return;
+    }
+    var items = document.getElementById('lesson-task-items');
+    var empty = document.getElementById('lesson-tasks-empty');
+    var counter = document.getElementById('lesson-task-count');
+    var removeTemplate = list.dataset.removeUrlTemplate || '';
+    var csrfToken = list.dataset.csrf || '';
+    var bank = list.dataset.bank || '';
+    var topic = list.dataset.topic || '';
+
+    function removeUrl(taskId) {
+        return removeTemplate.replace('/0/', '/' + taskId + '/');
+    }
+
+    function hiddenInput(name, value) {
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        return input;
+    }
+
+    function renderSidebar(data) {
+        if (counter) {
+            counter.textContent = data.count;
         }
-    } catch (error) {
-        position = null;
-    }
-    if (position !== null && !isNaN(position)) {
-        window.scrollTo(0, position);
-        window.addEventListener('load', function () {
-            window.scrollTo(0, position);
+        if (!items) {
+            return;
+        }
+        items.innerHTML = '';
+        data.entries.forEach(function (entry) {
+            var row = document.createElement('div');
+            row.className = 'list-group-item d-flex justify-content-between align-items-center gap-2';
+
+            var info = document.createElement('div');
+            var order = document.createElement('span');
+            order.className = 'badge bg-light text-dark me-1';
+            order.textContent = '№' + entry.order;
+            var type = document.createElement('span');
+            type.className = 'badge bg-secondary';
+            type.textContent = entry.type;
+            var title = document.createElement('strong');
+            title.className = 'ms-1';
+            title.textContent = entry.title;
+            info.appendChild(order);
+            info.appendChild(type);
+            info.appendChild(title);
+
+            var form = document.createElement('form');
+            form.method = 'post';
+            form.action = removeUrl(entry.task_id);
+            form.className = 'js-lesson-form';
+            form.dataset.confirm = 'Убрать задачу из урока?';
+            form.addEventListener('submit', onSubmit);
+            form.appendChild(hiddenInput('csrfmiddlewaretoken', csrfToken));
+            form.appendChild(hiddenInput('bank', bank));
+            form.appendChild(hiddenInput('topic', topic));
+            var button = document.createElement('button');
+            button.type = 'submit';
+            button.className = 'btn btn-sm btn-outline-danger';
+            button.textContent = 'Убрать';
+            form.appendChild(button);
+
+            row.appendChild(info);
+            row.appendChild(form);
+            items.appendChild(row);
         });
+        items.classList.toggle('d-none', data.count === 0);
+        if (empty) {
+            empty.classList.toggle('d-none', data.count > 0);
+        }
     }
-    document.querySelectorAll('form').forEach(function (form) {
-        form.addEventListener('submit', function () {
-            try {
-                sessionStorage.setItem(key, String(window.scrollY));
-            } catch (error) {
-                // sessionStorage may be unavailable
+
+    function applyState(data) {
+        var ids = (data.lesson_task_ids || []).map(Number);
+        document.querySelectorAll('.task-actions').forEach(function (container) {
+            var taskId = Number(container.dataset.taskId);
+            var inLesson = ids.indexOf(taskId) !== -1;
+            var addForm = container.querySelector('.task-add-form');
+            var removeForm = container.querySelector('.task-remove-form');
+            var relatedForm = container.querySelector('.task-add-related-form');
+            if (addForm) {
+                addForm.classList.toggle('d-none', inLesson);
+            }
+            if (removeForm) {
+                removeForm.classList.toggle('d-none', !inLesson);
+            }
+            if (relatedForm) {
+                relatedForm.classList.toggle('d-none', inLesson);
             }
         });
+        renderSidebar(data);
+    }
+
+    function onSubmit(event) {
+        var form = event.currentTarget;
+        if (event.defaultPrevented) {
+            return;
+        }
+        event.preventDefault();
+        if (form.dataset.confirm && !window.confirm(form.dataset.confirm)) {
+            return;
+        }
+        var button = form.querySelector('button[type="submit"]');
+        if (button) {
+            button.disabled = true;
+        }
+        fetch(form.action, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            credentials: 'same-origin'
+        })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error('request failed');
+                }
+                return response.json();
+            })
+            .then(applyState)
+            .catch(function () {
+                form.removeEventListener('submit', onSubmit);
+                form.submit();
+            })
+            .finally(function () {
+                if (button) {
+                    button.disabled = false;
+                }
+            });
+    }
+
+    document.querySelectorAll('form.js-lesson-form').forEach(function (form) {
+        form.addEventListener('submit', onSubmit);
     });
 })();
 </script>

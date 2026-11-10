@@ -181,7 +181,7 @@ class LessonViewTests(DjangoTestCase):
         response = self.client.get(reverse('lesson_detail', args=[self.lesson.pk]))
         self.assertContains(response, 'id="id_bank"')
         self.assertContains(response, 'id="id_topic"')
-        self.assertContains(response, f'lesson-scroll-{self.lesson.pk}')
+        self.assertContains(response, 'id="lesson-task-list"')
         self.assertContains(
             response, f'action="{reverse("lesson_detail", args=[self.lesson.pk])}"',
         )
@@ -205,8 +205,11 @@ class LessonViewTests(DjangoTestCase):
         self.assertNotContains(response, 'Условие другой темы')
         self.assertContains(
             response,
-            reverse('lesson_quick_add_task', args=[self.lesson.pk, self.task.pk]),
+            reverse('lesson_quick_add_task', args=[self.lesson.pk, task2.pk]),
         )
+        self.assertContains(response, 'class="task-actions"')
+        self.assertContains(response, 'task-add-form')
+        self.assertContains(response, 'task-remove-form')
         self.assertContains(
             response,
             reverse('lesson_quick_add_task', args=[self.lesson.pk, task2.pk]),
@@ -322,6 +325,52 @@ class LessonViewTests(DjangoTestCase):
             reverse('lesson_quick_add_task', args=[self.lesson.pk, self.task.pk]),
         )
         self.assertEqual(self.lesson.entries.count(), 1)
+
+    def test_quick_add_task_returns_json_for_ajax(self):
+        self.client.force_login(self.teacher)
+        response = self.client.post(
+            reverse('lesson_quick_add_task', args=[self.lesson.pk, self.task.pk]),
+            {'bank': self.bank.pk, 'topic': self.topic.pk},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['ok'])
+        self.assertEqual(data['lesson_task_ids'], [self.task.pk])
+        self.assertEqual(data['entries'][0]['task_id'], self.task.pk)
+        self.assertEqual(data['entries'][0]['order'], 1)
+        self.assertTrue(self.lesson.entries.filter(task=self.task).exists())
+
+    def test_remove_task_returns_json_for_ajax(self):
+        LessonTask.objects.create(lesson=self.lesson, task=self.task, order=1)
+        self.client.force_login(self.teacher)
+        response = self.client.post(
+            reverse('lesson_remove_task', args=[self.lesson.pk, self.task.pk]),
+            {'bank': self.bank.pk, 'topic': self.topic.pk},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['lesson_task_ids'], [])
+        self.assertFalse(self.lesson.entries.filter(task=self.task).exists())
+
+    def test_add_all_related_returns_json_for_ajax(self):
+        other = Task.objects.create(
+            title='1_2', author=self.teacher, task_number='1_2',
+            bank=self.bank, topic=self.topic,
+        )
+        self.task.related_tasks.add(other)
+        self.client.force_login(self.teacher)
+        response = self.client.post(
+            reverse('lesson_quick_add_related_tasks', args=[self.lesson.pk, other.pk]),
+            {'bank': self.bank.pk, 'topic': self.topic.pk},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(
+            set(data['lesson_task_ids']), {self.task.pk, other.pk},
+        )
 
     def test_quick_add_task_rejects_foreign_task(self):
         other = User.objects.create_user(
