@@ -1,3 +1,5 @@
+import re
+
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
@@ -290,12 +292,14 @@ def solve_task(request, assignment_id, task_id):
         messages.info(request, f'Результат: {submission.get_status_display()}')
         return redirect('solve_task', assignment_id=assignment.pk, task_id=task.pk)
 
+    gap_blocks = _gap_block_items(task)
     context = {
         'assignment': assignment,
         'task': task,
         'latest': latest,
         'history': history,
-        'gap_blocks': _gap_block_items(task),
+        'gap_blocks': gap_blocks,
+        'gap_grid': _gap_grid(gap_blocks),
     }
     return render(request, 'assignments/solve_task.html', context)
 
@@ -303,12 +307,14 @@ def solve_task(request, assignment_id, task_id):
 @teacher_required
 def task_preview(request, task_id):
     task = get_object_or_404(Task, pk=task_id, author=request.user)
+    gap_blocks = _gap_block_items(task)
     return render(request, 'assignments/solve_task.html', {
         'preview': True,
         'task': task,
         'latest': None,
         'history': [],
-        'gap_blocks': _gap_block_items(task),
+        'gap_blocks': gap_blocks,
+        'gap_grid': _gap_grid(gap_blocks),
     })
 
 
@@ -322,6 +328,31 @@ def _gap_block_items(task):
         else:
             items.append({'block': block, 'number': None})
     return items
+
+
+BR_TAG_PATTERN = re.compile(r'<br\s*/?>', re.IGNORECASE)
+
+
+def _gap_grid(items):
+    rows = []
+    current = []
+    for item in items:
+        block = item['block']
+        if block.kind == TaskBlock.Kind.TEXT:
+            if current and BR_TAG_PATTERN.search(block.text or ''):
+                rows.append(current)
+                current = []
+        else:
+            current.append(item)
+    if current:
+        rows.append(current)
+
+    columns = max((len(row) for row in rows), default=0)
+    grid_rows = []
+    for number, row in enumerate(rows, start=1):
+        cells = list(row) + [None] * (columns - len(row))
+        grid_rows.append({'number': number, 'cells': cells})
+    return {'rows': grid_rows, 'columns': list(range(1, columns + 1))}
 
 
 def _solve_text_task(request, assignment, task):

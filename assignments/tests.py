@@ -186,17 +186,30 @@ class AssignmentFlowTests(DjangoTestCase):
         self.assertContains(response, 'Очистить')
         self.assertNotContains(response, 'Пропуск 1')
 
-    def test_solve_page_flows_gap_text_inline_with_breaks(self):
-        text_block = self.gap_task.blocks.get(order=0)
-        text_block.text = '2 + 2 = <br>'
-        text_block.save(update_fields=['text'])
-        response = self.client.get(
-            reverse('solve_task', args=[self.assignment.pk, self.gap_task.pk]),
+    def test_gap_grid_without_breaks_is_single_row(self):
+        from assignments.views import _gap_block_items, _gap_grid
+
+        grid = _gap_grid(_gap_block_items(self.gap_task))
+        self.assertEqual(grid['columns'], [1, 2])
+        self.assertEqual(len(grid['rows']), 1)
+        self.assertEqual(
+            [cell['number'] for cell in grid['rows'][0]['cells']],
+            [1, 2],
         )
-        html = response.content.decode()
-        self.assertIn('gap-flow', html)
-        self.assertIn('2 + 2 = <br>', html)
-        self.assertLess(html.index('2 + 2 = <br>'), html.index('name="gap_1"'))
+
+    def test_gap_grid_starts_new_row_after_br(self):
+        from assignments.views import _gap_block_items, _gap_grid
+
+        text_block = self.gap_task.blocks.get(order=2)
+        text_block.text = ', а 3 × 3 = <br>'
+        text_block.save(update_fields=['text'])
+        grid = _gap_grid(_gap_block_items(self.gap_task))
+        self.assertEqual(grid['columns'], [1])
+        self.assertEqual([row['number'] for row in grid['rows']], [1, 2])
+        self.assertEqual(
+            [[cell['number'] for cell in row['cells']] for row in grid['rows']],
+            [[1], [2]],
+        )
 
     def test_teacher_grades_image(self):
         sub = Submission.objects.create(

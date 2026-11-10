@@ -6,20 +6,45 @@
     <div class="card-body">
         <form method="post">
             {% csrf_token %}
-            <div class="gap-flow text-break mb-3">
+            <div class="mb-3 text-break">
                 {% for item in gap_blocks %}
                     {% if item.block.kind == 'text' %}
                         <span class="js-math">{{ item.block.text|render_block_text }}</span>
-                    {% else %}
-                        <span class="d-inline-flex flex-column align-items-center me-2 mb-2" style="vertical-align:middle;">
-                            <span class="text-muted" style="font-size:0.8rem; line-height:1;">{{ item.number }}</span>
-                            <input type="text" name="gap_{{ item.number }}" id="gap-input-{{ item.number }}"
-                                   class="form-control form-control-sm text-center" style="width:8rem;" required
-                                   {% if preview %}disabled{% endif %}>
-                        </span>
                     {% endif %}
                 {% endfor %}
             </div>
+            {% if gap_grid.columns %}
+                <div class="table-responsive mb-3">
+                    <table class="table table-bordered align-middle text-center mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width:5rem; background-color:#e3ebf6;"></th>
+                                {% for column in gap_grid.columns %}
+                                    <th style="min-width:8rem; background-color:#e3ebf6; font-size:1.1rem;">
+                                        {{ column }}
+                                    </th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in gap_grid.rows %}
+                                <tr>
+                                    <th style="background-color:#e3ebf6; font-size:1.1rem;">{{ row.number }}</th>
+                                    {% for cell in row.cells %}
+                                        <td>
+                                            {% if cell %}
+                                                <input type="text" name="gap_{{ cell.number }}" id="gap-input-{{ cell.number }}"
+                                                       class="form-control form-control-sm text-center" required
+                                                       {% if preview %}disabled{% endif %}>
+                                            {% endif %}
+                                        </td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
             {% if not preview %}
                 <div class="d-flex gap-2">
                     <button type="button" class="btn btn-outline-danger" id="gap-clear">Очистить</button>
