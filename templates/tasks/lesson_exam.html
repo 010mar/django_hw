@@ -238,6 +238,14 @@
             color: #007a6c;
             font-size: 14px;
         }
+        .exam-preview-banner {
+            margin-bottom: 16px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            background: #eef3fb;
+            color: #2b4d8f;
+            font-size: 14px;
+        }
         .exam-option {
             display: flex;
             align-items: flex-start;
@@ -301,6 +309,9 @@
     </div>
     <div class="exam-topbar-right">
         <a href="{% url 'lesson_exam_result' lesson.pk %}">Завершить экзамен досрочно</a>
+        {% if preview %}
+            <a href="{% url 'lesson_detail' lesson.pk %}">← К уроку</a>
+        {% endif %}
         <span class="exam-icon" title="Экзаменационный режим">?</span>
         <a href="{% url 'home' %}" class="exam-icon" title="Свернуть">&#8211;</a>
         <a href="{% url 'home' %}" class="exam-icon" title="Закрыть">&#215;</a>
@@ -316,7 +327,7 @@
                 <a href="#" class="exam-scroll-btn" id="exam-scroll-top" aria-label="Вверх">&uarr;</a>
                 <div class="exam-task-list" id="exam-task-list">
                     {% for item in tasks %}
-                        <a href="{% url 'lesson_exam' lesson.pk %}?task={{ forloop.counter }}"
+                        <a href="{% url 'lesson_exam' lesson.pk %}?task={{ forloop.counter }}{% if preview %}&preview=1{% endif %}"
                            class="exam-task-btn{% if item.pk in answered_ids %} answered{% endif %}{% if forloop.counter == task_index %} active{% endif %}">
                             {{ forloop.counter }}
                         </a>
@@ -336,6 +347,11 @@
                 <input type="hidden" name="task_id" value="{{ current_task.pk }}">
                 <div class="exam-content-scroll">
                     <div class="exam-content">
+                        {% if preview %}
+                            <div class="exam-preview-banner">
+                                Просмотр как ученик. Ответы в этом режиме не сохраняются.
+                            </div>
+                        {% endif %}
                         {% if saved %}
                             <div class="exam-saved">Ответ сохранён</div>
                         {% endif %}
@@ -370,6 +386,7 @@
                                             <input class="form-check-input" type="radio" name="answer_option"
                                                    value="{{ option.pk }}"
                                                    {% if latest.answer_option_id == option.pk %}checked{% endif %}
+                                                   {% if preview %}disabled{% endif %}
                                                    required>
                                             <span class="js-math">{{ option.text }}</span>
                                         </label>
@@ -379,7 +396,8 @@
                                 <div class="mt-4">
                                     <input type="text" name="answer_text" class="form-control exam-answer-input"
                                            maxlength="500" placeholder="Краткий ответ"
-                                           value="{{ latest.answer_text|default:'' }}" required>
+                                           value="{{ latest.answer_text|default:'' }}"
+                                           {% if preview %}disabled{% endif %} required>
                                 </div>
                             {% endif %}
                         {% elif current_task.type == 'gap' %}
@@ -410,7 +428,8 @@
                                                                     <input type="text" name="gap_{{ cell.number }}"
                                                                            id="gap-input-{{ cell.number }}"
                                                                            class="form-control form-control-sm{% if cell.state == 'valid' %} is-valid{% elif cell.state == 'invalid' %} is-invalid{% endif %}"
-                                                                           value="{{ cell.answer|default:'' }}" required>
+                                                                           value="{{ cell.answer|default:'' }}"
+                                                                           {% if preview %}disabled{% endif %} required>
                                                                 {% endif %}
                                                             </td>
                                                         {% endfor %}
@@ -447,7 +466,7 @@
                             {% endif %}
                             <div class="mt-4">
                                 <textarea name="code" class="form-control exam-answer-code" rows="14"
-                                          spellcheck="false" required
+                                          spellcheck="false" {% if preview %}readonly{% endif %} required
                                           placeholder="print('Hello, world!')">{{ latest.code|default:'' }}</textarea>
                                 <div class="form-text">
                                     Время: {{ current_task.time_limit_ms }} мс, память: {{ current_task.memory_limit_mb }} МБ.
@@ -459,24 +478,32 @@
 
                 {% if prev_index %}
                     <a class="exam-arrow exam-arrow-left"
-                       href="{% url 'lesson_exam' lesson.pk %}?task={{ prev_index }}"
+                       href="{% url 'lesson_exam' lesson.pk %}?task={{ prev_index }}{% if preview %}&preview=1{% endif %}"
                        aria-label="Предыдущее задание">&#8592;</a>
                 {% else %}
                     <span class="exam-arrow exam-arrow-left disabled" aria-label="Предыдущее задание">&#8592;</span>
                 {% endif %}
                 {% if next_index %}
                     <a class="exam-arrow exam-arrow-right"
-                       href="{% url 'lesson_exam' lesson.pk %}?task={{ next_index }}"
+                       href="{% url 'lesson_exam' lesson.pk %}?task={{ next_index }}{% if preview %}&preview=1{% endif %}"
                        aria-label="Следующее задание">&#8594;</a>
                 {% else %}
                     <span class="exam-arrow exam-arrow-right disabled" aria-label="Следующее задание">&#8594;</span>
                 {% endif %}
 
-                <div class="exam-footer">
-                    <button type="submit" class="exam-save">
-                        {% if current_task.type == 'programming' %}Проверить{% else %}Сохранить ответ{% endif %}
-                    </button>
-                </div>
+                {% if not preview %}
+                    <div class="exam-footer">
+                        <button type="submit" class="exam-save">
+                            {% if current_task.type == 'programming' %}Проверить{% else %}Сохранить ответ{% endif %}
+                        </button>
+                    </div>
+                {% else %}
+                    <div class="exam-footer">
+                        <a href="{% url 'lesson_detail' lesson.pk %}" class="btn btn-outline-secondary">
+                            Вернуться к уроку
+                        </a>
+                    </div>
+                {% endif %}
             </form>
         {% else %}
             <div class="exam-empty">В этом уроке пока нет заданий.</div>

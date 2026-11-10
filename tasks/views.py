@@ -761,12 +761,14 @@ def lesson_remove_task(request, pk, task_id):
     return redirect(_lesson_redirect(pk, request.POST))
 
 
-def _get_exam_lesson(pk):
+def _get_exam_lesson(request, pk):
     lesson = get_object_or_404(
         Lesson.objects.select_related('module__course'), pk=pk,
     )
     course = lesson.module.course if lesson.module_id else None
-    if course is None or not course.exam_mode:
+    if course is None:
+        raise Http404
+    if not course.exam_mode and lesson.author_id != request.user.pk:
         raise Http404
     return lesson, course
 
@@ -788,14 +790,19 @@ def _lesson_latest_submissions(lesson, user):
 
 @login_required
 def lesson_exam(request, pk):
-    lesson, course = _get_exam_lesson(pk)
+    lesson, course = _get_exam_lesson(request, pk)
     tasks = lesson.tasks_ordered
+    preview = (
+        request.GET.get('preview') == '1'
+        and lesson.author_id == request.user.pk
+    )
     if not tasks:
         return render(request, 'tasks/lesson_exam.html', {
             'lesson': lesson,
             'course': course,
             'tasks': [],
             'task_count': 0,
+            'preview': preview,
         })
 
     task_index = _parse_id(request.GET.get('task')) or 1
@@ -809,25 +816,33 @@ def lesson_exam(request, pk):
         )
         if target_index is None:
             raise Http404
-        target_task = tasks[target_index - 1]
-        from assignments.views import (
-            _solve_gap_task,
-            _solve_programming_task,
-            _solve_text_task,
-        )
+        if not preview:
+            target_task = tasks[target_index - 1]
+            from assignments.views import (
+                _solve_gap_task,
+                _solve_programming_task,
+                _solve_text_task,
+            )
 
-        if target_task.type == Task.Type.TEXT:
-            _solve_text_task(request, None, target_task, lesson=lesson)
-        elif target_task.type == Task.Type.PROGRAMMING:
-            _solve_programming_task(request, None, target_task, lesson=lesson)
-        else:
-            _solve_gap_task(request, None, target_task, lesson=lesson)
+            if target_task.type == Task.Type.TEXT:
+                _solve_text_task(request, None, target_task, lesson=lesson)
+            elif target_task.type == Task.Type.PROGRAMMING:
+                _solve_programming_task(request, None, target_task, lesson=lesson)
+            else:
+                _solve_gap_task(request, None, target_task, lesson=lesson)
         url = reverse('lesson_exam', args=[lesson.pk])
-        query = urlencode({'task': target_index, 'saved': '1'})
-        return redirect(f'{url}?{query}')
+        params = {'task': target_index}
+        if preview:
+            params['preview'] = '1'
+        else:
+            params['saved'] = '1'
+        return redirect(f'{url}?{urlencode(params)}')
 
     current_task = tasks[task_index - 1]
-    latest_by_task = _lesson_latest_submissions(lesson, request.user)
+    if preview:
+        latest_by_task = {}
+    else:
+        latest_by_task = _lesson_latest_submissions(lesson, request.user)
     answered_ids = set(latest_by_task)
     latest = latest_by_task.get(current_task.pk)
 
@@ -859,12 +874,13 @@ def lesson_exam(request, pk):
         'gap_blocks': gap_blocks,
         'gap_grid': gap_grid,
         'saved': request.GET.get('saved') == '1',
+        'preview': preview,
     })
 
 
 @login_required
 def lesson_exam_result(request, pk):
-    lesson, course = _get_exam_lesson(pk)
+    lesson, course = _get_exam_lesson(request, pk)
     tasks = lesson.tasks_ordered
     latest_by_task = _lesson_latest_submissions(lesson, request.user)
     rows = []

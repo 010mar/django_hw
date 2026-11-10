@@ -563,6 +563,29 @@ class LessonExamTests(DjangoTestCase):
         self.assertContains(result, '1/2')
         self.assertContains(result, '2 из 4')
 
+    def test_author_can_preview_exam_without_exam_mode(self):
+        self.course.exam_mode = False
+        self.course.save(update_fields=['exam_mode'])
+        self.client.force_login(self.teacher)
+        response = self.client.get(
+            reverse('lesson_exam', args=[self.lesson.pk]) + '?preview=1',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Просмотр как ученик')
+
+    def test_preview_does_not_save_answers(self):
+        self.client.force_login(self.teacher)
+        self.client.post(
+            reverse('lesson_exam', args=[self.lesson.pk]) + '?preview=1',
+            {'task_id': self.text_task.pk, 'answer_text': '42'},
+        )
+        self.assertFalse(Submission.objects.filter(lesson=self.lesson).exists())
+
+    def test_lesson_detail_has_student_view_button(self):
+        self.client.force_login(self.teacher)
+        response = self.client.get(reverse('lesson_detail', args=[self.lesson.pk]))
+        self.assertContains(response, 'Как ученик')
+
 
 class TaskCrudViewTests(DjangoTestCase):
     def setUp(self):
