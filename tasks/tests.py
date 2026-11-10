@@ -519,7 +519,26 @@ class TaskCrudViewTests(DjangoTestCase):
         )
         response = self.client.get(reverse('task_create'))
         self.assertContains(response, 'Связанные задачи')
+        self.assertContains(response, 'Не связана')
         self.assertContains(response, other.title)
+
+    def test_empty_related_choice_is_ignored(self):
+        data = {
+            'type': 'text',
+            'difficulty': 'easy',
+            'answer_mode': 'short',
+            'correct_answer': '8',
+            'source': 'author',
+            'body': 'Вопрос',
+            'related_tasks': '',
+        }
+        data.update(self._base_data())
+        data.update(self._formset_data('options', []))
+        data.update(self._formset_data('cases', []))
+        response = self.client.post(reverse('task_create'), data)
+        task = Task.objects.latest('pk')
+        self.assertRedirects(response, task.get_absolute_url())
+        self.assertFalse(task.related_tasks.exists())
 
     def test_create_gap_task(self):
         data = {

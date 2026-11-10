@@ -32,8 +32,20 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">{{ form.related_tasks.label }}</label>
-                        {{ form.related_tasks }}
+                        <label class="form-label" for="id_related_tasks">{{ form.related_tasks.label }}</label>
+                        {% with selected_related=form.related_tasks.value %}
+                            <select name="related_tasks" id="id_related_tasks"
+                                    class="form-select" multiple size="6">
+                                <option value="" class="related-none"
+                                        {% if not selected_related %}selected{% endif %}>Не связана</option>
+                                {% for related in form.fields.related_tasks.queryset %}
+                                    <option value="{{ related.pk }}"
+                                            {% if selected_related and related.pk|stringformat:'s' in selected_related %}selected{% endif %}>
+                                        {{ related.task_number|default:related.pk }} — {{ related.title }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        {% endwith %}
                         <div class="form-text">{{ form.related_tasks.help_text }}</div>
                         {% if form.related_tasks.errors %}
                             <div class="text-danger small mt-1">{{ form.related_tasks.errors.0 }}</div>
@@ -386,8 +398,22 @@
     update();
     filterTopics();
 
-    var blockRows = document.getElementById('block-rows');
-    var addTextBlock = document.getElementById('add-text-block');
+    var relatedSelect = document.getElementById('id_related_tasks');
+    if (relatedSelect) {
+        var relatedNone = relatedSelect.querySelector('option.related-none');
+        var syncRelatedNone = function () {
+            var hasReal = Array.prototype.some.call(relatedSelect.options, function (option) {
+                return option.selected && option.value !== '';
+            });
+            if (relatedNone) {
+                relatedNone.selected = !hasReal;
+            }
+        };
+        relatedSelect.addEventListener('change', syncRelatedNone);
+        syncRelatedNone();
+    }
+
+    var blockRows = document.getElementById('block-rows');    var addTextBlock = document.getElementById('add-text-block');
     var addGapBlock = document.getElementById('add-gap-block');
     var blockTotalForms = document.getElementById('id_blocks-TOTAL_FORMS');
     var blockEmptyForm = document.getElementById('block-empty-form');

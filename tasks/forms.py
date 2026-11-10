@@ -16,7 +16,24 @@ from .models import (
 )
 
 
+class OptionalMultipleChoiceField(forms.ModelMultipleChoiceField):
+    def clean(self, value):
+        if value:
+            if not isinstance(value, (list, tuple)):
+                value = [value]
+            value = [item for item in value if item not in ('', None)]
+        return super().clean(value)
+
+
 class TaskForm(forms.ModelForm):
+    related_tasks = OptionalMultipleChoiceField(
+        queryset=Task.objects.none(),
+        required=False,
+        label='Связанные задачи',
+        help_text='Можно выбрать несколько задач, связанных с этой',
+        widget=forms.SelectMultiple(attrs={'class': 'form-select', 'size': 6}),
+    )
+
     class Meta:
         model = Task
         fields = (
@@ -37,7 +54,6 @@ class TaskForm(forms.ModelForm):
         widgets = {
             'bank': forms.Select(attrs={'class': 'form-select'}),
             'topic': forms.Select(attrs={'class': 'form-select'}),
-            'related_tasks': forms.SelectMultiple(attrs={'class': 'form-select', 'size': 6}),
             'source': forms.Select(attrs={'class': 'form-select'}),
             'type': forms.Select(attrs={'class': 'form-select'}),
             'difficulty': forms.Select(attrs={'class': 'form-select'}),
@@ -54,9 +70,6 @@ class TaskForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         for name in ('language', 'time_limit_ms', 'memory_limit_mb', 'answer_mode', 'related_tasks'):
             self.fields[name].required = False
-        self.fields['related_tasks'].help_text = (
-            'Можно выбрать несколько задач, связанных с этой'
-        )
         self.fields['topic'].required = True
         self.fields['topic'].empty_label = None
         if user is not None:
