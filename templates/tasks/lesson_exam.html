@@ -394,7 +394,7 @@
         <span class="exam-id">БР № {{ request.user.pk }}</span>
     </div>
     <div class="exam-topbar-right">
-        <a href="{% url 'lesson_exam_result' lesson.pk %}">Завершить экзамен досрочно</a>
+        <a href="{% url 'lesson_exam_result' lesson.pk %}{% if preview %}?preview=1{% endif %}">Завершить экзамен досрочно</a>
         {% if preview %}
             <a href="{% url 'lesson_detail' lesson.pk %}">← К уроку</a>
         {% endif %}

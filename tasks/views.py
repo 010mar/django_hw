@@ -878,10 +878,45 @@ def lesson_exam(request, pk):
     })
 
 
+def _task_correct_answer(task):
+    if task.type == Task.Type.TEXT:
+        if task.answer_mode == Task.AnswerMode.CHOICE:
+            values = [
+                option.text
+                for option in task.answer_options.filter(is_correct=True)
+            ]
+            return ', '.join(values)
+        return task.correct_answer
+    if task.type == Task.Type.GAP:
+        values = []
+        for block in task.gap_blocks:
+            values.extend(block.accepted_answers)
+        return '\n'.join(values)
+    return '—'
+
+
+def _submission_user_answer(submission):
+    if submission is None:
+        return ''
+    if submission.answer_option_id:
+        return submission.answer_option.text
+    if submission.answer_text:
+        return submission.answer_text
+    if submission.gap_answers:
+        return ', '.join(str(value) for value in submission.gap_answers.values())
+    if submission.code:
+        return 'Код отправлен'
+    return ''
+
+
 @login_required
 def lesson_exam_result(request, pk):
     lesson, course = _get_exam_lesson(request, pk)
     tasks = lesson.tasks_ordered
+    preview = (
+        request.GET.get('preview') == '1'
+        and lesson.author_id == request.user.pk
+    )
     latest_by_task = _lesson_latest_submissions(lesson, request.user)
     rows = []
     total_score = 0
@@ -894,15 +929,20 @@ def lesson_exam_result(request, pk):
             'task': task,
             'submission': submission,
             'score': score,
+            'user_answer': _submission_user_answer(submission),
+            'correct_answer': _task_correct_answer(task),
         })
+    middle = (len(rows) + 1) // 2
     return render(request, 'tasks/lesson_exam_result.html', {
         'lesson': lesson,
         'course': course,
         'rows': rows,
+        'tables': [rows[:middle], rows[middle:]] if rows else [],
         'task_count': len(tasks),
         'answered_count': len(latest_by_task),
         'total_score': total_score,
         'max_score': sum(task.points for task in tasks),
+        'preview': preview,
     })
 
 

@@ -574,7 +574,9 @@ class LessonExamTests(DjangoTestCase):
             reverse('lesson_exam_result', args=[self.lesson.pk]),
         )
         self.assertContains(result, '1/2')
-        self.assertContains(result, '2 из 4')
+        self.assertContains(result, '2/4')
+        self.assertContains(result, 'Правильный ответ')
+        self.assertContains(result, 'Единый государственный экзамен')
 
     def test_author_can_preview_exam_without_exam_mode(self):
         self.course.exam_mode = False
