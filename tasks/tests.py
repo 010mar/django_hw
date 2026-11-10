@@ -553,6 +553,16 @@ class LessonExamTests(DjangoTestCase):
         self.assertEqual(submission.status, Submission.Status.CORRECT)
         self.assertEqual(submission.score, Decimal('2.00'))
 
+    def test_gap_answer_panel_renders(self):
+        response = self.client.get(
+            reverse('lesson_exam', args=[self.lesson.pk]) + '?task=2',
+        )
+        self.assertContains(response, 'exam-answer-panel')
+        self.assertContains(response, 'Введите или скопируйте свой ответ в поля таблицы')
+        self.assertContains(response, 'exam-gap-table')
+        self.assertContains(response, 'name="gap_1"')
+        self.assertContains(response, 'Очистить')
+
     def test_exam_counts_answered_and_shows_result(self):
         self.client.post(
             reverse('lesson_exam', args=[self.lesson.pk]) + '?task=1',

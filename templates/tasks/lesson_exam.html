@@ -63,6 +63,11 @@
             display: flex;
             height: calc(100vh - 56px);
         }
+        .exam-form {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+        }
         .exam-sidebar {
             flex: 0 0 132px;
             display: flex;
@@ -280,17 +285,92 @@
         .exam-gap-text {
             margin-bottom: 14px;
         }
+        .exam-answer-panel {
+            flex: 0 0 380px;
+            max-width: 380px;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            border-left: 1px solid #cfd8e8;
+            background: #fff;
+        }
+        .exam-answer-panel-head {
+            background: #1f3864;
+            color: #fff;
+            font-size: 13px;
+            line-height: 1.25;
+            text-align: center;
+            padding: 10px 10px;
+        }
+        .exam-answer-panel-body {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            padding: 10px 8px;
+        }
+        .exam-answer-panel-footer {
+            display: flex;
+            gap: 8px;
+            padding: 8px;
+            border-top: 1px solid #cfd8e8;
+        }
+        .exam-clear {
+            flex: 1;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ef9a9a;
+            background: #fff;
+            color: #e57373;
+            font-size: 13px;
+        }
+        .exam-clear:hover {
+            background: #fff5f5;
+        }
+        .exam-answer-panel-footer .exam-save {
+            flex: 1;
+            min-width: 0;
+            padding: 8px;
+            font-size: 13px;
+        }
+        .exam-gap-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
         .exam-gap-table th,
         .exam-gap-table td {
-            vertical-align: middle;
+            height: 32px;
+            padding: 0;
+            border: 1px solid #8a96a3;
             text-align: center;
+            vertical-align: middle;
         }
         .exam-gap-table th {
             background: #e3ebf6;
-            font-weight: 500;
+            font-weight: 400;
+            font-size: 16px;
+        }
+        .exam-gap-table td {
+            background: #fff;
         }
         .exam-gap-table input {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            outline: none;
+            background: transparent;
             text-align: center;
+            padding: 4px 6px;
+            font-size: 15px;
+        }
+        .exam-gap-table input.is-valid {
+            background: #e6f7f2;
+        }
+        .exam-gap-table input.is-invalid {
+            background: #fdecec;
+        }
+        .exam-gap-corner {
+            background: #e3ebf6;
         }
         .exam-tests {
             margin-top: 16px;
@@ -343,13 +423,13 @@
         {% endif %}
     </aside>
 
-    <main class="exam-main">
-        {% if tasks %}
-            <form method="post"
-                  action="{% url 'lesson_exam' lesson.pk %}?task={{ task_index }}"
-                  class="d-flex flex-column flex-grow-1 min-vh-0 h-100">
-                {% csrf_token %}
-                <input type="hidden" name="task_id" value="{{ current_task.pk }}">
+    {% if tasks %}
+        <form method="post"
+              action="{% url 'lesson_exam' lesson.pk %}?task={{ task_index }}"
+              class="exam-form">
+            {% csrf_token %}
+            <input type="hidden" name="task_id" value="{{ current_task.pk }}">
+            <main class="exam-main">
                 <div class="exam-content-scroll">
                     <div class="exam-content">
                         {% if preview %}
@@ -409,38 +489,6 @@
                                         <div class="exam-gap-text js-math">{{ item.block.text|render_block_text }}</div>
                                     {% endif %}
                                 {% endfor %}
-                                {% if gap_grid.columns %}
-                                    <div class="table-responsive">
-                                        <table class="table table-bordered exam-gap-table mb-0">
-                                            <thead>
-                                                <tr>
-                                                    <th style="width:5rem;"></th>
-                                                    {% for column in gap_grid.columns %}
-                                                        <th style="min-width:8rem; font-size:1.1rem;">{{ column }}</th>
-                                                    {% endfor %}
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {% for row in gap_grid.rows %}
-                                                    <tr>
-                                                        <th style="font-size:1.1rem;">{{ row.number }}</th>
-                                                        {% for cell in row.cells %}
-                                                            <td>
-                                                                {% if cell %}
-                                                                    <input type="text" name="gap_{{ cell.number }}"
-                                                                           id="gap-input-{{ cell.number }}"
-                                                                           class="form-control form-control-sm{% if cell.state == 'valid' %} is-valid{% elif cell.state == 'invalid' %} is-invalid{% endif %}"
-                                                                           value="{{ cell.answer|default:'' }}"
-                                                                           {% if preview %}disabled{% endif %} required>
-                                                                {% endif %}
-                                                            </td>
-                                                        {% endfor %}
-                                                    </tr>
-                                                {% endfor %}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                {% endif %}
                             </div>
                         {% else %}
                             {% if current_task.test_cases.all %}
@@ -493,33 +541,83 @@
                     <span class="exam-arrow exam-arrow-right disabled" aria-label="Следующее задание">&#8594;</span>
                 {% endif %}
 
-                <div class="exam-footer">
-                    {% if current_task.type == 'text' and current_task.answer_mode != 'choice' %}
-                        <input type="text" name="answer_text" class="form-control exam-footer-answer"
-                               maxlength="500" placeholder="Ответ"
-                               value="{{ latest.answer_text|default:'' }}"
-                               {% if preview %}disabled{% endif %} required>
-                    {% endif %}
-                    {% if not preview %}
-                        <button type="submit" class="exam-save">
-                            {% if current_task.type == 'programming' %}Проверить{% else %}Сохранить ответ{% endif %}
+                {% if current_task.type != 'gap' %}
+                    <div class="exam-footer">
+                        {% if current_task.type == 'text' and current_task.answer_mode != 'choice' %}
+                            <input type="text" name="answer_text" class="form-control exam-footer-answer"
+                                   maxlength="500" placeholder="Ответ"
+                                   value="{{ latest.answer_text|default:'' }}"
+                                   {% if preview %}disabled{% endif %} required>
+                        {% endif %}
+                        {% if not preview %}
+                            <button type="submit" class="exam-save">
+                                {% if current_task.type == 'programming' %}Проверить{% else %}Сохранить ответ{% endif %}
+                            </button>
+                        {% else %}
+                            <button type="submit" class="exam-save" disabled>
+                                {% if current_task.type == 'programming' %}Проверить{% else %}Сохранить ответ{% endif %}
+                            </button>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </main>
+            {% if current_task.type == 'gap' %}
+                <aside class="exam-answer-panel">
+                    <div class="exam-answer-panel-head">
+                        Введите или скопируйте свой ответ в поля таблицы
+                    </div>
+                    <div class="exam-answer-panel-body">
+                        {% if gap_grid.columns %}
+                            <table class="exam-gap-table">
+                                <thead>
+                                    <tr>
+                                        <th class="exam-gap-corner"></th>
+                                        {% for column in gap_grid.columns %}
+                                            <th>{{ column }}</th>
+                                        {% endfor %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for row in gap_grid.rows %}
+                                        <tr>
+                                            <th>{{ row.number }}</th>
+                                            {% for cell in row.cells %}
+                                                <td>
+                                                    {% if cell %}
+                                                        <input type="text" name="gap_{{ cell.number }}"
+                                                               id="gap-input-{{ cell.number }}"
+                                                               class="{% if cell.state == 'valid' %}is-valid{% elif cell.state == 'invalid' %}is-invalid{% endif %}"
+                                                               value="{{ cell.answer|default:'' }}"
+                                                               {% if preview %}disabled{% endif %} required>
+                                                    {% endif %}
+                                                </td>
+                                            {% endfor %}
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% endif %}
+                    </div>
+                    <div class="exam-answer-panel-footer">
+                        <button type="button" class="exam-clear" id="exam-gap-clear"
+                                {% if preview %}disabled{% endif %}>Очистить</button>
+                        <button type="submit" class="exam-save" {% if preview %}disabled{% endif %}>
+                            Сохранить ответ
                         </button>
-                    {% else %}
-                        <a href="{% url 'lesson_detail' lesson.pk %}" class="btn btn-outline-secondary">
-                            Вернуться к уроку
-                        </a>
-                    {% endif %}
-                </div>
-            </form>
-        {% else %}
+                    </div>
+                </aside>
+            {% endif %}
+        </form>
+    {% else %}
+        <main class="exam-main">
             <div class="exam-empty">В этом уроке пока нет заданий.</div>
             <div class="exam-footer">
                 <a href="{% url 'lesson_exam_result' lesson.pk %}" class="exam-save text-decoration-none text-center">
                     Завершить
                 </a>
             </div>
-        {% endif %}
-    </main>
+        </main>
+    {% endif %}
 </div>
 
 {% include 'tasks/_katex_scripts.html' %}
@@ -576,6 +674,15 @@
         bottom.addEventListener('click', function (event) {
             event.preventDefault();
             list.scrollTop = list.scrollHeight;
+        });
+    }
+    var clear = document.getElementById('exam-gap-clear');
+    if (clear) {
+        clear.addEventListener('click', function () {
+            document.querySelectorAll('.exam-gap-table input').forEach(function (input) {
+                input.value = '';
+                input.classList.remove('is-valid', 'is-invalid');
+            });
         });
     }
 })();
