@@ -212,10 +212,15 @@
             flex: 0 0 auto;
             display: flex;
             justify-content: flex-end;
+            align-items: center;
             gap: 12px;
             padding: 12px 28px;
             border-top: 1px solid #e5e7eb;
             background: #fff;
+        }
+        .exam-footer-answer {
+            width: 420px;
+            max-width: 60vw;
         }
         .exam-save {
             min-width: 150px;
@@ -393,11 +398,8 @@
                                     {% endfor %}
                                 </div>
                             {% else %}
-                                <div class="mt-4">
-                                    <input type="text" name="answer_text" class="form-control exam-answer-input"
-                                           maxlength="500" placeholder="Краткий ответ"
-                                           value="{{ latest.answer_text|default:'' }}"
-                                           {% if preview %}disabled{% endif %} required>
+                                <div class="mt-4 text-muted">
+                                    Введите ответ в поле внизу справа.
                                 </div>
                             {% endif %}
                         {% elif current_task.type == 'gap' %}
@@ -491,19 +493,23 @@
                     <span class="exam-arrow exam-arrow-right disabled" aria-label="Следующее задание">&#8594;</span>
                 {% endif %}
 
-                {% if not preview %}
-                    <div class="exam-footer">
+                <div class="exam-footer">
+                    {% if current_task.type == 'text' and current_task.answer_mode != 'choice' %}
+                        <input type="text" name="answer_text" class="form-control exam-footer-answer"
+                               maxlength="500" placeholder="Ответ"
+                               value="{{ latest.answer_text|default:'' }}"
+                               {% if preview %}disabled{% endif %} required>
+                    {% endif %}
+                    {% if not preview %}
                         <button type="submit" class="exam-save">
                             {% if current_task.type == 'programming' %}Проверить{% else %}Сохранить ответ{% endif %}
                         </button>
-                    </div>
-                {% else %}
-                    <div class="exam-footer">
+                    {% else %}
                         <a href="{% url 'lesson_detail' lesson.pk %}" class="btn btn-outline-secondary">
                             Вернуться к уроку
                         </a>
-                    </div>
-                {% endif %}
+                    {% endif %}
+                </div>
             </form>
         {% else %}
             <div class="exam-empty">В этом уроке пока нет заданий.</div>

@@ -516,10 +516,12 @@ class LessonExamTests(DjangoTestCase):
     def test_student_opens_exam(self):
         response = self.client.get(reverse('lesson_exam', args=[self.lesson.pk]))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Краткий')
+        self.assertContains(response, 'name="answer_text"')
         self.assertContains(response, 'Задание 1')
         self.assertContains(response, 'Дано ответов')
         self.assertContains(response, '0/2')
+        self.assertContains(response, 'exam-footer-answer')
+        self.assertContains(response, 'Сохранить ответ')
 
     def test_exam_saves_text_answer(self):
         response = self.client.post(
