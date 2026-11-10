@@ -297,3 +297,42 @@ class AnonymousAccessTests(DjangoTestCase):
         ):
             response = self.client.get(url)
             self.assertRedirects(response, f'{reverse("account_login")}?next={url}')
+
+
+class TaskPreviewTests(DjangoTestCase):
+    def setUp(self):
+        self.teacher = User.objects.create_user(
+            username='teacher', password='pass12345', role=User.Role.TEACHER,
+        )
+        self.student = User.objects.create_user(
+            username='student', password='pass12345', role=User.Role.STUDENT,
+        )
+        self.task = Task.objects.create(
+            title='Выбор', type=Task.Type.TEXT, author=self.teacher,
+            answer_mode=Task.AnswerMode.CHOICE,
+        )
+        self.option = AnswerOption.objects.create(
+            task=self.task, text='8', is_correct=True, order=0,
+        )
+
+    def test_teacher_previews_own_task_as_student(self):
+        self.client.force_login(self.teacher)
+        response = self.client.get(reverse('task_preview', args=[self.task.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Просмотр как ученик')
+        self.assertContains(response, self.option.text)
+        self.assertContains(response, 'disabled')
+        self.assertNotContains(response, 'Отправить')
+
+    def test_student_cannot_preview_task(self):
+        self.client.force_login(self.student)
+        response = self.client.get(reverse('task_preview', args=[self.task.pk]))
+        self.assertRedirects(response, reverse('home'))
+
+    def test_other_teacher_cannot_preview_task(self):
+        other = User.objects.create_user(
+            username='other_teacher', password='pass12345', role=User.Role.TEACHER,
+        )
+        self.client.force_login(other)
+        response = self.client.get(reverse('task_preview', args=[self.task.pk]))
+        self.assertEqual(response.status_code, 404)

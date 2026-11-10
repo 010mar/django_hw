@@ -6,7 +6,14 @@
 {% block extra_head %}{% include 'tasks/_katex_head.html' %}{% endblock %}
 
 {% block content %}
+{% if preview %}
+<a href="{{ task.get_absolute_url }}" class="btn btn-outline-secondary btn-sm mb-3">← К задаче</a>
+<div class="alert alert-info py-2">
+    Просмотр как ученик. Так задачу видит ученик; отправка ответов в этом режиме недоступна.
+</div>
+{% else %}
 <a href="{% url 'assignment_solve' assignment.pk %}" class="btn btn-outline-secondary btn-sm mb-3">← К заданию</a>
+{% endif %}
 
 <h2>{{ task.title }}</h2>
 <div class="mb-3">

@@ -300,6 +300,18 @@ def solve_task(request, assignment_id, task_id):
     return render(request, 'assignments/solve_task.html', context)
 
 
+@teacher_required
+def task_preview(request, task_id):
+    task = get_object_or_404(Task, pk=task_id, author=request.user)
+    return render(request, 'assignments/solve_task.html', {
+        'preview': True,
+        'task': task,
+        'latest': None,
+        'history': [],
+        'gap_blocks': _gap_block_items(task),
+    })
+
+
 def _gap_block_items(task):
     items = []
     number = 0

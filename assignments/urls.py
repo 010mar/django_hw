@@ -19,4 +19,5 @@ urlpatterns = [
     path('my/', views.my_assignments, name='my_assignments'),
     path('my/<int:pk>/', views.assignment_solve, name='assignment_solve'),
     path('my/<int:assignment_id>/<int:task_id>/', views.solve_task, name='solve_task'),
+    path('tasks/<int:task_id>/preview/', views.task_preview, name='task_preview'),
 ]

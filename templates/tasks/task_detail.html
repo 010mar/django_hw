@@ -10,6 +10,7 @@
     <h2>{{ task.title }}</h2>
     <div class="d-flex flex-column align-items-end gap-2">
         <div class="d-flex gap-2">
+            <a href="{% url 'task_preview' task.pk %}" class="btn btn-outline-secondary btn-sm">Как ученик</a>
             <a href="{{ task.get_edit_url }}" class="btn btn-outline-primary btn-sm">Редактировать</a>
             <form method="post" action="{{ task.get_delete_url }}"
                   onsubmit="return confirm('Удалить задачу?');">

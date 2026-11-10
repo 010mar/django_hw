@@ -13,11 +13,14 @@
                             Пропуск {{ item.number }}
                         </label>
                         <input type="text" name="gap_{{ item.number }}" id="gap-input-{{ item.number }}"
-                               class="form-control" style="max-width:24rem" required>
+                               class="form-control" style="max-width:24rem" required
+                               {% if preview %}disabled{% endif %}>
                     </div>
                 {% endif %}
             {% endfor %}
-            <button type="submit" class="btn btn-primary">Отправить</button>
+            {% if not preview %}
+                <button type="submit" class="btn btn-primary">Отправить</button>
+            {% endif %}
         </form>
     </div>
 </div>
