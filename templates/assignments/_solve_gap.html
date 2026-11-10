@@ -1,28 +1,67 @@
 {% load task_filters %}
 <div class="card mb-4">
+    <div class="card-header text-white" style="background-color:#1f3864;">
+        Введите или скопируйте свой ответ в поля таблицы
+    </div>
     <div class="card-body">
-        <h6 class="mb-3">Заполните пропуски</h6>
         <form method="post">
             {% csrf_token %}
-            <div class="gap-flow text-break">
-                {% for item in gap_blocks %}
-                    {% if item.block.kind == 'text' %}
-                        <span class="js-math">{{ item.block.text|render_block_text }}</span>
-                    {% else %}
-                        <span class="d-inline-flex align-items-center gap-1 me-2 mb-1">
-                            <label class="form-label small text-muted mb-0" for="gap-input-{{ item.number }}">
-                                Пропуск {{ item.number }}
-                            </label>
-                            <input type="text" name="gap_{{ item.number }}" id="gap-input-{{ item.number }}"
-                                   class="form-control form-control-sm d-inline-block" style="width:8rem" required
-                                   {% if preview %}disabled{% endif %}>
-                        </span>
-                    {% endif %}
-                {% endfor %}
+            {% for item in gap_blocks %}
+                {% if item.block.kind == 'text' %}
+                    <div class="mb-3 text-break js-math">{{ item.block.text|render_block_text }}</div>
+                {% endif %}
+            {% endfor %}
+            <div class="table-responsive mb-3">
+                <table class="table table-bordered align-middle text-center mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width:5rem; background-color:#e3ebf6;"></th>
+                            {% for item in gap_blocks %}
+                                {% if item.block.kind != 'text' %}
+                                    <th style="min-width:8rem; background-color:#e3ebf6; font-size:1.1rem;">
+                                        {{ item.number }}
+                                    </th>
+                                {% endif %}
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <th style="background-color:#e3ebf6;">Ответ</th>
+                            {% for item in gap_blocks %}
+                                {% if item.block.kind != 'text' %}
+                                    <td>
+                                        <input type="text" name="gap_{{ item.number }}" id="gap-input-{{ item.number }}"
+                                               class="form-control form-control-sm text-center" required
+                                               {% if preview %}disabled{% endif %}>
+                                    </td>
+                                {% endif %}
+                            {% endfor %}
+                        </tr>
+                    </tbody>
+                </table>
             </div>
             {% if not preview %}
-                <button type="submit" class="btn btn-primary mt-3">Отправить</button>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-danger" id="gap-clear">Очистить</button>
+                    <button type="submit" class="btn btn-success">Сохранить ответ</button>
+                </div>
             {% endif %}
         </form>
     </div>
 </div>
+{% if not preview %}
+<script>
+(function () {
+    var clearButton = document.getElementById('gap-clear');
+    if (!clearButton) {
+        return;
+    }
+    clearButton.addEventListener('click', function () {
+        document.querySelectorAll('input[name^="gap_"]').forEach(function (input) {
+            input.value = '';
+        });
+    });
+})();
+</script>
+{% endif %}
