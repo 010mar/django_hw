@@ -69,10 +69,13 @@
             align-items: flex-start;
             min-width: 0;
         }
-        .result-table {
+        .result-table-wrap {
             flex: 1 1 0;
-            width: auto;
             min-width: 0;
+        }
+        .result-table {
+            width: 100%;
+            table-layout: fixed;
             border-collapse: collapse;
             background: #fff;
             font-size: 14px;
@@ -151,26 +154,28 @@
         <div class="result-tables">
             {% for table_rows in tables %}
                 {% if table_rows %}
-                    <table class="result-table">
-                        <thead>
-                            <tr>
-                                <th class="col-number">№</th>
-                                <th class="col-score">Балл</th>
-                                <th class="col-user">Ваш ответ</th>
-                                <th>Правильный ответ</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for row in table_rows %}
+                    <div class="result-table-wrap">
+                        <table class="result-table">
+                            <thead>
                                 <tr>
-                                    <td>{{ row.index }}</td>
-                                    <td>{{ row.score|floatformat:'-2' }}</td>
-                                    <td>{% if row.user_answer %}{{ row.user_answer|linebreaksbr }}{% endif %}</td>
-                                    <td class="answer-cell">{{ row.correct_answer|linebreaksbr }}</td>
+                                    <th class="col-number">№</th>
+                                    <th class="col-score">Балл</th>
+                                    <th class="col-user">Ваш ответ</th>
+                                    <th>Правильный ответ</th>
                                 </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {% for row in table_rows %}
+                                    <tr>
+                                        <td>{{ row.index }}</td>
+                                        <td>{{ row.score|floatformat:'-2' }}</td>
+                                        <td>{% if row.user_answer %}{{ row.user_answer|linebreaksbr }}{% endif %}</td>
+                                        <td class="answer-cell">{{ row.correct_answer|linebreaksbr }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 {% endif %}
             {% empty %}
                 <p class="text-muted">В уроке нет заданий.</p>

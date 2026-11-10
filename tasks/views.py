@@ -888,10 +888,12 @@ def _task_correct_answer(task):
             return ', '.join(values)
         return task.correct_answer
     if task.type == Task.Type.GAP:
-        values = []
-        for block in task.gap_blocks:
-            values.extend(block.accepted_answers)
-        return '\n'.join(values)
+        groups = [
+            '\n'.join(block.accepted_answers)
+            for block in task.gap_blocks
+            if block.accepted_answers
+        ]
+        return '\n\n'.join(groups)
     return '—'
 
 
@@ -903,7 +905,7 @@ def _submission_user_answer(submission):
     if submission.answer_text:
         return submission.answer_text
     if submission.gap_answers:
-        return ', '.join(str(value) for value in submission.gap_answers.values())
+        return '\n'.join(str(value) for value in submission.gap_answers.values())
     if submission.code:
         return 'Код отправлен'
     return ''

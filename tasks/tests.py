@@ -577,6 +577,9 @@ class LessonExamTests(DjangoTestCase):
         self.assertContains(result, '2/4')
         self.assertContains(result, 'Правильный ответ')
         self.assertContains(result, 'Единый государственный экзамен')
+        self.assertEqual(
+            result.content.decode().count('<div class="result-table-wrap">'), 2,
+        )
 
     def test_author_can_preview_exam_without_exam_mode(self):
         self.course.exam_mode = False
