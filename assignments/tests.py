@@ -181,6 +181,7 @@ class AssignmentFlowTests(DjangoTestCase):
         )
         self.assertContains(response, 'name="gap_1"')
         self.assertContains(response, 'name="gap_2"')
+        self.assertContains(response, 'style="width:8rem"')
 
     def test_teacher_grades_image(self):
         sub = Submission.objects.create(

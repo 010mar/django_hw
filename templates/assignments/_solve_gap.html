@@ -7,19 +7,24 @@
             {% for item in gap_blocks %}
                 {% if item.block.kind == 'text' %}
                     <div class="mb-3 text-break js-math">{{ item.block.text|render_block_text }}</div>
-                {% else %}
-                    <div class="mb-3">
-                        <label class="form-label small text-muted" for="gap-input-{{ item.number }}">
-                            Пропуск {{ item.number }}
-                        </label>
-                        <input type="text" name="gap_{{ item.number }}" id="gap-input-{{ item.number }}"
-                               class="form-control" style="max-width:24rem" required
-                               {% if preview %}disabled{% endif %}>
-                    </div>
                 {% endif %}
             {% endfor %}
+            <div class="d-flex flex-wrap align-items-end gap-2">
+                {% for item in gap_blocks %}
+                    {% if item.block.kind != 'text' %}
+                        <div>
+                            <label class="form-label small text-muted mb-1 d-block" for="gap-input-{{ item.number }}">
+                                Пропуск {{ item.number }}
+                            </label>
+                            <input type="text" name="gap_{{ item.number }}" id="gap-input-{{ item.number }}"
+                                   class="form-control form-control-sm" style="width:8rem" required
+                                   {% if preview %}disabled{% endif %}>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
             {% if not preview %}
-                <button type="submit" class="btn btn-primary">Отправить</button>
+                <button type="submit" class="btn btn-primary mt-3">Отправить</button>
             {% endif %}
         </form>
     </div>
