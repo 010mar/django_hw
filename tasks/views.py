@@ -19,6 +19,7 @@ from .forms import (
     TaskBankForm,
     TaskForm,
     TaskBlockFormSet,
+    TaskContextForm,
     TestCaseFormSet,
     TopicForm,
     task_number_sort_key,
@@ -35,6 +36,7 @@ from .models import (
     TaskAttachment,
     TaskBank,
     TaskBlock,
+    TaskContext,
     TaskImage,
     TestCase,
     Topic,
@@ -46,7 +48,9 @@ MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024
 
 @teacher_required
 def task_list(request):
-    tasks = Task.objects.filter(author=request.user).select_related('author', 'bank', 'topic')
+    tasks = Task.objects.filter(author=request.user).select_related(
+        'author', 'bank', 'topic', 'context',
+    )
     bank_id = request.GET.get('bank')
     if bank_id:
         tasks = tasks.filter(bank_id=bank_id)
@@ -139,6 +143,117 @@ def topic_delete(request, pk):
 
 
 @teacher_required
+def context_list(request):
+    contexts = (
+        TaskContext.objects
+        .filter(author=request.user)
+        .select_related('bank')
+    )
+    return render(request, 'tasks/context_list.html', {'contexts': contexts})
+
+
+@teacher_required
+def context_create(request):
+    initial_bank = request.GET.get('bank') or None
+    if initial_bank and not TaskBank.objects.filter(
+            pk=initial_bank, author=request.user).exists():
+        initial_bank = None
+    form = TaskContextForm(
+        request.POST or None,
+        request.FILES or None,
+        user=request.user,
+        initial={'bank': initial_bank} if initial_bank else None,
+    )
+    attachments = (
+        request.FILES.getlist('attachments') if request.method == 'POST' else []
+    )
+    attachment_errors = _attachment_errors(attachments)
+    if request.method == 'POST':
+        for error in attachment_errors:
+            messages.error(request, error)
+        if form.is_valid() and not attachment_errors:
+            context = form.save(commit=False)
+            context.author = request.user
+            context.save()
+            _sync_inline_images(context, 'context')
+            _save_attachments(attachments, context=context)
+            messages.success(request, 'Общий текст создан.')
+            return redirect(context.get_absolute_url())
+    return render(request, 'tasks/context_form.html', {
+        'form': form,
+        'inline_images': _inline_images_for_request(request),
+        'is_create': True,
+    })
+
+
+@teacher_required
+def context_detail(request, pk):
+    context = get_object_or_404(
+        TaskContext.objects.select_related('bank'),
+        pk=pk,
+        author=request.user,
+    )
+    tasks = list(
+        context.tasks.select_related('bank', 'topic')
+    )
+    tasks.sort(
+        key=lambda task: (
+            task_number_sort_key(task.task_number or ''),
+            task.pk,
+        ),
+    )
+    return render(request, 'tasks/context_detail.html', {
+        'context': context,
+        'tasks': tasks,
+        'attachments': context.attachments.all(),
+    })
+
+
+@teacher_required
+def context_edit(request, pk):
+    context = get_object_or_404(TaskContext, pk=pk, author=request.user)
+    form = TaskContextForm(
+        request.POST or None,
+        request.FILES or None,
+        instance=context,
+        user=request.user,
+    )
+    attachments = (
+        request.FILES.getlist('attachments') if request.method == 'POST' else []
+    )
+    attachment_errors = _attachment_errors(attachments)
+    if request.method == 'POST':
+        for error in attachment_errors:
+            messages.error(request, error)
+        if form.is_valid() and not attachment_errors:
+            context = form.save()
+            _sync_inline_images(context, 'context')
+            remove_ids = request.POST.getlist('remove_attachments')
+            if remove_ids:
+                context.attachments.filter(pk__in=remove_ids).delete()
+            _save_attachments(attachments, context=context)
+            messages.success(request, 'Общий текст обновлён.')
+            return redirect(context.get_absolute_url())
+    return render(request, 'tasks/context_form.html', {
+        'form': form,
+        'context': context,
+        'inline_images': _inline_images_for_request(request, context=context),
+        'attachments': context.attachments.all(),
+        'is_create': False,
+    })
+
+
+@teacher_required
+def context_delete(request, pk):
+    context = get_object_or_404(TaskContext, pk=pk, author=request.user)
+    if request.method == 'POST':
+        context.delete()
+        _reset_sequence_if_empty(TaskContext)
+        messages.success(request, 'Общий текст удалён.')
+    return redirect('context_list')
+
+
+@teacher_required
 def bank_edit(request, pk):
     bank = get_object_or_404(TaskBank, pk=pk, author=request.user)
     form = TaskBankForm(request.POST or None, instance=bank)
@@ -221,10 +336,11 @@ def _attachment_errors(files):
     return errors
 
 
-def _save_attachments(task, files):
+def _save_attachments(files, task=None, context=None):
     for upload in files:
         TaskAttachment.objects.create(
             task=task,
+            context=context,
             file=upload,
             original_name=os.path.basename(upload.name)[:255],
         )
@@ -242,26 +358,29 @@ def _reset_sequence_if_empty(model):
         )
 
 
-def _inline_images_for_request(request, task=None):
+def _inline_images_for_request(request, task=None, context=None):
     if request.method == 'POST':
         tokens = set(IMAGE_TOKEN_PATTERN.findall(request.POST.get('body', '')))
         return TaskImage.objects.filter(author=request.user, token__in=tokens)
     if task is not None:
         return task.inline_images.all()
+    if context is not None:
+        return context.inline_images.all()
     return TaskImage.objects.none()
 
 
-def _sync_task_images(task):
-    tokens = set(IMAGE_TOKEN_PATTERN.findall(task.body or ''))
-    for image in task.inline_images.all():
+def _sync_inline_images(owner, owner_field):
+    tokens = set(IMAGE_TOKEN_PATTERN.findall(owner.body or ''))
+    for image in owner.inline_images.all():
         if str(image.token) not in tokens:
             image.delete()
     if tokens:
         TaskImage.objects.filter(
             token__in=tokens,
-            author=task.author,
+            author=owner.author,
             task__isnull=True,
-        ).update(task=task)
+            context__isnull=True,
+        ).update(**{owner_field: owner})
 
 
 def _validate_formsets(task, option_formset, case_formset, block_formset):
@@ -294,15 +413,30 @@ def _validate_formsets(task, option_formset, case_formset, block_formset):
 
 @teacher_required
 def task_create(request):
+    initial = {}
     initial_bank = request.GET.get('bank') or None
     if initial_bank and not TaskBank.objects.filter(
             pk=initial_bank, author=request.user).exists():
         initial_bank = None
+    initial_context = None
+    context_param = request.GET.get('context') or None
+    if context_param:
+        initial_context = (
+            TaskContext.objects
+            .filter(pk=context_param, author=request.user)
+            .select_related('bank')
+            .first()
+        )
+        if initial_context:
+            initial['context'] = initial_context.pk
+            initial_bank = initial_context.bank_id
+    if initial_bank:
+        initial['bank'] = initial_bank
     form = TaskForm(
         request.POST or None,
         request.FILES or None,
         user=request.user,
-        initial={'bank': initial_bank} if initial_bank else None,
+        initial=initial or None,
     )
     option_formset = AnswerOptionFormSet(
         request.POST or None,
@@ -361,13 +495,13 @@ def task_create(request):
             )
             if not formset_errors and not attachment_errors:
                 task.save()
-                _sync_task_images(task)
+                _sync_inline_images(task, 'task')
                 _save_formsets(task, option_formset, case_formset)
                 if task.type == Task.Type.GAP:
                     _save_blocks(task, block_formset)
                 else:
                     task.blocks.all().delete()
-                _save_attachments(task, attachments)
+                _save_attachments(attachments, task=task)
                 messages.success(request, 'Задача создана.')
                 return redirect(task.get_absolute_url())
             for error in formset_errors:
@@ -378,6 +512,7 @@ def task_create(request):
         'case_formset': case_formset,
         'block_formset': block_formset,
         'all_topics': Topic.objects.filter(bank__author=request.user).select_related('bank'),
+        'all_contexts': TaskContext.objects.filter(author=request.user).select_related('bank'),
         'inline_images': _inline_images_for_request(request),
         'is_create': True,
     })
@@ -493,7 +628,7 @@ def task_edit(request, pk, bank_pk=None):
             )
             if not formset_errors and not attachment_errors:
                 saved_task.save()
-                _sync_task_images(saved_task)
+                _sync_inline_images(saved_task, 'task')
                 _save_formsets(saved_task, option_formset, case_formset)
                 if saved_task.type == Task.Type.GAP:
                     _save_blocks(saved_task, block_formset)
@@ -502,7 +637,7 @@ def task_edit(request, pk, bank_pk=None):
                 remove_ids = request.POST.getlist('remove_attachments')
                 if remove_ids:
                     saved_task.attachments.filter(pk__in=remove_ids).delete()
-                _save_attachments(saved_task, attachments)
+                _save_attachments(attachments, task=saved_task)
                 messages.success(request, 'Задача обновлена.')
                 return redirect(saved_task.get_absolute_url())
             for error in formset_errors:
@@ -513,6 +648,7 @@ def task_edit(request, pk, bank_pk=None):
         'case_formset': case_formset,
         'block_formset': block_formset,
         'all_topics': Topic.objects.filter(bank__author=request.user).select_related('bank'),
+        'all_contexts': TaskContext.objects.filter(author=request.user).select_related('bank'),
         'inline_images': _inline_images_for_request(request, task),
         'attachments': task.attachments.all(),
         'is_create': False,
@@ -585,8 +721,8 @@ def lesson_detail(request, pk):
             tasks = list(
                 base_tasks
                 .filter(topic_id=topic_id)
-                .select_related('bank', 'topic')
-                .prefetch_related('answer_options')
+                .select_related('bank', 'topic', 'context')
+                .prefetch_related('answer_options', 'context__tasks')
             )
             tasks.sort(
                 key=lambda task: (
@@ -635,6 +771,44 @@ def lesson_quick_add_task(request, pk, task_id):
         next_order = (lesson.entries.aggregate(Max('order'))['order__max'] or 0) + 1
         LessonTask.objects.create(lesson=lesson, task=task, order=next_order)
         messages.success(request, 'Задача добавлена в урок.')
+    return redirect(_lesson_redirect(pk, request.POST))
+
+
+@teacher_required
+def lesson_quick_add_context_tasks(request, pk, task_id):
+    lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
+    if request.method != 'POST':
+        return redirect('lesson_detail', pk=pk)
+    task = get_object_or_404(Task, pk=task_id, author=request.user)
+    if task.context_id is None:
+        messages.info(request, 'У задачи нет общего текста.')
+        return redirect(_lesson_redirect(pk, request.POST))
+    context_tasks = list(
+        task.context.tasks
+        .filter(author=request.user)
+        .select_related('bank', 'topic')
+    )
+    context_tasks.sort(
+        key=lambda item: (
+            task_number_sort_key(item.task_number or ''),
+            item.pk,
+        ),
+    )
+    existing = set(lesson.entries.values_list('task_id', flat=True))
+    next_order = (lesson.entries.aggregate(Max('order'))['order__max'] or 0) + 1
+    added = 0
+    for context_task in context_tasks:
+        if context_task.pk in existing:
+            continue
+        LessonTask.objects.create(
+            lesson=lesson, task=context_task, order=next_order,
+        )
+        next_order += 1
+        added += 1
+    if added:
+        messages.success(request, f'Добавлено задач: {added}.')
+    else:
+        messages.info(request, 'Все вопросы этого текста уже добавлены в урок.')
     return redirect(_lesson_redirect(pk, request.POST))
 
 

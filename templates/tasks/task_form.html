@@ -20,6 +20,24 @@
                         {{ form.bank }}
                     </div>
                     <div class="mb-3">
+                        <label class="form-label" for="id_context">{{ form.context.label }}</label>
+                        <select name="context" id="id_context" class="form-select">
+                            <option value="">Без общего текста</option>
+                            {% for c in all_contexts %}
+                                <option value="{{ c.pk }}" data-bank="{{ c.bank_id }}"
+                                        {% if form.context.value|stringformat:'s' == c.pk|stringformat:'s' %}selected{% endif %}>
+                                    {{ c.title }} ({{ c.bank.name }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                        {% if form.context.errors %}
+                            <div class="text-danger small mt-1">{{ form.context.errors.0 }}</div>
+                        {% endif %}
+                        <div class="form-text">
+                            <a href="{% url 'context_create' %}" target="_blank" rel="noopener">Создать общий текст</a>
+                        </div>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">{{ form.topic.label }}</label>
                         <select name="topic" id="id_topic" class="form-select">
                             <option value="">Без темы</option>
@@ -322,6 +340,10 @@
     var bankSelect = document.getElementById('id_bank');
     var topicSelect = document.getElementById('id_topic');
     var topicOptions = Array.prototype.slice.call(topicSelect.options).slice(1);
+    var contextSelect = document.getElementById('id_context');
+    var contextOptions = contextSelect
+        ? Array.prototype.slice.call(contextSelect.options).slice(1)
+        : [];
     var taskNumberDisplay = document.getElementById('id_task_number_display');
 
     function update() {
@@ -358,8 +380,26 @@
         fetchTaskNumber();
     }
 
-    function fetchTaskNumber() {
-        var topicId = topicSelect.value;
+    function filterContexts() {
+        if (!contextSelect) {
+            return;
+        }
+        var bankId = bankSelect.value;
+        var keepValue = contextSelect.value;
+        contextOptions.forEach(function (opt) {
+            opt.style.display = (!bankId || opt.dataset.bank === bankId) ? '' : 'none';
+        });
+        var selected = contextOptions.filter(function (opt) {
+            return opt.value === keepValue;
+        });
+        if (selected.some(function (opt) { return opt.style.display !== 'none'; })) {
+            contextSelect.value = keepValue;
+        } else {
+            contextSelect.value = '';
+        }
+    }
+
+    function fetchTaskNumber() {        var topicId = topicSelect.value;
         if (!topicId) {
             taskNumberDisplay.value = '';
             taskNumberDisplay.placeholder = 'Выберите тему для генерации номера';
@@ -374,10 +414,14 @@
 
     type.addEventListener('change', update);
     answerMode.addEventListener('change', update);
-    bankSelect.addEventListener('change', filterTopics);
+    bankSelect.addEventListener('change', function () {
+        filterTopics();
+        filterContexts();
+    });
     topicSelect.addEventListener('change', fetchTaskNumber);
     update();
     filterTopics();
+    filterContexts();
 
     var blockRows = document.getElementById('block-rows');
     var addTextBlock = document.getElementById('add-text-block');

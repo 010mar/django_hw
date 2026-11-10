@@ -10,6 +10,7 @@ from .models import (
     TaskAttachment,
     TaskBank,
     TaskBlock,
+    TaskContext,
     TaskImage,
     TestCase,
     Topic,
@@ -90,7 +91,7 @@ class TaskAdmin(admin.ModelAdmin):
     list_select_related = ('author', 'bank', 'topic')
     fieldsets = (
         (None, {
-            'fields': ('title', 'body', 'type', 'difficulty', 'image', 'bank', 'topic', 'author'),
+            'fields': ('title', 'body', 'type', 'difficulty', 'image', 'bank', 'topic', 'context', 'author'),
         }),
         ('Текстовая задача', {
             'fields': ('answer_mode', 'correct_answer'),
@@ -114,16 +115,27 @@ class TaskBlockAdmin(admin.ModelAdmin):
 
 @admin.register(TaskImage)
 class TaskImageAdmin(admin.ModelAdmin):
-    list_display = ('token', 'task', 'author', 'created_at')
+    list_display = ('token', 'task', 'context', 'author', 'created_at')
     search_fields = ('token',)
-    list_select_related = ('task', 'author')
+    list_select_related = ('task', 'context', 'author')
 
 
 @admin.register(TaskAttachment)
 class TaskAttachmentAdmin(admin.ModelAdmin):
-    list_display = ('filename', 'task', 'created_at')
+    list_display = ('filename', 'task', 'context', 'created_at')
     search_fields = ('original_name', 'file')
-    list_select_related = ('task',)
+    list_select_related = ('task', 'context')
+
+
+@admin.register(TaskContext)
+class TaskContextAdmin(admin.ModelAdmin):
+    list_display = ('title', 'bank', 'author', 'task_count', 'created_at')
+    search_fields = ('title', 'body')
+    list_select_related = ('bank', 'author')
+
+    @admin.display(description='Вопросов')
+    def task_count(self, obj):
+        return obj.task_count
 
 
 @admin.register(Lesson)

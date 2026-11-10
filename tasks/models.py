@@ -58,6 +58,46 @@ class Topic(models.Model):
         return self.name
 
 
+class TaskContext(models.Model):
+    bank = models.ForeignKey(
+        TaskBank,
+        on_delete=models.CASCADE,
+        related_name='contexts',
+        verbose_name='База задач',
+    )
+    title = models.CharField(max_length=255, verbose_name='Название')
+    body = models.TextField(blank=True, verbose_name='Общий текст')
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='task_contexts',
+        verbose_name='Автор',
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создан')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Обновлён')
+
+    class Meta:
+        verbose_name = 'Общий текст'
+        verbose_name_plural = 'Общие тексты'
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def task_count(self) -> int:
+        return self.tasks.count()
+
+    def get_absolute_url(self) -> str:
+        return reverse('context_detail', args=[self.pk])
+
+    def get_edit_url(self) -> str:
+        return reverse('context_edit', args=[self.pk])
+
+    def get_delete_url(self) -> str:
+        return reverse('context_delete', args=[self.pk])
+
+
 class Task(models.Model):
     class Type(models.TextChoices):
         TEXT = 'text', 'Текстовая'
@@ -98,6 +138,15 @@ class Task(models.Model):
         blank=True,
         related_name='tasks',
         verbose_name='Тема',
+    )
+    context = models.ForeignKey(
+        TaskContext,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tasks',
+        verbose_name='Общий текст',
+        help_text='Общий текст задачи, к которому относится этот вопрос',
     )
     task_number = models.CharField(
         max_length=32,
@@ -275,6 +324,14 @@ class TaskImage(models.Model):
         related_name='inline_images',
         verbose_name='Задача',
     )
+    context = models.ForeignKey(
+        TaskContext,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='inline_images',
+        verbose_name='Общий текст',
+    )
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -316,8 +373,18 @@ class TaskAttachment(models.Model):
     task = models.ForeignKey(
         Task,
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
         related_name='attachments',
         verbose_name='Задача',
+    )
+    context = models.ForeignKey(
+        TaskContext,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='attachments',
+        verbose_name='Общий текст',
     )
     file = models.FileField(
         upload_to='tasks/files/%Y/%m/',

@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% load task_filters %}
+
+{% block title %}{{ context.title }}{% endblock %}
+
+{% block extra_head %}{% include 'tasks/_katex_head.html' %}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-2">
+    <h2>{{ context.title }}</h2>
+    <div class="d-flex flex-column align-items-end gap-2">
+        <div class="d-flex gap-2">
+            <a href="{{ context.get_edit_url }}" class="btn btn-outline-primary btn-sm">Редактировать</a>
+            <form method="post" action="{{ context.get_delete_url }}"
+                  onsubmit="return confirm('Удалить общий текст? Задачи останутся без него.');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-danger btn-sm">Удалить</button>
+            </form>
+        </div>
+        <a href="{% url 'context_list' %}" class="btn btn-outline-secondary btn-sm">К общим текстам</a>
+    </div>
+</div>
+<div class="mb-4">
+    <span class="badge bg-light text-dark border">База: {{ context.bank.name }}</span>
+    <span class="badge bg-light text-dark border">Вопросов: {{ tasks|length }}</span>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h6 class="text-muted">Общий текст</h6>
+        <div class="text-break js-math">{{ context.body|render_context_body:context }}</div>
+    </div>
+</div>
+
+{% if attachments %}
+    <div class="card mb-4">
+        <div class="card-body">
+            <h6 class="text-muted mb-3">Файлы к общему тексту</h6>
+            <ul class="list-group list-group-flush">
+                {% for attachment in attachments %}
+                    <li class="list-group-item px-0 d-flex justify-content-between align-items-center gap-2">
+                        <span class="text-break">{{ attachment.filename }}</span>
+                        <a class="btn btn-sm btn-outline-secondary flex-shrink-0"
+                           href="{{ attachment.file.url }}" download>Скачать</a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+{% endif %}
+
+<div class="card">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="text-muted mb-0">Вопросы к общему тексту</h6>
+            <a href="{% url 'task_create' %}?bank={{ context.bank_id }}&context={{ context.pk }}"
+               class="btn btn-sm btn-primary">Добавить вопрос</a>
+        </div>
+        {% if tasks %}
+            <div class="list-group">
+                {% for task in tasks %}
+                    <a href="{{ task.get_absolute_url }}"
+                       class="list-group-item list-group-item-action d-flex justify-content-between align-items-center gap-2">
+                        <span>
+                            <span class="badge bg-light text-dark border me-2">
+                                {{ task.task_number|default:task.pk }}
+                            </span>
+                            {{ task.title }}
+                        </span>
+                        <span class="badge bg-secondary">{{ task.type_verbose }}</span>
+                    </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-secondary mb-0">К этому тексту пока не привязано ни одного вопроса.</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}{% include 'tasks/_katex_scripts.html' %}{% endblock %}

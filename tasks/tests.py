@@ -21,6 +21,7 @@ from .models import (
     TaskAttachment,
     TaskBank,
     TaskBlock,
+    TaskContext,
     TaskImage,
     Topic,
 )
@@ -322,6 +323,44 @@ class LessonViewTests(DjangoTestCase):
         )
         self.assertEqual(response.status_code, 404)
 
+    def test_add_all_context_questions(self):
+        context = TaskContext.objects.create(
+            bank=self.bank, title='Общий текст', body='Дано: 2 + 2.',
+            author=self.teacher,
+        )
+        self.task.context = context
+        self.task.save(update_fields=['context'])
+        other = Task.objects.create(
+            title='1_2', author=self.teacher, task_number='1_2',
+            bank=self.bank, topic=self.topic, context=context,
+        )
+        self.client.force_login(self.teacher)
+        response = self.client.post(
+            reverse('lesson_quick_add_context_tasks', args=[self.lesson.pk, other.pk]),
+        )
+        self.assertRedirects(response, reverse('lesson_detail', args=[self.lesson.pk]))
+        self.assertEqual(
+            set(self.lesson.entries.values_list('task_id', flat=True)),
+            {self.task.pk, other.pk},
+        )
+
+    def test_lesson_detail_shows_add_all_questions_button(self):
+        context = TaskContext.objects.create(
+            bank=self.bank, title='Общий текст', body='Дано: 2 + 2.',
+            author=self.teacher,
+        )
+        Task.objects.create(
+            title='1_2', author=self.teacher, task_number='1_2',
+            bank=self.bank, topic=self.topic, context=context,
+        )
+        self.client.force_login(self.teacher)
+        response = self.client.get(
+            reverse('lesson_detail', args=[self.lesson.pk]),
+            {'bank': self.bank.pk, 'topic': self.topic.pk},
+        )
+        self.assertContains(response, 'Добавить все вопросы задачи')
+        self.assertContains(response, 'Дано: 2 + 2.')
+
 
 class CourseViewTests(DjangoTestCase):
     def setUp(self):
@@ -456,6 +495,39 @@ class TaskCrudViewTests(DjangoTestCase):
         task = Task.objects.latest('pk')
         self.assertRedirects(response, task.get_absolute_url())
         self.assertEqual(task.correct_answer, '8')
+
+    def test_create_task_with_context(self):
+        context = TaskContext.objects.create(
+            bank=self.bank, title='Общий текст', body='Дано: 2 + 2.',
+            author=self.teacher,
+        )
+        data = {
+            'type': 'text',
+            'difficulty': 'easy',
+            'answer_mode': 'short',
+            'correct_answer': '8',
+            'source': 'author',
+            'body': 'Сколько будет?',
+            'context': str(context.pk),
+        }
+        data.update(self._base_data())
+        data.update(self._formset_data('options', []))
+        data.update(self._formset_data('cases', []))
+        response = self.client.post(reverse('task_create'), data)
+        task = Task.objects.latest('pk')
+        self.assertRedirects(response, task.get_absolute_url())
+        self.assertEqual(task.context, context)
+        detail = self.client.get(task.get_absolute_url())
+        self.assertContains(detail, 'Дано: 2 + 2.')
+        self.assertContains(detail, 'Сколько будет?')
+
+    def test_task_form_shows_context_select(self):
+        context = TaskContext.objects.create(
+            bank=self.bank, title='Общий текст', body='Дано: 2 + 2.',
+            author=self.teacher,
+        )
+        response = self.client.get(reverse('task_create'))
+        self.assertContains(response, context.title)
 
     def test_create_gap_task(self):
         data = {
@@ -1066,6 +1138,109 @@ class TaskAttachmentTests(DjangoTestCase):
         response = self.client.post(reverse('task_delete', args=[task.pk]))
         self.assertRedirects(response, reverse('task_list'))
         self.assertFalse(os.path.exists(path))
+
+
+class TaskContextTests(DjangoTestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls._media_root = tempfile.mkdtemp()
+        cls._override = override_settings(MEDIA_ROOT=cls._media_root)
+        cls._override.enable()
+        super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        cls._override.disable()
+        shutil.rmtree(cls._media_root, ignore_errors=True)
+
+    def setUp(self):
+        self.teacher = User.objects.create_user(
+            username='teacher', password='pass12345', role=User.Role.TEACHER,
+        )
+        self.other_teacher = User.objects.create_user(
+            username='other', password='pass12345', role=User.Role.TEACHER,
+        )
+        self.student = User.objects.create_user(
+            username='student', password='pass12345', role=User.Role.STUDENT,
+        )
+        self.bank = TaskBank.objects.create(name='Информатика ЕГЭ', author=self.teacher)
+        self.context = TaskContext.objects.create(
+            bank=self.bank, title='Общий текст', body='Дано: 2 + 2.',
+            author=self.teacher,
+        )
+        self.client.force_login(self.teacher)
+
+    def _image(self, name='tiny.png'):
+        buffer = BytesIO()
+        PILImage.new('RGB', (4, 4), 'white').save(buffer, format='PNG')
+        return SimpleUploadedFile(name, buffer.getvalue(), content_type='image/png')
+
+    def _upload(self, name='data.txt', content=b'hello'):
+        return SimpleUploadedFile(name, content, content_type='text/plain')
+
+    def test_create_context_with_image_and_attachment(self):
+        image = TaskImage.objects.create(author=self.teacher, image=self._image())
+        response = self.client.post(reverse('context_create'), {
+            'bank': str(self.bank.pk),
+            'title': 'Новый текст',
+            'body': f'Условие [[img:{image.token}]]',
+            'attachments': self._upload(),
+        })
+        context = TaskContext.objects.latest('pk')
+        self.assertRedirects(response, context.get_absolute_url())
+        image.refresh_from_db()
+        self.assertEqual(image.context, context)
+        attachment = context.attachments.get()
+        self.assertEqual(attachment.filename, 'data.txt')
+        detail = self.client.get(context.get_absolute_url())
+        self.assertContains(detail, image.image.url)
+        self.assertContains(detail, 'data.txt')
+
+    def test_edit_context_removes_unused_image_and_attachment(self):
+        image = TaskImage.objects.create(
+            context=self.context, author=self.teacher, image=self._image(),
+        )
+        attachment = TaskAttachment.objects.create(
+            context=self.context, file=self._upload(), original_name='data.txt',
+        )
+        path = attachment.file.path
+        response = self.client.post(
+            reverse('context_edit', args=[self.context.pk]),
+            {
+                'bank': str(self.bank.pk),
+                'title': self.context.title,
+                'body': 'Без картинки',
+                'remove_attachments': [attachment.pk],
+            },
+        )
+        self.assertRedirects(response, self.context.get_absolute_url())
+        self.assertFalse(TaskImage.objects.filter(pk=image.pk).exists())
+        self.assertFalse(TaskAttachment.objects.filter(pk=attachment.pk).exists())
+        self.assertFalse(os.path.exists(path))
+
+    def test_delete_context_keeps_tasks(self):
+        task = Task.objects.create(
+            title='1_1', author=self.teacher, bank=self.bank, context=self.context,
+        )
+        response = self.client.post(
+            reverse('context_delete', args=[self.context.pk]),
+        )
+        self.assertRedirects(response, reverse('context_list'))
+        task.refresh_from_db()
+        self.assertIsNone(task.context)
+
+    def test_cannot_access_other_teacher_context(self):
+        other = TaskContext.objects.create(
+            bank=self.bank, title='Чужой', body='...', author=self.other_teacher,
+        )
+        response = self.client.get(reverse('context_detail', args=[other.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_context_create_requires_teacher(self):
+        self.client.force_login(self.student)
+        response = self.client.get(reverse('context_create'))
+        self.assertRedirects(response, reverse('home'))
 
 
 class TaskImageTests(DjangoTestCase):

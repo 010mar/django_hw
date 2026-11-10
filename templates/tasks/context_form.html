@@ -1,0 +1,301 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_create %}Создание общего текста{% else %}Редактирование общего текста{% endif %}{% endblock %}
+
+{% block extra_head %}{% include 'tasks/_katex_head.html' %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <h2 class="mb-4">{% if is_create %}Создание общего текста{% else %}Редактирование общего текста{% endif %}</h2>
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="card mb-4">
+                <div class="card-body">
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">{{ form.non_field_errors.0 }}</div>
+                    {% endif %}
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.bank.label }}</label>
+                        {{ form.bank }}
+                        {% if form.bank.errors %}
+                            <div class="text-danger small mt-1">{{ form.bank.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.title.label }}</label>
+                        {{ form.title }}
+                        {% if form.title.errors %}
+                            <div class="text-danger small mt-1">{{ form.title.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.body.id_for_label }}">{{ form.body.label }}</label>
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    id="insert-inline-image">Вставить изображение</button>
+                            <span class="text-muted small" id="inline-image-status"></span>
+                            <input type="file" id="inline-image-input" accept="image/*" multiple class="d-none">
+                        </div>
+                        {{ form.body }}
+                        <div class="form-text">
+                            Картинку можно вставить кнопкой или вставить из буфера обмена (Ctrl+V).
+                        </div>
+                        {% if form.body.errors %}
+                            <div class="text-danger small mt-1">{{ form.body.errors.0 }}</div>
+                        {% endif %}
+                        <div class="d-flex flex-wrap gap-2 mt-2" id="inline-image-list">
+                            {% for img in inline_images %}
+                                <div class="inline-image-item position-relative border rounded p-1"
+                                     data-token="{{ img.token }}">
+                                    <img src="{{ img.image.url }}" alt="Изображение к тексту"
+                                         class="rounded"
+                                         style="height:80px;width:auto;max-width:120px;object-fit:cover;">
+                                    <button type="button"
+                                            class="btn-close position-absolute top-0 end-0 bg-white m-1 inline-image-remove"
+                                            aria-label="Удалить"></button>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <div class="mt-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="text-muted small">Предпросмотр текста</span>
+                                <span class="text-muted small">Формулы: $x^2$ или $$...$$</span>
+                            </div>
+                            <div id="body-preview" class="js-math border rounded bg-white p-3 text-break"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5>Файлы к общему тексту</h5>
+                    <p class="text-muted small">
+                        Можно прикрепить файлы xls, ods или txt (до 20 МБ каждый).
+                    </p>
+                    {% if attachments %}
+                        <div class="mb-3">
+                            {% for attachment in attachments %}
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox"
+                                           name="remove_attachments" value="{{ attachment.pk }}"
+                                           id="remove-attachment-{{ attachment.pk }}">
+                                    <label class="form-check-label" for="remove-attachment-{{ attachment.pk }}">
+                                        {{ attachment.filename }}
+                                    </label>
+                                    <a href="{{ attachment.file.url }}" class="small ms-2"
+                                       target="_blank" rel="noopener">скачать</a>
+                                    <span class="text-muted small ms-1">— отметьте, чтобы удалить</span>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    <input type="file" name="attachments" multiple class="form-control"
+                           accept=".xls,.ods,.txt">
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mb-4">
+                <button type="submit" class="btn btn-primary">Сохранить</button>
+                <a href="{% if context %}{{ context.get_absolute_url }}{% else %}{% url 'context_list' %}{% endif %}"
+                   class="btn btn-outline-secondary">Отмена</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% include 'tasks/_katex_scripts.html' %}
+<script>
+(function () {
+    var body = document.getElementById('id_body');
+    var fileInput = document.getElementById('inline-image-input');
+    var trigger = document.getElementById('insert-inline-image');
+    var list = document.getElementById('inline-image-list');
+    var status = document.getElementById('inline-image-status');
+    var csrfInput = document.querySelector('form [name="csrfmiddlewaretoken"]');
+    if (!body || !fileInput || !trigger || !list) {
+        return;
+    }
+    var uploadUrl = "{% url 'task_image_upload' %}";
+    var csrfToken = csrfInput ? csrfInput.value : '';
+
+    function insertAtCursor(token) {
+        var start = body.selectionStart || 0;
+        var end = body.selectionEnd || 0;
+        var value = body.value;
+        var prefix = value.slice(0, start);
+        var suffix = value.slice(end);
+        var before = prefix && prefix.slice(-1) !== '\n' ? '\n' : '';
+        var after = suffix && suffix.slice(0, 1) !== '\n' ? '\n' : '';
+        var marker = '[[img:' + token + ']]';
+        body.value = prefix + before + marker + after + suffix;
+        var position = (prefix + before + marker).length;
+        body.selectionStart = position;
+        body.selectionEnd = position;
+        body.focus();
+        body.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function addThumbnail(token, url) {
+        var item = document.createElement('div');
+        item.className = 'inline-image-item position-relative border rounded p-1';
+        item.dataset.token = token;
+        var img = document.createElement('img');
+        img.src = url;
+        img.alt = 'Изображение к тексту';
+        img.className = 'rounded';
+        img.style.height = '80px';
+        img.style.width = 'auto';
+        img.style.maxWidth = '120px';
+        img.style.objectFit = 'cover';
+        var remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'btn-close position-absolute top-0 end-0 bg-white m-1 inline-image-remove';
+        remove.setAttribute('aria-label', 'Удалить');
+        item.appendChild(img);
+        item.appendChild(remove);
+        list.appendChild(item);
+    }
+
+    function removeMarker(token) {
+        var pattern = new RegExp('\\[\\[img:' + token + '\\]\\]\\n?', 'g');
+        body.value = body.value.replace(pattern, '');
+        body.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function upload(file) {
+        if (!file || file.type.indexOf('image/') !== 0) {
+            status.textContent = 'Выберите файл изображения.';
+            return;
+        }
+        status.textContent = 'Загрузка…';
+        var data = new FormData();
+        data.append('image', file);
+        fetch(uploadUrl, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            body: data,
+            credentials: 'same-origin'
+        })
+            .then(function (response) {
+                return response.json().then(function (json) {
+                    return { ok: response.ok, data: json };
+                });
+            })
+            .then(function (result) {
+                if (!result.ok) {
+                    status.textContent = result.data.error || 'Не удалось загрузить изображение.';
+                    return;
+                }
+                insertAtCursor(result.data.token);
+                addThumbnail(result.data.token, result.data.url);
+                status.textContent = '';
+            })
+            .catch(function () {
+                status.textContent = 'Ошибка загрузки. Попробуйте ещё раз.';
+            });
+    }
+
+    trigger.addEventListener('click', function () {
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('change', function () {
+        Array.prototype.forEach.call(fileInput.files || [], upload);
+        fileInput.value = '';
+    });
+
+    list.addEventListener('click', function (event) {
+        var button = event.target.closest('.inline-image-remove');
+        if (!button) {
+            return;
+        }
+        var item = button.closest('.inline-image-item');
+        if (!item) {
+            return;
+        }
+        removeMarker(item.dataset.token);
+        item.remove();
+    });
+
+    body.addEventListener('paste', function (event) {
+        var items = (event.clipboardData && event.clipboardData.items) || [];
+        var files = [];
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].kind === 'file' && items[i].type.indexOf('image/') === 0) {
+                files.push(items[i].getAsFile());
+            }
+        }
+        if (files.length) {
+            event.preventDefault();
+            files.forEach(upload);
+        }
+    });
+})();
+</script>
+<script>
+(function () {
+    var body = document.getElementById('id_body');
+    var preview = document.getElementById('body-preview');
+    if (!body || !preview) {
+        return;
+    }
+    var timer = null;
+
+    function escapeHtml(text) {
+        return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function imageUrls() {
+        var urls = {};
+        document.querySelectorAll('#inline-image-list .inline-image-item').forEach(function (item) {
+            var img = item.querySelector('img');
+            if (img && item.dataset.token) {
+                urls[item.dataset.token] = img.getAttribute('src');
+            }
+        });
+        return urls;
+    }
+
+    function renderPreview() {
+        var urls = imageUrls();
+        var html = escapeHtml(body.value);
+        html = html.replace(/\[\[img:([A-Za-z0-9_-]+)\]\]/g, function (match, token) {
+            var url = urls[token];
+            if (!url) {
+                return '';
+            }
+            return '<img src="' + url + '" alt="" class="img-fluid rounded my-2 d-block" style="max-height:200px;">';
+        });
+        html = html.replace(/\n/g, '<br>');
+        preview.innerHTML = html || '<span class="text-muted">Здесь появится предпросмотр…</span>';
+        if (window.renderMathInElement) {
+            renderMathInElement(preview, {
+                delimiters: [
+                    { left: '$$', right: '$$', display: true },
+                    { left: '\\[', right: '\\]', display: true },
+                    { left: '$', right: '$', display: false },
+                    { left: '\\(', right: '\\)', display: false }
+                ],
+                throwOnError: false
+            });
+        }
+    }
+
+    function schedule() {
+        clearTimeout(timer);
+        timer = setTimeout(renderPreview, 300);
+    }
+
+    body.addEventListener('input', schedule);
+    renderPreview();
+})();
+</script>
+{% endblock %}

@@ -26,3 +26,26 @@ def render_task_body(value, task=None):
 
     text = IMAGE_TOKEN_PATTERN.sub(replace, text)
     return mark_safe(linebreaks(text, autoescape=False))
+
+
+@register.filter
+def render_context_body(value, context=None):
+    if not value:
+        return ''
+    text = conditional_escape(value)
+
+    def replace(match):
+        if context is None:
+            return ''
+        image = TaskImage.objects.filter(
+            token=match.group(1), context=context,
+        ).first()
+        if image is None:
+            return ''
+        return (
+            f'<img src="{conditional_escape(image.image.url)}" '
+            'alt="Изображение к тексту" class="img-fluid rounded my-2 d-block">'
+        )
+
+    text = IMAGE_TOKEN_PATTERN.sub(replace, text)
+    return mark_safe(linebreaks(text, autoescape=False))
