@@ -1,10 +1,24 @@
+import re
+
 from django import template
+from django.template.defaultfilters import linebreaksbr
 from django.utils.html import conditional_escape, linebreaks
 from django.utils.safestring import mark_safe
 
 from tasks.models import IMAGE_TOKEN_PATTERN, TaskImage
 
 register = template.Library()
+
+BR_TAG_PATTERN = re.compile(r'&lt;br\s*/?&gt;', re.IGNORECASE)
+
+
+@register.filter
+def render_block_text(value):
+    if not value:
+        return ''
+    text = linebreaksbr(conditional_escape(value))
+    text = BR_TAG_PATTERN.sub('<br>', str(text))
+    return mark_safe(text)
 
 
 @register.filter

@@ -1,3 +1,4 @@
+{% load task_filters %}
 <div class="card mb-4">
     <div class="card-body">
         <h6 class="mb-3">Заполните пропуски</h6>
@@ -5,7 +6,7 @@
             {% csrf_token %}
             {% for item in gap_blocks %}
                 {% if item.block.kind == 'text' %}
-                    <div class="mb-3 text-break js-math">{{ item.block.text|linebreaksbr }}</div>
+                    <div class="mb-3 text-break js-math">{{ item.block.text|render_block_text }}</div>
                 {% else %}
                     <div class="mb-3">
                         <label class="form-label small text-muted" for="gap-input-{{ item.number }}">

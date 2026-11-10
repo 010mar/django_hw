@@ -1327,3 +1327,39 @@ class TaskImageTests(DjangoTestCase):
         self.assertIsNone(image.task)
         detail = self.client.get(task.get_absolute_url())
         self.assertNotContains(detail, image.image.url)
+
+
+class BlockTextRenderingTests(DjangoTestCase):
+    def setUp(self):
+        self.teacher = User.objects.create_user(
+            username='teacher', password='pass12345', role=User.Role.TEACHER,
+        )
+        self.bank = TaskBank.objects.create(name='Информатика ЕГЭ', author=self.teacher)
+        self.topic = Topic.objects.create(bank=self.bank, name='Тема', order=1)
+        self.client.force_login(self.teacher)
+
+    def test_render_block_text_allows_line_breaks(self):
+        from .templatetags.task_filters import render_block_text
+
+        rendered = render_block_text('Первая<br>Вторая<BR/>Третья')
+        self.assertIn('Первая<br>Вторая<br>Третья', rendered)
+
+    def test_render_block_text_escapes_other_html(self):
+        from .templatetags.task_filters import render_block_text
+
+        rendered = render_block_text('<script>alert(1)</script>')
+        self.assertNotIn('<script>', rendered)
+        self.assertIn('&lt;script&gt;', rendered)
+
+    def test_task_detail_renders_gap_break(self):
+        task = Task.objects.create(
+            title='Пропуски', type=Task.Type.GAP, author=self.teacher,
+            bank=self.bank, topic=self.topic,
+        )
+        TaskBlock.objects.create(
+            task=task, kind=TaskBlock.Kind.TEXT,
+            text='Строка 1<br>Строка 2',
+        )
+        response = self.client.get(task.get_absolute_url())
+        self.assertContains(response, 'Строка 1<br>Строка 2')
+        self.assertNotContains(response, '&lt;br&gt;')

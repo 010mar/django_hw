@@ -91,7 +91,7 @@
             <h6 class="text-muted mb-3">Задание с пропусками</h6>
             {% for block in task.blocks.all %}
                 {% if block.kind == 'text' %}
-                    <div class="mb-3 text-break js-math">{{ block.text|linebreaksbr }}</div>
+                    <div class="mb-3 text-break js-math">{{ block.text|render_block_text }}</div>
                 {% else %}
                     <div class="border rounded p-3 mb-3">
                         <div class="d-flex justify-content-between align-items-start gap-2">
