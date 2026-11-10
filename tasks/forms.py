@@ -112,6 +112,11 @@ class TaskForm(forms.ModelForm):
                 related = related.exclude(pk=self.instance.pk)
             self.fields['related_tasks'].queryset = related
 
+    @property
+    def selected_related_ids(self):
+        value = self['related_tasks'].value() or []
+        return {str(getattr(item, 'pk', item)) for item in value}
+
     def clean(self):
         cleaned = super().clean()
         task_type = cleaned.get('type')

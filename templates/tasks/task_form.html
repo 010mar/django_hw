@@ -40,7 +40,7 @@
                         <div id="related-selected" class="d-flex flex-wrap gap-2 mt-2">
                             <span id="related-empty" class="badge bg-light text-dark border">Не связана</span>
                         </div>
-                        {% with selected_related=form.related_tasks.value %}
+                        {% with selected_related=form.selected_related_ids %}
                             <select name="related_tasks" id="id_related_tasks" multiple class="d-none">
                                 {% for related in form.fields.related_tasks.queryset %}
                                     <option value="{{ related.pk }}"

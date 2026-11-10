@@ -1,3 +1,4 @@
+import importlib
 import os
 import shutil
 import tempfile
@@ -540,6 +541,45 @@ class TaskCrudViewTests(DjangoTestCase):
         task = Task.objects.latest('pk')
         self.assertRedirects(response, task.get_absolute_url())
         self.assertFalse(task.related_tasks.exists())
+
+    def test_edit_form_preselects_related_tasks(self):
+        first = Task.objects.create(
+            title='A', author=self.teacher, bank=self.bank, topic=self.topic,
+            task_number='1_1',
+        )
+        second = Task.objects.create(
+            title='B', author=self.teacher, bank=self.bank, topic=self.topic,
+            task_number='1_2',
+        )
+        first.related_tasks.add(second)
+        response = self.client.get(reverse('task_edit', args=[first.pk]))
+        self.assertIn(str(second.pk), response.context['form'].selected_related_ids)
+        self.assertRegex(
+            response.content.decode(),
+            rf'<option value="{second.pk}"\s+selected>',
+        )
+
+    def test_symmetrize_related_tasks_repairs_one_sided_links(self):
+        first = Task.objects.create(
+            title='A', author=self.teacher, bank=self.bank, topic=self.topic,
+        )
+        second = Task.objects.create(
+            title='B', author=self.teacher, bank=self.bank, topic=self.topic,
+        )
+        Task.related_tasks.through.objects.create(
+            from_task_id=first.pk, to_task_id=second.pk,
+        )
+        self.assertFalse(second.related_tasks.exists())
+
+        from django.apps import apps as global_apps
+
+        module = importlib.import_module(
+            'tasks.migrations.0022_symmetrize_related_tasks'
+        )
+        module.symmetrize_related_tasks(global_apps, None)
+
+        self.assertEqual(list(second.related_tasks.all()), [first])
+        self.assertEqual(list(first.related_tasks.all()), [second])
 
     def test_create_gap_task(self):
         data = {
