@@ -528,21 +528,55 @@
     var list = document.getElementById('exam-task-list');
     var top = document.getElementById('exam-scroll-top');
     var bottom = document.getElementById('exam-scroll-bottom');
-    if (list && top) {
+    if (!list) {
+        return;
+    }
+    var key = 'exam-task-scroll-{{ lesson.pk }}';
+    var saved = null;
+    try {
+        saved = sessionStorage.getItem(key);
+    } catch (error) {
+        saved = null;
+    }
+    if (saved !== null) {
+        var position = parseInt(saved, 10);
+        if (!isNaN(position)) {
+            list.scrollTop = position;
+        }
+    } else {
+        var active = list.querySelector('.exam-task-btn.active');
+        if (active) {
+            var listRect = list.getBoundingClientRect();
+            var activeRect = active.getBoundingClientRect();
+            if (activeRect.bottom > listRect.bottom) {
+                list.scrollTop += activeRect.bottom - listRect.bottom;
+            } else if (activeRect.top < listRect.top) {
+                list.scrollTop -= listRect.top - activeRect.top;
+            }
+        }
+    }
+    function saveScroll() {
+        try {
+            sessionStorage.setItem(key, String(list.scrollTop));
+        } catch (error) {
+            // sessionStorage may be unavailable
+        }
+    }
+    list.addEventListener('scroll', saveScroll);
+    list.querySelectorAll('.exam-task-btn').forEach(function (link) {
+        link.addEventListener('click', saveScroll);
+    });
+    if (top) {
         top.addEventListener('click', function (event) {
             event.preventDefault();
             list.scrollTop = 0;
         });
     }
-    if (list && bottom) {
+    if (bottom) {
         bottom.addEventListener('click', function (event) {
             event.preventDefault();
             list.scrollTop = list.scrollHeight;
         });
-    }
-    var active = list ? list.querySelector('.exam-task-btn.active') : null;
-    if (active && active.scrollIntoView) {
-        active.scrollIntoView({block: 'nearest'});
     }
 })();
 </script>

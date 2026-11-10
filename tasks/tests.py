@@ -522,6 +522,7 @@ class LessonExamTests(DjangoTestCase):
         self.assertContains(response, '0/2')
         self.assertContains(response, 'exam-footer-answer')
         self.assertContains(response, 'Сохранить ответ')
+        self.assertContains(response, f'exam-task-scroll-{self.lesson.pk}')
 
     def test_exam_saves_text_answer(self):
         response = self.client.post(
