@@ -8,27 +8,44 @@
     <a href="{% url 'course_create' %}" class="btn btn-primary">Создать курс</a>
 </div>
 
-{% if courses %}
-    <div class="list-group">
-        {% for course in courses %}
-            <a href="{% url 'course_detail' course.pk %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-                <div>
-                    <strong>{{ course.title }}</strong>
+<div class="row g-3">
+    {% for course in courses %}
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <a href="{% url 'course_detail' course.pk %}" class="text-decoration-none">{{ course.title }}</a>
+                    </h5>
+                    <p class="text-muted mb-1">
+                        {% if course.flat_modules %}
+                            Пробников: {{ course.lesson_count }}
+                        {% else %}
+                            Модулей: {{ course.modules.count }} · Уроков: {{ course.lesson_count }}
+                        {% endif %}
+                    </p>
                     {% if course.description %}
-                        <div class="text-muted small">{{ course.description|truncatechars:120 }}</div>
+                        <p class="text-muted small mb-3">{{ course.description|truncatechars:120 }}</p>
                     {% endif %}
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'course_detail' course.pk %}" class="btn btn-sm btn-outline-primary">Открыть</a>
+                        <a href="{% url 'course_edit' course.pk %}" class="btn btn-sm btn-outline-secondary">Настройки</a>
+                        <form method="post" action="{% url 'course_delete' course.pk %}"
+                              onsubmit="return confirm('Удалить курс «{{ course.title }}»? Все модули и уроки тоже будут удалены.');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Удалить</button>
+                        </form>
+                    </div>
                 </div>
-                <span class="badge bg-secondary rounded-pill">
-                    {% if course.flat_modules %}
-                        {{ course.lesson_count }} пробников
-                    {% else %}
-                        {{ course.modules.count }} модулей · {{ course.lesson_count }} уроков
-                    {% endif %}
-                </span>
-            </a>
-        {% endfor %}
-    </div>
-{% else %}
-    <div class="alert alert-secondary">Курсов пока нет. Создайте первый курс.</div>
-{% endif %}
+            </div>
+        </div>
+    {% empty %}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center text-muted py-4">
+                    Курсов пока нет. <a href="{% url 'course_create' %}">Создайте первый</a>.
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+</div>
 {% endblock %}
