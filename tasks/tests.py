@@ -562,6 +562,20 @@ class LessonExamTests(DjangoTestCase):
         self.assertContains(response, 'Сохранить ответ')
         self.assertContains(response, f'exam-task-scroll-{self.lesson.pk}')
 
+    def test_attachment_shown_in_exam_footer(self):
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            attachment = TaskAttachment.objects.create(
+                task=self.text_task,
+                file=SimpleUploadedFile('9.ods', b'data'),
+                original_name='9.ods',
+            )
+            response = self.client.get(
+                reverse('lesson_exam', args=[self.lesson.pk]) + '?task=1',
+            )
+        self.assertContains(response, 'exam-footer-files')
+        self.assertContains(response, attachment.file.url)
+        self.assertContains(response, '9.ods')
+
     def test_exam_saves_text_answer(self):
         response = self.client.post(
             reverse('lesson_exam', args=[self.lesson.pk]) + '?task=1',

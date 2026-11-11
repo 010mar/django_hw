@@ -217,12 +217,51 @@
         .exam-footer {
             flex: 0 0 auto;
             display: flex;
-            justify-content: flex-end;
+            justify-content: space-between;
             align-items: center;
             gap: 12px;
             padding: 12px 28px;
             border-top: 1px solid #e5e7eb;
             background: #fff;
+        }
+        .exam-footer-files {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+        .exam-file-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            max-width: 100%;
+            padding: 7px 12px;
+            border: 1px solid #cfd8e8;
+            border-radius: 6px;
+            background: #f8faff;
+            color: #1f3864;
+            font-size: 15px;
+            text-decoration: none;
+        }
+        .exam-file-link:hover {
+            background: #eef3fb;
+            color: #1f3864;
+        }
+        .exam-file-link i {
+            flex: 0 0 auto;
+            font-size: 18px;
+        }
+        .exam-file-link span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .exam-footer-answer-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-left: auto;
         }
         .exam-footer-answer {
             width: 420px;
@@ -452,18 +491,6 @@
                                 <img src="{{ current_task.image.url }}" alt="Иллюстрация">
                             </div>
                         {% endif %}
-                        {% if current_task.attachments.all %}
-                            <ul class="list-group mb-4">
-                                {% for attachment in current_task.attachments.all %}
-                                    <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
-                                        <span class="text-break">{{ attachment.filename }}</span>
-                                        <a class="btn btn-sm btn-outline-secondary"
-                                           href="{{ attachment.file.url }}" download>Скачать</a>
-                                    </li>
-                                {% endfor %}
-                            </ul>
-                        {% endif %}
-
                         {% if current_task.type == 'text' %}
                             {% if current_task.answer_mode == 'choice' %}
                                 <div class="mt-4">
@@ -542,22 +569,38 @@
                     <span class="exam-arrow exam-arrow-right disabled" aria-label="Следующее задание">&#8594;</span>
                 {% endif %}
 
-                {% if current_task.type != 'gap' %}
+                {% if current_task.attachments.all or current_task.type != 'gap' %}
                     <div class="exam-footer">
-                        {% if current_task.type == 'text' and current_task.answer_mode != 'choice' %}
-                            <input type="text" name="answer_text" class="form-control exam-footer-answer"
-                                   maxlength="500" placeholder="Ответ"
-                                   value="{{ latest.answer_text|default:'' }}"
-                                   {% if preview %}disabled{% endif %} required>
+                        {% if current_task.attachments.all %}
+                            <div class="exam-footer-files">
+                                {% for attachment in current_task.attachments.all %}
+                                    <a class="exam-file-link"
+                                       href="{{ attachment.file.url }}" download
+                                       title="Скачать {{ attachment.filename }}">
+                                        <i class="bi bi-file-earmark-arrow-down"></i>
+                                        <span>{{ attachment.filename }}</span>
+                                    </a>
+                                {% endfor %}
+                            </div>
                         {% endif %}
-                        {% if not preview %}
-                            <button type="submit" class="exam-save">
-                                {% if current_task.type == 'programming' %}Проверить{% else %}Сохранить ответ{% endif %}
-                            </button>
-                        {% else %}
-                            <button type="submit" class="exam-save" disabled>
-                                {% if current_task.type == 'programming' %}Проверить{% else %}Сохранить ответ{% endif %}
-                            </button>
+                        {% if current_task.type != 'gap' %}
+                            <div class="exam-footer-answer-controls">
+                                {% if current_task.type == 'text' and current_task.answer_mode != 'choice' %}
+                                    <input type="text" name="answer_text" class="form-control exam-footer-answer"
+                                           maxlength="500" placeholder="Ответ"
+                                           value="{{ latest.answer_text|default:'' }}"
+                                           {% if preview %}disabled{% endif %} required>
+                                {% endif %}
+                                {% if not preview %}
+                                    <button type="submit" class="exam-save">
+                                        {% if current_task.type == 'programming' %}Проверить{% else %}Сохранить ответ{% endif %}
+                                    </button>
+                                {% else %}
+                                    <button type="submit" class="exam-save" disabled>
+                                        {% if current_task.type == 'programming' %}Проверить{% else %}Сохранить ответ{% endif %}
+                                    </button>
+                                {% endif %}
+                            </div>
                         {% endif %}
                     </div>
                 {% endif %}
