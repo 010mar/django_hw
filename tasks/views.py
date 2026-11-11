@@ -739,14 +739,24 @@ def lesson_edit(request, pk):
 
 @teacher_required
 def lesson_delete(request, pk):
-    lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
-    course_id = lesson.module.course_id if lesson.module_id else None
+    lesson = get_object_or_404(
+        Lesson.objects.select_related('module__course'), pk=pk, author=request.user,
+    )
+    course = lesson.module.course if lesson.module_id else None
     if request.method == 'POST':
-        lesson.delete()
+        if (
+            course is not None
+            and course.flat_modules
+            and lesson.module.lessons.count() == 1
+        ):
+            lesson.module.delete()
+            _reset_sequence_if_empty(CourseModule)
+        else:
+            lesson.delete()
         _reset_sequence_if_empty(Lesson)
         messages.success(request, 'Урок удалён.')
-    if course_id:
-        return redirect('course_detail', pk=course_id)
+    if course is not None:
+        return redirect('course_detail', pk=course.pk)
     return redirect('lesson_list')
 
 
@@ -971,13 +981,29 @@ def course_create(request):
 @teacher_required
 def course_detail(request, pk):
     course = get_object_or_404(Course, pk=pk, author=request.user)
-    modules = course.modules.prefetch_related(
+    modules = list(course.modules.prefetch_related(
         Prefetch('lessons', queryset=Lesson.objects.order_by('order', 'created_at'))
-    )
+    ))
+    items = []
+    if course.flat_modules:
+        for module in modules:
+            lessons = list(module.lessons.all())
+            if lessons:
+                for lesson in lessons:
+                    items.append({'module': module, 'lesson': lesson})
+            else:
+                items.append({'module': module, 'lesson': None})
+    module_form = CourseModuleForm()
+    if course.flat_modules:
+        module_form.fields['title'].widget.attrs['placeholder'] = 'Название пробника'
+        module_form.fields['description'].widget.attrs['placeholder'] = (
+            'Описание пробника (необязательно)'
+        )
     return render(request, 'tasks/course_detail.html', {
         'course': course,
         'modules': modules,
-        'module_form': CourseModuleForm(),
+        'items': items,
+        'module_form': module_form,
     })
 
 
@@ -1020,7 +1046,17 @@ def module_create(request, pk):
                 course.modules.aggregate(Max('order'))['order__max'] or 0
             ) + 1
             module.save()
-            messages.success(request, 'Модуль добавлен.')
+            if course.flat_modules:
+                Lesson.objects.create(
+                    module=module,
+                    title=module.title,
+                    description=module.description,
+                    author=request.user,
+                    order=1,
+                )
+                messages.success(request, 'Пробник добавлен.')
+            else:
+                messages.success(request, 'Модуль добавлен.')
         else:
             messages.error(request, 'Не удалось добавить модуль. Проверьте название и дату.')
     return redirect('course_detail', pk=course.pk)

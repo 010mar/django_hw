@@ -19,7 +19,11 @@
                     {% endif %}
                 </div>
                 <span class="badge bg-secondary rounded-pill">
-                    {{ course.modules.count }} модулей · {{ course.lesson_count }} уроков
+                    {% if course.flat_modules %}
+                        {{ course.lesson_count }} пробников
+                    {% else %}
+                        {{ course.modules.count }} модулей · {{ course.lesson_count }} уроков
+                    {% endif %}
                 </span>
             </a>
         {% endfor %}

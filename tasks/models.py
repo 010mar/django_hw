@@ -443,6 +443,11 @@ class Course(models.Model):
         verbose_name='Режим экзамена',
         help_text='Уроки курса открываются в полноэкранном экзаменационном виде',
     )
+    flat_modules = models.BooleanField(
+        default=False,
+        verbose_name='Модуль = урок',
+        help_text='Не разделять модули и уроки: каждый модуль показывается одним уроком (например, для курса пробников)',
+    )
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,

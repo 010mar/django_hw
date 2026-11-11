@@ -463,6 +463,44 @@ class CourseViewTests(DjangoTestCase):
         response = self.client.get(reverse('course_edit', args=[course.pk]))
         self.assertContains(response, 'Режим экзамена')
 
+    def test_flat_course_creates_lesson_together_with_module(self):
+        course = Course.objects.create(
+            title='probniki ЕГЭ', author=self.teacher, flat_modules=True,
+        )
+        self.client.post(reverse('module_create', args=[course.pk]), {
+            'title': 'Пробник 1',
+            'description': 'Описание',
+        })
+        module = course.modules.get()
+        lesson = module.lessons.get()
+        self.assertEqual(lesson.title, 'Пробник 1')
+        self.assertEqual(lesson.description, 'Описание')
+        response = self.client.get(reverse('course_detail', args=[course.pk]))
+        self.assertContains(response, 'Пробник 1')
+        self.assertContains(response, '+ Добавить пробник')
+        self.assertNotContains(response, '+ Добавить модуль')
+
+    def test_flat_course_delete_lesson_removes_its_module(self):
+        course = Course.objects.create(
+            title='probniki ЕГЭ', author=self.teacher, flat_modules=True,
+        )
+        module = CourseModule.objects.create(course=course, title='Пробник 1')
+        lesson = Lesson.objects.create(
+            title='Пробник 1', author=self.teacher, module=module,
+        )
+        self.client.post(reverse('lesson_delete', args=[lesson.pk]))
+        self.assertFalse(CourseModule.objects.filter(pk=module.pk).exists())
+        self.assertFalse(Lesson.objects.filter(pk=lesson.pk).exists())
+
+    def test_regular_course_keeps_module_and_lesson_separation(self):
+        course = Course.objects.create(title='infa ЕГЭ', author=self.teacher)
+        module = CourseModule.objects.create(course=course, title='Модуль')
+        Lesson.objects.create(title='Урок', author=self.teacher, module=module)
+        response = self.client.get(reverse('course_detail', args=[course.pk]))
+        self.assertContains(response, '+ Добавить модуль')
+        self.assertNotContains(response, '+ Добавить пробник')
+        self.assertContains(response, 'Модуль')
+
     def test_deleting_user_removes_courses_and_lessons(self):
         course = Course.objects.create(title='Курс', author=self.teacher)
         lesson = Lesson.objects.create(title='Урок', author=self.teacher)
