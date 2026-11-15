@@ -9,6 +9,11 @@ urlpatterns = [
     path('classes/<int:pk>/delete/', views.class_delete, name='class_delete'),
     path('classes/<int:pk>/add_student/', views.class_add_student, name='class_add_student'),
     path('classes/<int:pk>/remove_student/<int:user_id>/', views.class_remove_student, name='class_remove_student'),
+    path(
+        'classes/<int:pk>/lessons/<int:lesson_id>/tasks/<int:task_id>/',
+        views.class_task_submissions,
+        name='class_task_submissions',
+    ),
     path('classes/join/<uuid:token>/', views.class_join, name='class_join'),
     path('assignments/', views.assignment_list, name='assignment_list'),
     path('assignments/new/', views.assignment_create, name='assignment_create'),

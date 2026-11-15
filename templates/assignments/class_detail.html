@@ -62,6 +62,11 @@
         color: #fff;
         font-weight: 500;
         line-height: 1;
+        text-decoration: none;
+    }
+    .class-tasks .task-square:hover {
+        background: #198754;
+        color: #fff;
     }
 </style>
 {% endblock %}
@@ -172,7 +177,9 @@
                                                 {% if lesson_row.tasks %}
                                                     <div class="d-flex flex-wrap gap-1">
                                                         {% for task in lesson_row.tasks %}
-                                                            <span class="task-square" title="{{ task.title }}">?</span>
+                                                            <a class="task-square"
+                                                               href="{% url 'class_task_submissions' class_group.pk lesson_row.lesson.pk task.pk %}"
+                                                               title="{{ task.title }}">{% if task.topic %}{{ task.topic.order }}{% else %}?{% endif %}</a>
                                                         {% endfor %}
                                                     </div>
                                                 {% endif %}

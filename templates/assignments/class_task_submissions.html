@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Решения задач урока {{ lesson.title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .submissions-table thead th {
+        background: #f3f4f6;
+        color: #4b5563;
+        font-weight: 600;
+        border-bottom: 1px solid #e5e7eb;
+        white-space: nowrap;
+    }
+    .submissions-table td {
+        border-bottom: 1px solid #eef0f2;
+        padding: .85rem .75rem;
+    }
+    .user-avatar {
+        width: 34px;
+        height: 34px;
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: .8rem;
+        font-weight: 600;
+        flex: 0 0 auto;
+    }
+    .status-dot {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        margin-right: .35rem;
+        vertical-align: middle;
+    }
+    .status-dot.solved { background: #22c55e; }
+    .status-dot.pending { background: #f59e0b; }
+    .status-dot.failed { background: #ef4444; }
+    .submission-id { color: #2563eb; }
+    .task-nav-select { max-width: 420px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<h2 class="h4 mb-2">
+    Решения задач урока
+    <a href="{% url 'lesson_detail' lesson.pk %}">{{ lesson.title }}</a>
+    из курса
+    <a href="{% url 'course_detail' lesson.module.course.pk %}">{{ lesson.module.course.title }}</a>
+</h2>
+<p class="mb-4">
+    Класс <a href="{% url 'class_detail' class_group.pk %}">«{{ class_group.title }}»</a>
+</p>
+
+<form method="get" class="row g-2 align-items-center mb-4">
+    <div class="col">
+        <input type="search" name="q" value="{{ query }}" class="form-control"
+               placeholder="ID, email, имя, номер решения">
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-success">Искать</button>
+    </div>
+</form>
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    {% if prev_task %}
+        <a href="{% url 'class_task_submissions' class_group.pk lesson.pk prev_task.pk %}"
+           class="btn btn-outline-secondary">←</a>
+    {% else %}
+        <span class="btn btn-outline-secondary disabled">←</span>
+    {% endif %}
+    <select class="form-select task-nav-select" onchange="if (this.value) window.location = this.value;">
+        {% for item in tasks %}
+            <option value="{% url 'class_task_submissions' class_group.pk lesson.pk item.pk %}"
+                    {% if item.pk == task.pk %}selected{% endif %}>
+                Шаг {{ forloop.counter }}: {{ item.title }}
+            </option>
+        {% endfor %}
+    </select>
+    {% if next_task %}
+        <a href="{% url 'class_task_submissions' class_group.pk lesson.pk next_task.pk %}"
+           class="btn btn-outline-secondary">→</a>
+    {% else %}
+        <span class="btn btn-outline-secondary disabled">→</span>
+    {% endif %}
+</div>
+
+<div class="table-responsive">
+    <table class="table submissions-table align-middle mb-0">
+        <thead>
+        <tr>
+            <th>Пользователь</th>
+            <th>Решения</th>
+            <th>Дата отправки</th>
+            <th>Оценка</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for submission in submissions %}
+            <tr>
+                <td>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="user-avatar" style="background-color: {{ submission.avatar_color }}">{{ submission.initials }}</span>
+                        <span>{{ submission.student.get_full_name|default:submission.student.username }}</span>
+                    </div>
+                </td>
+                <td>
+                    <span class="status-dot {% if submission.is_solved %}solved{% elif submission.status == 'pending' %}pending{% else %}failed{% endif %}"></span>
+                    <span class="submission-id">#{{ submission.pk }}</span>
+                </td>
+                <td>{{ submission.created_at|naturaltime }}</td>
+                <td>{{ submission.score|floatformat:"-2" }}</td>
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="4" class="text-center text-muted py-4">Решений пока нет.</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

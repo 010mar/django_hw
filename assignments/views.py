@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, IntegerField, OuterRef, Prefetch, Q, Subquery
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
@@ -90,7 +91,7 @@ def _class_course_modules(course):
                             'entries',
                             queryset=(
                                 LessonTask.objects
-                                .select_related('task')
+                                .select_related('task', 'task__topic')
                                 .order_by('order', 'id')
                             ),
                         )
@@ -146,6 +147,66 @@ def class_detail(request, pk):
         'students': students,
         'module_rows': module_rows,
         'active_tab': active_tab,
+    })
+
+
+@teacher_required
+def class_task_submissions(request, pk, lesson_id, task_id):
+    class_group = get_object_or_404(
+        ClassGroup.objects.select_related('course'), pk=pk, teacher=request.user,
+    )
+    lesson = get_object_or_404(
+        Lesson.objects.select_related('module__course'),
+        pk=lesson_id,
+        module__course=class_group.course,
+    )
+    tasks = [
+        entry.task
+        for entry in (
+            lesson.entries.select_related('task', 'task__topic')
+            .order_by('order', 'id')
+        )
+    ]
+    task = next((item for item in tasks if item.pk == task_id), None)
+    if task is None:
+        raise Http404
+    task_index = tasks.index(task)
+    submissions = (
+        Submission.objects
+        .filter(task=task, student__in=class_group.students.all())
+        .filter(Q(lesson=lesson) | Q(assignment__class_group=class_group))
+        .select_related('student')
+        .order_by('-created_at')
+    )
+    query = request.GET.get('q', '').strip()
+    if query:
+        lookup = query.lstrip('#')
+        filters = (
+            Q(student__first_name__icontains=query)
+            | Q(student__last_name__icontains=query)
+            | Q(student__username__icontains=query)
+            | Q(student__email__icontains=query)
+        )
+        if lookup.isdigit():
+            filters |= Q(pk=int(lookup))
+        submissions = submissions.filter(filters)
+    submissions = list(submissions)
+    palette = ['#4f6f5b', '#2f6d8c', '#6b5b95', '#8c5b5b', '#557a8c']
+    for submission in submissions:
+        name = submission.student.get_full_name() or submission.student.username
+        parts = [part for part in name.split() if part]
+        submission.initials = ''.join(part[0].upper() for part in parts[:2]) or '?'
+        submission.avatar_color = palette[submission.student_id % len(palette)]
+    return render(request, 'assignments/class_task_submissions.html', {
+        'class_group': class_group,
+        'lesson': lesson,
+        'task': task,
+        'tasks': tasks,
+        'task_index': task_index + 1,
+        'prev_task': tasks[task_index - 1] if task_index > 0 else None,
+        'next_task': tasks[task_index + 1] if task_index + 1 < len(tasks) else None,
+        'submissions': submissions,
+        'query': query,
     })
 
 

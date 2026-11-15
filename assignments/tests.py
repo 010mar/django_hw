@@ -15,7 +15,9 @@ from tasks.models import (
     Lesson,
     LessonTask,
     Task,
+    TaskBank,
     TaskBlock,
+    Topic,
 )
 from tasks.models import TestCase as TaskTestCase
 
@@ -552,3 +554,66 @@ class ClassCourseTests(DjangoTestCase):
             f'{reverse("class_detail", args=[class_group.pk])}?tab=students',
         )
         self.assertEqual(response.context['active_tab'], 'students')
+
+    def _task_submissions_setup(self):
+        bank = TaskBank.objects.create(name='Банк', author=self.teacher)
+        topic = Topic.objects.create(bank=bank, name='Тема 1', order=1)
+        module = CourseModule.objects.create(
+            course=self.course, title='Модуль', order=1,
+        )
+        lesson = Lesson.objects.create(
+            module=module, title='Урок', author=self.teacher, order=1,
+        )
+        task = Task.objects.create(
+            title='Текстовая задача', author=self.teacher, topic=topic,
+        )
+        LessonTask.objects.create(lesson=lesson, task=task, order=1)
+        class_group = ClassGroup.objects.create(
+            teacher=self.teacher, course=self.course, title='9А',
+        )
+        class_group.students.add(self.student)
+        return class_group, lesson, task
+
+    def test_class_task_square_shows_topic_and_links_to_submissions(self):
+        class_group, lesson, task = self._task_submissions_setup()
+        submission = Submission.objects.create(
+            lesson=lesson, task=task, student=self.student,
+            status=Submission.Status.CORRECT, score=1,
+        )
+        self.client.force_login(self.teacher)
+        response = self.client.get(
+            reverse('class_detail', args=[class_group.pk]),
+        )
+        self.assertContains(
+            response,
+            reverse('class_task_submissions', args=[
+                class_group.pk, lesson.pk, task.pk,
+            ]),
+        )
+        self.assertContains(response, 'title="Текстовая задача">1</a>')
+
+        response = self.client.get(
+            reverse('class_task_submissions', args=[
+                class_group.pk, lesson.pk, task.pk,
+            ]),
+        )
+        self.assertContains(response, 'Решения задач урока')
+        self.assertContains(response, 'Урок')
+        self.assertContains(response, '9А')
+        self.assertContains(response, 'Шаг 1')
+        self.assertContains(response, f'#{submission.pk}')
+
+    def test_task_submissions_search_by_name(self):
+        class_group, lesson, task = self._task_submissions_setup()
+        Submission.objects.create(
+            lesson=lesson, task=task, student=self.student,
+            status=Submission.Status.CORRECT,
+        )
+        self.client.force_login(self.teacher)
+        url = reverse('class_task_submissions', args=[
+            class_group.pk, lesson.pk, task.pk,
+        ])
+        response = self.client.get(f'{url}?q=никого')
+        self.assertContains(response, 'Решений пока нет.')
+        response = self.client.get(f'{url}?q=student')
+        self.assertContains(response, 'student')
