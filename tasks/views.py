@@ -1050,6 +1050,7 @@ def course_learn(request, pk):
             lesson_items.append({'lesson': lesson, 'tasks': tasks})
         module_blocks.append({'module': module, 'lessons': lesson_items})
     scores = {}
+    solved_task_ids = set()
     if not is_author and all_tasks:
         from assignments.models import Submission
 
@@ -1062,6 +1063,8 @@ def course_learn(request, pk):
             )
         )
         for submission in submissions:
+            if submission.is_solved:
+                solved_task_ids.add(submission.task_id)
             if submission.score > scores.get(submission.task_id, 0):
                 scores[submission.task_id] = submission.score
     for block in module_blocks:
@@ -1070,10 +1073,35 @@ def course_learn(request, pk):
             item['earned_points'] = sum(
                 scores.get(task.pk, 0) for task in item['tasks']
             )
+    unique_tasks = list({task.pk: task for task in all_tasks}.values())
+    total_points = sum(task.points for task in unique_tasks)
+    earned_points = sum(scores.get(task.pk, 0) for task in unique_tasks)
+    progress_percent = (
+        round(len(solved_task_ids) / len(unique_tasks) * 100)
+        if unique_tasks else 0
+    )
+    continue_lesson = None
+    for block in module_blocks:
+        for item in block['lessons']:
+            if any(task.pk not in solved_task_ids for task in item['tasks']):
+                continue_lesson = item['lesson']
+                break
+        if continue_lesson is not None:
+            break
+    if continue_lesson is None:
+        for block in module_blocks:
+            if block['lessons']:
+                continue_lesson = block['lessons'][0]['lesson']
+                break
     return render(request, 'tasks/course_learn.html', {
         'course': course,
         'module_blocks': module_blocks,
         'is_author': is_author,
+        'progress_percent': progress_percent,
+        'earned_points': earned_points,
+        'total_points': total_points,
+        'total_tasks': len(unique_tasks),
+        'continue_lesson': continue_lesson,
     })
 
 

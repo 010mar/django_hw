@@ -723,6 +723,10 @@ class CourseLearnTests(DjangoTestCase):
         self.assertContains(response, 'Урок 2')
         self.assertContains(response, '2.1 Урок 2')
         self.assertContains(response, '2 / 2')
+        self.assertContains(response, 'материалов пройдено')
+        self.assertContains(response, 'Содержание')
+        self.assertContains(response, 'Искать в курсе')
+        self.assertContains(response, f'id="module-{second_module.pk}"')
 
     def test_other_student_cannot_open_course(self):
         self.client.force_login(self.student)

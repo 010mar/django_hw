@@ -4,6 +4,37 @@
 
 {% block extra_head %}
 <style>
+    .course-sidebar {
+        position: sticky;
+        top: 1rem;
+        padding-right: 1.25rem;
+        border-right: 1px solid #eef0f2;
+    }
+    .course-sidebar-title {
+        font-size: .78rem;
+        font-weight: 600;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+        color: #8a8f98;
+        margin-bottom: .45rem;
+    }
+    .course-sidebar-contents a {
+        display: block;
+        padding: .2rem 0;
+        color: #212529;
+        text-decoration: none;
+    }
+    .course-sidebar-contents a:hover {
+        color: #198754;
+    }
+    @media (max-width: 991.98px) {
+        .course-sidebar {
+            position: static;
+            padding-right: 0;
+            border-right: 0;
+            margin-bottom: 1.5rem;
+        }
+    }
     .program-module {
         border: 1px solid #e5e7eb;
         border-left: 4px solid #6fbf73;
@@ -11,6 +42,7 @@
         background: #fff;
         box-shadow: 0 1px 2px rgba(0, 0, 0, .03);
         margin-bottom: 1.25rem;
+        scroll-margin-top: 1rem;
     }
     .program-module-header {
         padding: 1rem 1.25rem;
@@ -66,50 +98,105 @@
 {% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-start mb-4">
-    <div>
-        <h2 class="mb-1">{{ course.title }}</h2>
-        {% if course.description %}
-            <p class="text-muted mb-0">{{ course.description|linebreaksbr }}</p>
-        {% endif %}
-    </div>
-    {% if is_author %}
-        <a href="{% url 'course_detail' course.pk %}" class="btn btn-outline-secondary btn-sm">Управление курсом</a>
-    {% endif %}
-</div>
+<div class="row g-4">
+    <aside class="col-lg-3">
+        <div class="course-sidebar">
+            <h5 class="mb-3">{{ course.title }}</h5>
 
-<h3 class="h4 mb-3">{% if course.flat_modules %}Пробники{% else %}Программа курса{% endif %}</h3>
-
-{% for block in module_blocks %}
-    <div class="program-module">
-        <div class="program-module-header">
-            <h5 class="program-module-title">{{ forloop.counter }}. {{ block.module.title }}</h5>
-            {% if block.module.description %}
-                <div class="program-module-desc">{{ block.module.description|linebreaksbr }}</div>
+            {% if is_author %}
+                <div class="small text-muted mb-3">Задач в курсе: {{ total_tasks }}</div>
+                <a href="{% url 'course_detail' course.pk %}" class="btn btn-outline-secondary w-100 mb-3">Управление курсом</a>
+            {% else %}
+                <div class="progress mb-2" style="height: 10px;">
+                    <div class="progress-bar bg-success" role="progressbar"
+                         style="width: {{ progress_percent }}%"
+                         aria-valuenow="{{ progress_percent }}" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+                <div class="small text-muted mb-1">{{ progress_percent }}% материалов пройдено</div>
+                <div class="small text-muted mb-3">
+                    {{ earned_points|floatformat:"-2" }}/{{ total_points }} баллов получено
+                </div>
+                {% if continue_lesson %}
+                    <a href="{% url 'lesson_exam' continue_lesson.pk %}" class="btn btn-success w-100 mb-3">Продолжить</a>
+                {% endif %}
             {% endif %}
+
+            <input type="search" id="course-search" class="form-control form-control-sm mb-3"
+                   placeholder="Искать в курсе">
+
+            <div class="course-sidebar-title">Содержание</div>
+            <div class="course-sidebar-contents small">
+                {% for block in module_blocks %}
+                    <a href="#module-{{ block.module.pk }}">{{ forloop.counter }}. {{ block.module.title }}</a>
+                {% empty %}
+                    <span class="text-muted">Нет модулей</span>
+                {% endfor %}
+            </div>
         </div>
-        <div>
-            {% for item in block.lessons %}
-                <a class="program-lesson"
-                   href="{% url 'lesson_exam' item.lesson.pk %}{% if is_author %}?preview=1{% endif %}">
-                    <span class="program-lesson-square">{{ forloop.counter }}</span>
-                    <span class="program-lesson-title">{{ forloop.parentloop.counter }}.{{ forloop.counter }} {{ item.lesson.title }}</span>
-                    <span class="program-lesson-points">
-                        {% if is_author %}
-                            {{ item.tasks|length }} задач
-                        {% elif item.total_points %}
-                            {{ item.earned_points|floatformat:"-2" }} / {{ item.total_points }}
-                        {% else %}
-                            —
-                        {% endif %}
-                    </span>
-                </a>
-            {% empty %}
-                <div class="program-lesson text-muted">Материалы ещё не добавлены</div>
-            {% endfor %}
-        </div>
+    </aside>
+
+    <div class="col-lg-9">
+        {% if course.description %}
+            <p class="text-muted">{{ course.description|linebreaksbr }}</p>
+        {% endif %}
+
+        <h3 class="h4 mb-3">{% if course.flat_modules %}Пробники{% else %}Программа курса{% endif %}</h3>
+
+        {% for block in module_blocks %}
+            <div class="program-module" id="module-{{ block.module.pk }}">
+                <div class="program-module-header">
+                    <h5 class="program-module-title">{{ forloop.counter }}. {{ block.module.title }}</h5>
+                    {% if block.module.description %}
+                        <div class="program-module-desc">{{ block.module.description|linebreaksbr }}</div>
+                    {% endif %}
+                </div>
+                <div>
+                    {% for item in block.lessons %}
+                        <a class="program-lesson"
+                           href="{% url 'lesson_exam' item.lesson.pk %}{% if is_author %}?preview=1{% endif %}">
+                            <span class="program-lesson-square">{{ forloop.counter }}</span>
+                            <span class="program-lesson-title">{{ forloop.parentloop.counter }}.{{ forloop.counter }} {{ item.lesson.title }}</span>
+                            <span class="program-lesson-points">
+                                {% if is_author %}
+                                    {{ item.tasks|length }} задач
+                                {% elif item.total_points %}
+                                    {{ item.earned_points|floatformat:"-2" }} / {{ item.total_points }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </span>
+                        </a>
+                    {% empty %}
+                        <div class="program-lesson text-muted">Материалы ещё не добавлены</div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% empty %}
+            <div class="alert alert-secondary">В курсе пока нет материалов.</div>
+        {% endfor %}
     </div>
-{% empty %}
-    <div class="alert alert-secondary">В курсе пока нет материалов.</div>
-{% endfor %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        var input = document.getElementById('course-search');
+        if (!input) return;
+        input.addEventListener('input', function () {
+            var query = this.value.trim().toLowerCase();
+            document.querySelectorAll('.program-module').forEach(function (module) {
+                var header = module.querySelector('.program-module-header');
+                var headerMatch = header && header.textContent.toLowerCase().indexOf(query) !== -1;
+                var lessonMatch = false;
+                module.querySelectorAll('.program-lesson').forEach(function (lesson) {
+                    var match = !query || lesson.textContent.toLowerCase().indexOf(query) !== -1;
+                    if (match && query) lessonMatch = true;
+                    lesson.classList.toggle('d-none', query && !headerMatch && !match);
+                });
+                module.classList.toggle('d-none', query && !headerMatch && !lessonMatch);
+            });
+        });
+    })();
+</script>
 {% endblock %}
