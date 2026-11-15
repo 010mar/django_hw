@@ -136,6 +136,8 @@ def class_join(request, token):
     else:
         class_group.students.add(user)
         messages.success(request, f'Вы вступили в класс «{class_group.title}».')
+    if class_group.course_id:
+        return redirect('course_learn', pk=class_group.course_id)
     return redirect('my_assignments')
 
 

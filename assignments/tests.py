@@ -489,6 +489,23 @@ class ClassCourseTests(DjangoTestCase):
         self.assertContains(response, self.course.title)
         self.assertNotContains(response, self.other_course.title)
 
+    def test_join_by_invite_grants_course_access(self):
+        class_group = ClassGroup.objects.create(
+            teacher=self.teacher, course=self.course, title='9А',
+        )
+        self.client.force_login(self.student)
+        response = self.client.get(
+            reverse('class_join', args=[class_group.invite_token]),
+        )
+        self.assertRedirects(
+            response, reverse('course_learn', args=[self.course.pk]),
+        )
+        self.assertTrue(class_group.students.filter(pk=self.student.pk).exists())
+        response = self.client.get(
+            reverse('course_learn', args=[self.course.pk]),
+        )
+        self.assertEqual(response.status_code, 200)
+
     def test_teacher_sees_course_classes_on_course_page(self):
         ClassGroup.objects.create(
             teacher=self.teacher, course=self.course, title='9А',
