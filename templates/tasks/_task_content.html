@@ -1,0 +1,54 @@
+{% load task_filters %}
+<div class="text-muted small mb-3">
+    {% if task.source %}{{ task.get_source_display }}{% endif %}
+    {% if task.topic %} · {{ task.topic.name }}{% endif %}
+    · {{ task.type_verbose }}
+    {% if task.bank %} · {{ task.bank.name }}{% endif %}
+</div>
+<div class="text-break js-math mb-3">{{ task.body|render_task_body:task }}</div>
+{% if task.image %}
+    <img src="{{ task.image.url }}" alt="Иллюстрация" class="img-fluid mb-3 rounded">
+{% endif %}
+{% if task.type == 'text' %}
+    <details class="mb-3">
+        <summary class="text-primary">Показать ответ</summary>
+        {% if task.answer_mode == 'choice' %}
+            <ul class="list-group mt-2">
+                {% for option in task.answer_options.all %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="js-math">{{ option.text }}</span>
+                        {% if option.is_correct %}
+                            <span class="badge bg-success">правильный</span>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="mb-0 mt-2">Правильный ответ: <code>{{ task.correct_answer }}</code></p>
+        {% endif %}
+    </details>
+{% elif task.type == 'programming' %}
+    <p class="text-muted small mb-3">
+        Лимит времени: {{ task.time_limit_ms }} мс, память: {{ task.memory_limit_mb }} МБ
+    </p>
+{% elif task.type == 'gap' %}
+    <details class="mb-3">
+        <summary class="text-primary">Показать задание</summary>
+        <div class="mt-2">
+            {% for block in task.blocks.all %}
+                {% if block.kind == 'text' %}
+                    <div class="mb-2 text-break js-math">{{ block.text|render_block_text }}</div>
+                {% else %}
+                    <div class="mb-2">
+                        <span class="badge bg-secondary me-2">Пропуск</span>
+                        {% for answer in block.accepted_answers %}
+                            <code class="me-2">{{ answer }}</code>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% empty %}
+                <p class="text-muted mb-0">Блоки задания не настроены.</p>
+            {% endfor %}
+        </div>
+    </details>
+{% endif %}

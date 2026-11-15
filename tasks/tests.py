@@ -199,7 +199,7 @@ class LessonViewTests(DjangoTestCase):
         response = self.client.get(reverse('lesson_detail', args=[self.lesson.pk]))
         self.assertContains(response, 'id="id_bank"')
         self.assertContains(response, 'id="id_topic"')
-        self.assertContains(response, 'id="lesson-task-list"')
+        self.assertContains(response, 'id="lesson-task-count"')
         self.assertContains(
             response, f'action="{reverse("lesson_detail", args=[self.lesson.pk])}"',
         )
@@ -281,6 +281,18 @@ class LessonViewTests(DjangoTestCase):
             response,
             reverse('lesson_quick_add_task', args=[self.lesson.pk, task2.pk]),
         )
+
+    def test_lesson_detail_shows_content_of_variant_tasks(self):
+        self.task.body = 'Условие задачи варианта'
+        self.task.save(update_fields=['body'])
+        LessonTask.objects.create(lesson=self.lesson, task=self.task, order=1)
+        self.client.force_login(self.teacher)
+        response = self.client.get(
+            reverse('lesson_detail', args=[self.lesson.pk]),
+        )
+        self.assertContains(response, 'Задачи варианта')
+        self.assertContains(response, 'Условие задачи варианта')
+        self.assertContains(response, 'Убрать из варианта')
 
     def test_lesson_remove_task_redirects_with_filters(self):
         LessonTask.objects.create(lesson=self.lesson, task=self.task, order=1)
