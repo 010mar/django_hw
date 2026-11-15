@@ -771,8 +771,7 @@ class LessonExamTests(DjangoTestCase):
             reverse('lesson_exam', args=[self.lesson.pk]) + '?task=1',
         )
         self.assertTrue(response.context['training'])
-        self.assertContains(response, 'Верно')
-        self.assertContains(response, 'exam-result-correct')
+        self.assertNotContains(response, 'exam-result')
         self.assertContains(response, 'exam-task-btn answered correct')
         self.assertContains(response, 'Итоги')
 
@@ -791,8 +790,11 @@ class LessonExamTests(DjangoTestCase):
         response = self.client.get(
             reverse('lesson_exam', args=[self.lesson.pk]) + '?task=2',
         )
-        self.assertContains(response, 'Частично верно')
-        self.assertContains(response, 'exam-result-partial')
+        self.assertContains(response, 'gap-feedback')
+        self.assertContains(response, 'Пропуск 1')
+        self.assertContains(response, 'Пропуск 2')
+        self.assertContains(response, 'badge bg-success">верно')
+        self.assertContains(response, 'badge bg-danger">неверно')
         self.assertContains(response, 'exam-task-btn answered partial')
         self.client.post(
             reverse('lesson_exam', args=[self.lesson.pk]) + '?task=2',
@@ -801,7 +803,7 @@ class LessonExamTests(DjangoTestCase):
         response = self.client.get(
             reverse('lesson_exam', args=[self.lesson.pk]) + '?task=2',
         )
-        self.assertContains(response, 'Неверно')
+        self.assertContains(response, 'badge bg-danger">неверно')
         self.assertContains(response, 'exam-task-btn answered incorrect')
 
     def test_author_can_preview_exam_without_exam_mode(self):

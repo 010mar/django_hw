@@ -890,6 +890,7 @@ def lesson_exam(request, pk):
 
     gap_blocks = []
     gap_grid = None
+    gap_statuses = []
     if current_task.type == Task.Type.GAP:
         from assignments.views import _gap_block_items, _gap_grid
 
@@ -911,6 +912,24 @@ def lesson_exam(request, pk):
                             )
                             else 'invalid'
                         )
+        if training and latest:
+            answers = latest.gap_answers or {}
+            for entry in gap_blocks:
+                number = entry['number']
+                if number is None:
+                    continue
+                answer = answers.get(str(number), '')
+                if not answer:
+                    state = 'empty'
+                elif current_task.is_gap_answer_correct(number, answer):
+                    state = 'valid'
+                else:
+                    state = 'invalid'
+                gap_statuses.append({
+                    'number': number,
+                    'answer': answer,
+                    'state': state,
+                })
 
     return render(request, 'tasks/lesson_exam.html', {
         'lesson': lesson,
@@ -928,6 +947,7 @@ def lesson_exam(request, pk):
         'next_index': task_index + 1 if task_index < len(tasks) else None,
         'gap_blocks': gap_blocks,
         'gap_grid': gap_grid,
+        'gap_statuses': gap_statuses,
         'saved': request.GET.get('saved') == '1',
         'preview': preview,
         'training': training,

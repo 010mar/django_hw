@@ -307,28 +307,6 @@
             color: #007a6c;
             font-size: 14px;
         }
-        .exam-result {
-            margin-bottom: 16px;
-            padding: 10px 14px;
-            border-radius: 6px;
-            border: 1px solid transparent;
-            font-size: 15px;
-        }
-        .exam-result-correct {
-            background: #e6f7ea;
-            border-color: #b7e4c0;
-            color: #1e7a34;
-        }
-        .exam-result-partial {
-            background: #fff7e0;
-            border-color: #f2d675;
-            color: #8a6d00;
-        }
-        .exam-result-incorrect {
-            background: #fdecec;
-            border-color: #f3b6b6;
-            color: #b02a2a;
-        }
         .exam-preview-banner {
             margin-bottom: 16px;
             padding: 8px 14px;
@@ -453,6 +431,30 @@
         .exam-gap-corner {
             background: #e3ebf6;
         }
+        .gap-feedback {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .gap-feedback-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 2px;
+            font-size: 13px;
+        }
+        .gap-feedback-label {
+            color: #6b7280;
+            min-width: 88px;
+        }
+        .gap-feedback-answer {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
         .exam-tests {
             margin-top: 16px;
         }
@@ -525,20 +527,6 @@
                         {% endif %}
                         {% if saved and not training %}
                             <div class="exam-saved">Ответ сохранён</div>
-                        {% endif %}
-                        {% if training and latest %}
-                            <div class="exam-result exam-result-{{ latest_state }}">
-                                <strong>
-                                    {% if latest_state == 'correct' %}Верно{% elif latest_state == 'partial' %}Частично верно{% else %}Неверно{% endif %}
-                                </strong>
-                                <span class="ms-2">{{ latest.score|floatformat:"-2" }} из {{ current_task.points }} б.</span>
-                                {% if latest_state != 'correct' and current_task.type == 'text' and current_task.answer_mode != 'choice' and current_task.correct_answer %}
-                                    <div class="small mt-1">Правильный ответ: {{ current_task.correct_answer }}</div>
-                                {% endif %}
-                                {% if latest.details %}
-                                    <div class="small mt-1">{{ latest.details|linebreaksbr }}</div>
-                                {% endif %}
-                            </div>
                         {% endif %}
                         <h1 class="exam-task-title">
                             Задание {{ task_index }}{% if current_task.task_number %} (№{{ current_task.task_number }}){% endif %}.
@@ -696,6 +684,23 @@
                                     {% endfor %}
                                 </tbody>
                             </table>
+                        {% endif %}
+                        {% if gap_statuses %}
+                            <div class="gap-feedback">
+                                {% for gap in gap_statuses %}
+                                    <div class="gap-feedback-row">
+                                        <span class="gap-feedback-label">Пропуск {{ gap.number }}</span>
+                                        <span class="gap-feedback-answer">{{ gap.answer|default:'—' }}</span>
+                                        {% if gap.state == 'valid' %}
+                                            <span class="badge bg-success">верно</span>
+                                        {% elif gap.state == 'empty' %}
+                                            <span class="badge bg-secondary">нет ответа</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">неверно</span>
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                            </div>
                         {% endif %}
                     </div>
                     <div class="exam-answer-panel-footer">
