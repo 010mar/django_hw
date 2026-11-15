@@ -4,6 +4,8 @@ from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from tasks.models import Course
+
 from .forms import ParentLinkForm, ProfileForm
 from .models import ParentLink
 
@@ -14,7 +16,24 @@ def landing(request):
 
 @login_required
 def home(request):
-    return render(request, 'home.html')
+    context = {}
+    if request.user.is_student:
+        courses = (
+            Course.objects
+            .filter(class_groups__students=request.user)
+            .distinct()
+            .prefetch_related('modules__lessons')
+        )
+        context['student_courses'] = [
+            {
+                'course': course,
+                'classes': list(
+                    course.class_groups.filter(students=request.user)
+                ),
+            }
+            for course in courses
+        ]
+    return render(request, 'home.html', context)
 
 
 @login_required

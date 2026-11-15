@@ -12,7 +12,7 @@ from django.test import override_settings
 from django.urls import reverse
 from PIL import Image as PILImage
 
-from assignments.models import Submission
+from assignments.models import ClassGroup, Submission
 
 from .forms import TaskForm
 from .models import (
@@ -670,6 +670,49 @@ class LessonExamTests(DjangoTestCase):
         self.client.force_login(self.teacher)
         response = self.client.get(reverse('lesson_detail', args=[self.lesson.pk]))
         self.assertContains(response, 'Как ученик')
+
+
+class CourseLearnTests(DjangoTestCase):
+    def setUp(self):
+        self.teacher = User.objects.create_user(
+            username='teacher', password='pass12345', role=User.Role.TEACHER,
+        )
+        self.student = User.objects.create_user(
+            username='student', password='pass12345', role=User.Role.STUDENT,
+        )
+        self.course = Course.objects.create(title='Курс', author=self.teacher)
+        self.module = CourseModule.objects.create(
+            course=self.course, title='Модуль',
+        )
+        self.lesson = Lesson.objects.create(
+            title='Урок 1', author=self.teacher, module=self.module,
+        )
+        self.class_group = ClassGroup.objects.create(
+            teacher=self.teacher, course=self.course, title='9А',
+        )
+
+    def test_enrolled_student_opens_course(self):
+        self.class_group.students.add(self.student)
+        self.client.force_login(self.student)
+        response = self.client.get(reverse('course_learn', args=[self.course.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Урок 1')
+
+    def test_other_student_cannot_open_course(self):
+        self.client.force_login(self.student)
+        response = self.client.get(reverse('course_learn', args=[self.course.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_enrolled_student_opens_regular_lesson(self):
+        self.class_group.students.add(self.student)
+        self.client.force_login(self.student)
+        response = self.client.get(reverse('lesson_exam', args=[self.lesson.pk]))
+        self.assertEqual(response.status_code, 200)
+
+    def test_other_student_cannot_open_regular_lesson(self):
+        self.client.force_login(self.student)
+        response = self.client.get(reverse('lesson_exam', args=[self.lesson.pk]))
+        self.assertEqual(response.status_code, 404)
 
 
 class TaskCrudViewTests(DjangoTestCase):

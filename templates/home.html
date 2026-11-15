@@ -37,6 +37,45 @@
         </div>
     </div>
 {% elif user.is_student %}
+    <h4 class="mb-3">Мои курсы</h4>
+    {% if student_courses %}
+        <div class="row g-3 mb-4">
+            {% for item in student_courses %}
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title">{{ item.course.title }}</h5>
+                            {% if item.course.description %}
+                                <p class="text-muted small">{{ item.course.description|truncatechars:140 }}</p>
+                            {% endif %}
+                            <p class="text-muted small mb-2">
+                                {% if item.course.flat_modules %}
+                                    Пробников: {{ item.course.lesson_count }}
+                                {% else %}
+                                    Модулей: {{ item.course.modules.count }} · Уроков: {{ item.course.lesson_count }}
+                                {% endif %}
+                            </p>
+                            {% if item.classes %}
+                                <div class="small text-muted mb-3">
+                                    Класс:
+                                    {% for class_group in item.classes %}
+                                        {{ class_group.title }}{% if not forloop.last %}, {% endif %}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <a href="{% url 'course_learn' item.course.pk %}"
+                               class="btn btn-primary mt-auto align-self-start">Перейти к курсу</a>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-secondary mb-4">
+            Вы пока не записаны ни в один курс. Вступите в класс по ссылке-приглашению от учителя.
+        </div>
+    {% endif %}
+
     <div class="card">
         <div class="card-body">
             <h5>Домашние задания</h5>

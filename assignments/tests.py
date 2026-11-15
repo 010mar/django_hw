@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from tasks.models import (
     AnswerOption,
+    Course,
     Lesson,
     LessonTask,
     Task,
@@ -444,3 +445,55 @@ class TaskPreviewTests(DjangoTestCase):
         self.client.force_login(other)
         response = self.client.get(reverse('task_preview', args=[self.task.pk]))
         self.assertEqual(response.status_code, 404)
+
+
+class ClassCourseTests(DjangoTestCase):
+    def setUp(self):
+        self.teacher = User.objects.create_user(
+            username='teacher', password='pass12345', role=User.Role.TEACHER,
+        )
+        self.student = User.objects.create_user(
+            username='student', password='pass12345', role=User.Role.STUDENT,
+        )
+        self.course = Course.objects.create(title='Курс ЕГЭ', author=self.teacher)
+        self.other_course = Course.objects.create(
+            title='Другой курс', author=self.teacher,
+        )
+
+    def test_class_create_binds_course(self):
+        self.client.force_login(self.teacher)
+        response = self.client.post(reverse('class_create'), {
+            'title': '9А',
+            'course': self.course.pk,
+        })
+        class_group = ClassGroup.objects.get(title='9А')
+        self.assertRedirects(
+            response, reverse('class_detail', args=[class_group.pk]),
+        )
+        self.assertEqual(class_group.course, self.course)
+
+    def test_class_create_prefills_course_from_query(self):
+        self.client.force_login(self.teacher)
+        response = self.client.get(
+            f'{reverse("class_create")}?course={self.course.pk}',
+        )
+        self.assertEqual(response.context['form'].initial['course'], self.course)
+
+    def test_student_home_lists_course_from_class(self):
+        class_group = ClassGroup.objects.create(
+            teacher=self.teacher, course=self.course, title='9А',
+        )
+        class_group.students.add(self.student)
+        self.client.force_login(self.student)
+        response = self.client.get(reverse('home'))
+        self.assertContains(response, self.course.title)
+        self.assertNotContains(response, self.other_course.title)
+
+    def test_teacher_sees_course_classes_on_course_page(self):
+        ClassGroup.objects.create(
+            teacher=self.teacher, course=self.course, title='9А',
+        )
+        self.client.force_login(self.teacher)
+        response = self.client.get(reverse('course_detail', args=[self.course.pk]))
+        self.assertContains(response, 'Классы курса')
+        self.assertContains(response, '9А')

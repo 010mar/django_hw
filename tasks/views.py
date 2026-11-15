@@ -771,6 +771,10 @@ def lesson_remove_task(request, pk, task_id):
     return redirect(_lesson_redirect(pk, request.POST))
 
 
+def _is_course_member(user, course):
+    return course.class_groups.filter(students=user).exists()
+
+
 def _get_exam_lesson(request, pk):
     lesson = get_object_or_404(
         Lesson.objects.select_related('module__course'), pk=pk,
@@ -778,7 +782,11 @@ def _get_exam_lesson(request, pk):
     course = lesson.module.course if lesson.module_id else None
     if course is None:
         raise Http404
-    if not course.exam_mode and lesson.author_id != request.user.pk:
+    if (
+        not course.exam_mode
+        and lesson.author_id != request.user.pk
+        and not _is_course_member(request.user, course)
+    ):
         raise Http404
     return lesson, course
 
@@ -1004,6 +1012,32 @@ def course_detail(request, pk):
         'modules': modules,
         'items': items,
         'module_form': module_form,
+    })
+
+
+@login_required
+def course_learn(request, pk):
+    course = get_object_or_404(Course, pk=pk)
+    is_author = course.author_id == request.user.pk
+    if not is_author and not _is_course_member(request.user, course):
+        raise Http404
+    modules = list(course.modules.prefetch_related(
+        Prefetch('lessons', queryset=Lesson.objects.order_by('order', 'created_at'))
+    ))
+    items = []
+    if course.flat_modules:
+        for module in modules:
+            lessons = list(module.lessons.all())
+            if lessons:
+                for lesson in lessons:
+                    items.append({'module': module, 'lesson': lesson})
+            else:
+                items.append({'module': module, 'lesson': None})
+    return render(request, 'tasks/course_learn.html', {
+        'course': course,
+        'modules': modules,
+        'items': items,
+        'is_author': is_author,
     })
 
 

@@ -4,7 +4,7 @@ from typing import ClassVar
 from django.conf import settings
 from django.db import models
 
-from tasks.models import AnswerOption, Lesson, Task
+from tasks.models import AnswerOption, Course, Lesson, Task
 
 
 class ClassGroup(models.Model):
@@ -13,6 +13,14 @@ class ClassGroup(models.Model):
         on_delete=models.CASCADE,
         related_name='taught_class_groups',
         verbose_name='Учитель',
+    )
+    course = models.ForeignKey(
+        Course,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='class_groups',
+        verbose_name='Курс',
     )
     title = models.CharField(max_length=255, verbose_name='Название класса')
     students = models.ManyToManyField(

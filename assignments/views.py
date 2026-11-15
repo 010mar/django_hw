@@ -10,7 +10,7 @@ from django.views.decorators.http import require_POST
 
 from accounts.decorators import teacher_required
 from sandbox.runner import get_runner
-from tasks.models import Task, TaskBlock
+from tasks.models import Course, Task, TaskBlock
 
 from .forms import AssignmentForm, ClassForm
 from .models import Assignment, ClassGroup, Submission
@@ -45,13 +45,24 @@ def _with_attempt_numbers(queryset):
 
 @teacher_required
 def class_list(request):
-    classes = ClassGroup.objects.filter(teacher=request.user).prefetch_related('students')
+    classes = (
+        ClassGroup.objects
+        .filter(teacher=request.user)
+        .select_related('course')
+        .prefetch_related('students')
+    )
     return render(request, 'assignments/class_list.html', {'classes': classes})
 
 
 @teacher_required
 def class_create(request):
-    form = ClassForm(request.POST or None)
+    initial = {}
+    course_id = request.GET.get('course')
+    if course_id and course_id.isdigit():
+        course = Course.objects.filter(pk=course_id, author=request.user).first()
+        if course:
+            initial['course'] = course
+    form = ClassForm(request.POST or None, teacher=request.user, initial=initial)
     if request.method == 'POST' and form.is_valid():
         class_group = form.save(commit=False)
         class_group.teacher = request.user
@@ -63,16 +74,21 @@ def class_create(request):
 
 @teacher_required
 def class_detail(request, pk):
-    class_group = get_object_or_404(ClassGroup, pk=pk, teacher=request.user)
+    class_group = get_object_or_404(
+        ClassGroup.objects.select_related('course'), pk=pk, teacher=request.user,
+    )
     if request.method == 'POST':
-        form = ClassForm(request.POST, instance=class_group)
+        form = ClassForm(request.POST, instance=class_group, teacher=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, 'Класс обновлён.')
-        return redirect('class_detail', pk=class_group.pk)
+            return redirect('class_detail', pk=class_group.pk)
+    else:
+        form = ClassForm(instance=class_group, teacher=request.user)
     invite_url = request.build_absolute_uri(f'/classes/join/{class_group.invite_token}/')
     return render(request, 'assignments/class_detail.html', {
         'class_group': class_group,
+        'form': form,
         'invite_url': invite_url,
     })
 

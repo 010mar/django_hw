@@ -4,7 +4,16 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Класс {{ class_group.title }}</h2>
+    <div>
+        <h2 class="mb-1">Класс {{ class_group.title }}</h2>
+        <div class="text-muted">
+            {% if class_group.course %}
+                Курс: <a href="{% url 'course_detail' class_group.course.pk %}">{{ class_group.course.title }}</a>
+            {% else %}
+                Курс не указан
+            {% endif %}
+        </div>
+    </div>
     <div>
         <a href="{% url 'class_stats' class_group.pk %}" class="btn btn-outline-primary btn-sm">Статистика класса</a>
         <form method="post" action="{% url 'class_delete' class_group.pk %}" class="d-inline"
@@ -63,13 +72,27 @@
 
 <div class="card">
     <div class="card-body">
-        <h5 class="mb-3">Название класса</h5>
+        <h5 class="mb-3">Настройки класса</h5>
         <form method="post" action="{% url 'class_detail' class_group.pk %}">
             {% csrf_token %}
-            <div class="d-flex gap-2">
-                <input type="text" name="title" value="{{ class_group.title }}" class="form-control" required
-                       style="max-width: 300px;">
-                <button type="submit" class="btn btn-primary btn-sm">Сохранить</button>
+            <div class="row g-2 align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label">{{ form.course.label }}</label>
+                    {{ form.course }}
+                    {% if form.course.errors %}
+                        <div class="text-danger small mt-1">{{ form.course.errors.0 }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">{{ form.title.label }}</label>
+                    {{ form.title }}
+                    {% if form.title.errors %}
+                        <div class="text-danger small mt-1">{{ form.title.errors.0 }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Сохранить</button>
+                </div>
             </div>
         </form>
     </div>

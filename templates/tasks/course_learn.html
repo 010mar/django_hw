@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ course.title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h2 class="mb-1">{{ course.title }}</h2>
+        {% if course.description %}
+            <p class="text-muted mb-0">{{ course.description|linebreaksbr }}</p>
+        {% endif %}
+    </div>
+    {% if is_author %}
+        <a href="{% url 'course_detail' course.pk %}" class="btn btn-outline-secondary btn-sm">Управление курсом</a>
+    {% endif %}
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <h5 class="mb-3">{% if course.flat_modules %}Пробники{% else %}Программа курса{% endif %}</h5>
+        {% if course.flat_modules %}
+            <div class="list-group list-group-flush">
+                {% for item in items %}
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                        <div>
+                            {% if item.lesson %}
+                                <a href="{% url 'lesson_exam' item.lesson.pk %}{% if is_author %}?preview=1{% endif %}"
+                                   class="fw-semibold text-decoration-none">{{ item.lesson.title }}</a>
+                                <div class="text-muted small">{{ item.lesson.entries.count }} задач</div>
+                            {% else %}
+                                <span class="fw-semibold">{{ item.module.title }}</span>
+                                <div class="text-muted small">Материалы ещё не добавлены</div>
+                            {% endif %}
+                        </div>
+                        {% if item.lesson %}
+                            <div class="d-flex gap-2">
+                                <a href="{% url 'lesson_exam_result' item.lesson.pk %}{% if is_author %}?preview=1{% endif %}"
+                                   class="btn btn-sm btn-outline-secondary">Итоги</a>
+                                <a href="{% url 'lesson_exam' item.lesson.pk %}{% if is_author %}?preview=1{% endif %}"
+                                   class="btn btn-sm btn-primary">Открыть</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% empty %}
+                    <div class="text-muted">В курсе пока нет пробников.</div>
+                {% endfor %}
+            </div>
+        {% else %}
+            {% for module in modules %}
+                <div class="mb-4">
+                    <h6 class="mb-1">{{ forloop.counter }}. {{ module.title }}</h6>
+                    {% if module.description %}
+                        <div class="text-muted small mb-2">{{ module.description|linebreaksbr }}</div>
+                    {% endif %}
+                    <div class="list-group list-group-flush">
+                        {% for lesson in module.lessons.all %}
+                            <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <a href="{% url 'lesson_exam' lesson.pk %}{% if is_author %}?preview=1{% endif %}"
+                                       class="fw-semibold text-decoration-none">{{ lesson.title }}</a>
+                                    <div class="text-muted small">{{ lesson.entries.count }} задач</div>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <a href="{% url 'lesson_exam_result' lesson.pk %}{% if is_author %}?preview=1{% endif %}"
+                                       class="btn btn-sm btn-outline-secondary">Итоги</a>
+                                    <a href="{% url 'lesson_exam' lesson.pk %}{% if is_author %}?preview=1{% endif %}"
+                                       class="btn btn-sm btn-primary">Открыть</a>
+                                </div>
+                            </div>
+                        {% empty %}
+                            <div class="text-muted small">В модуле пока нет уроков.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% empty %}
+                <div class="text-muted">В курсе пока нет материалов.</div>
+            {% endfor %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

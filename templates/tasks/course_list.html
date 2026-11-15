@@ -22,12 +22,14 @@
                         {% else %}
                             Модулей: {{ course.modules.count }} · Уроков: {{ course.lesson_count }}
                         {% endif %}
+                        · Классов: {{ course.class_groups.count }}
                     </p>
                     {% if course.description %}
                         <p class="text-muted small mb-3">{{ course.description|truncatechars:120 }}</p>
                     {% endif %}
-                    <div class="d-flex gap-2">
+                    <div class="d-flex gap-2 flex-wrap">
                         <a href="{% url 'course_detail' course.pk %}" class="btn btn-sm btn-outline-primary">Открыть</a>
+                        <a href="{% url 'class_create' %}?course={{ course.pk }}" class="btn btn-sm btn-outline-success">Создать класс</a>
                         <a href="{% url 'course_edit' course.pk %}" class="btn btn-sm btn-outline-secondary">Настройки</a>
                         <form method="post" action="{% url 'course_delete' course.pk %}"
                               onsubmit="return confirm('Удалить курс «{{ course.title }}»? Все модули и уроки тоже будут удалены.');">

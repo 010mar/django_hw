@@ -1,6 +1,6 @@
 from django import forms
 
-from tasks.models import Lesson, Task
+from tasks.models import Course, Lesson, Task
 
 from .models import Assignment, ClassGroup
 
@@ -8,10 +8,17 @@ from .models import Assignment, ClassGroup
 class ClassForm(forms.ModelForm):
     class Meta:
         model = ClassGroup
-        fields = ('title',)
+        fields = ('course', 'title')
         widgets = {
+            'course': forms.Select(attrs={'class': 'form-select'}),
             'title': forms.TextInput(attrs={'class': 'form-control'}),
         }
+
+    def __init__(self, *args, teacher=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if teacher is not None:
+            self.fields['course'].queryset = Course.objects.filter(author=teacher)
+        self.fields['course'].required = True
 
 
 class AssignmentForm(forms.ModelForm):

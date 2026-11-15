@@ -274,7 +274,7 @@
             <span class="course-nav-disabled course-search">
                 <i class="bi bi-search"></i> Искать в курсе
             </span>
-            <a href="{% url 'class_create' %}" class="course-create-class">
+            <a href="{% url 'class_create' %}?course={{ course.pk }}" class="course-create-class">
                 <i class="bi bi-plus-lg"></i> Создать класс
             </a>
         </nav>
@@ -295,6 +295,30 @@
                     {% csrf_token %}
                     <button type="submit" class="btn btn-outline-danger btn-sm">Удалить курс</button>
                 </form>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">Классы курса</h5>
+                    <a href="{% url 'class_create' %}?course={{ course.pk }}" class="btn btn-primary btn-sm">Создать класс</a>
+                </div>
+                {% if course.class_groups.all %}
+                    <div class="list-group list-group-flush">
+                        {% for class_group in course.class_groups.all %}
+                            <a href="{% url 'class_detail' class_group.pk %}"
+                               class="list-group-item list-group-item-action d-flex justify-content-between align-items-center px-0">
+                                <span>{{ class_group.title }}</span>
+                                <span class="badge bg-secondary rounded-pill">{{ class_group.students.count }} уч.</span>
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-muted small">
+                        Для этого курса ещё нет классов. Создайте класс, чтобы записать учеников на курс.
+                    </div>
+                {% endif %}
             </div>
         </div>
 
