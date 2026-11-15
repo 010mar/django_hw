@@ -3,9 +3,6 @@
 {% block title %}Личный кабинет{% endblock %}
 
 {% block content %}
-<h2 class="mb-4">Здравствуйте, {{ user.get_full_name|default:user.username }}!</h2>
-<div class="alert alert-secondary">Ваша роль: <strong>{{ user.role_verbose }}</strong></div>
-
 {% if user.is_teacher %}
     <div class="row g-3">
         <div class="col-md-4">
