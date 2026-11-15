@@ -142,6 +142,19 @@
         <div class="card mb-3">
             <div class="card-body">
                 <h5 class="mb-3">Добавить задачу</h5>
+                <form method="post" action="{% url 'lesson_mode_update' lesson.pk %}" class="mb-3">
+                    {% csrf_token %}
+                    <label class="form-label" for="id_lesson_mode">Режим пробника</label>
+                    <div class="d-flex gap-2">
+                        <select name="mode" id="id_lesson_mode" class="form-select">
+                            <option value="exam" {% if lesson.mode == 'exam' %}selected{% endif %}>Экзамен</option>
+                            <option value="training" {% if lesson.mode == 'training' %}selected{% endif %}>Тренировка</option>
+                        </select>
+                        <button type="submit" class="btn btn-outline-primary">ОК</button>
+                    </div>
+                    <div class="form-text">В тренировке результат виден сразу после ответа.</div>
+                </form>
+                <hr>
                 <form method="get" action="{% url 'lesson_detail' lesson.pk %}" id="add-task-form">
                     <div class="mb-3">
                         <label class="form-label" for="id_bank">База задач</label>

@@ -297,11 +297,10 @@ class CourseModuleForm(forms.ModelForm):
 class LessonForm(forms.ModelForm):
     class Meta:
         model = Lesson
-        fields = ('title', 'description', 'mode')
+        fields = ('title', 'description')
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'mode': forms.Select(attrs={'class': 'form-select'}),
         }
 
 

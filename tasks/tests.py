@@ -167,6 +167,20 @@ class LessonViewTests(DjangoTestCase):
         })
         self.assertRedirects(response, reverse('lesson_detail', args=[Lesson.objects.latest('id').pk]))
 
+    def test_lesson_mode_is_changed_from_lesson_detail(self):
+        self.client.force_login(self.teacher)
+        response = self.client.get(reverse('lesson_detail', args=[self.lesson.pk]))
+        self.assertContains(response, 'Режим пробника')
+        response = self.client.post(
+            reverse('lesson_mode_update', args=[self.lesson.pk]),
+            {'mode': Lesson.Mode.TRAINING},
+        )
+        self.assertRedirects(
+            response, reverse('lesson_detail', args=[self.lesson.pk]),
+        )
+        self.lesson.refresh_from_db()
+        self.assertEqual(self.lesson.mode, Lesson.Mode.TRAINING)
+
     def test_add_and_remove_task(self):
         self.client.force_login(self.teacher)
         self.client.post(

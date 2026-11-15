@@ -8,6 +8,7 @@ from django.db.models import Max, Prefetch, Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.views.decorators.http import require_POST
 from PIL import Image
 
 from accounts.decorators import teacher_required
@@ -735,6 +736,18 @@ def lesson_edit(request, pk):
         messages.success(request, 'Урок обновлён.')
         return redirect('lesson_detail', pk=lesson.pk)
     return render(request, 'tasks/lesson_form.html', {'form': form, 'is_create': False, 'lesson': lesson})
+
+
+@require_POST
+@teacher_required
+def lesson_mode_update(request, pk):
+    lesson = get_object_or_404(Lesson, pk=pk, author=request.user)
+    mode = request.POST.get('mode')
+    if mode in Lesson.Mode.values:
+        lesson.mode = mode
+        lesson.save(update_fields=['mode'])
+        messages.success(request, 'Режим пробника обновлён.')
+    return redirect('lesson_detail', pk=lesson.pk)
 
 
 @teacher_required
