@@ -154,6 +154,7 @@ LOGIN_REDIRECT_URL = 'home'
 LOGIN_URL = 'account_login'
 LOGOUT_REDIRECT_URL = 'home'
 
+ACCOUNT_SESSION_REMEMBER = True
 ACCOUNT_LOGIN_METHODS = {'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'first_name*', 'last_name*', 'password1*', 'password2*']
 ACCOUNT_EMAIL_VERIFICATION = os.environ.get('DJANGO_EMAIL_VERIFICATION', 'mandatory')
