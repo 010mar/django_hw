@@ -810,6 +810,7 @@ def _lesson_latest_submissions(lesson, user):
 def lesson_exam(request, pk):
     lesson, course = _get_exam_lesson(request, pk)
     tasks = lesson.tasks_ordered
+    training = lesson.mode == Lesson.Mode.TRAINING
     preview = (
         request.GET.get('preview') == '1'
         and lesson.author_id == request.user.pk
@@ -821,6 +822,7 @@ def lesson_exam(request, pk):
             'tasks': [],
             'task_count': 0,
             'preview': preview,
+            'training': training,
         })
 
     task_index = _parse_id(request.GET.get('task')) or 1
@@ -863,19 +865,39 @@ def lesson_exam(request, pk):
         latest_by_task = _lesson_latest_submissions(lesson, request.user)
     answered_ids = set(latest_by_task)
     latest = latest_by_task.get(current_task.pk)
+    task_states = {}
+    for task_id, submission in latest_by_task.items():
+        if submission.is_solved:
+            task_states[task_id] = 'correct'
+        elif submission.score > 0:
+            task_states[task_id] = 'partial'
+        else:
+            task_states[task_id] = 'incorrect'
+    latest_state = task_states.get(current_task.pk)
 
     gap_blocks = []
     gap_grid = None
     if current_task.type == Task.Type.GAP:
-        from assignments.views import (
-            _decorate_gap_grid,
-            _gap_block_items,
-            _gap_grid,
-        )
+        from assignments.views import _gap_block_items, _gap_grid
 
         gap_blocks = _gap_block_items(current_task)
         gap_grid = _gap_grid(gap_blocks)
-        _decorate_gap_grid(gap_grid, current_task, latest)
+        if latest:
+            answers = latest.gap_answers or {}
+            for row in gap_grid['rows']:
+                for cell in row['cells']:
+                    if not cell:
+                        continue
+                    value = answers.get(str(cell['number']), '')
+                    cell['answer'] = value
+                    if training and value:
+                        cell['state'] = (
+                            'valid'
+                            if current_task.is_gap_answer_correct(
+                                cell['number'], value,
+                            )
+                            else 'invalid'
+                        )
 
     return render(request, 'tasks/lesson_exam.html', {
         'lesson': lesson,
@@ -885,6 +907,8 @@ def lesson_exam(request, pk):
         'task_count': len(tasks),
         'current_task': current_task,
         'latest': latest,
+        'latest_state': latest_state,
+        'task_states': task_states,
         'answered_count': len(answered_ids),
         'answered_ids': answered_ids,
         'prev_index': task_index - 1 if task_index > 1 else None,
@@ -893,6 +917,7 @@ def lesson_exam(request, pk):
         'gap_grid': gap_grid,
         'saved': request.GET.get('saved') == '1',
         'preview': preview,
+        'training': training,
     })
 
 

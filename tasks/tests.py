@@ -163,6 +163,7 @@ class LessonViewTests(DjangoTestCase):
         response = self.client.post(reverse('lesson_create'), {
             'title': 'Новый урок',
             'description': 'Описание',
+            'mode': Lesson.Mode.EXAM,
         })
         self.assertRedirects(response, reverse('lesson_detail', args=[Lesson.objects.latest('id').pk]))
 
@@ -647,6 +648,66 @@ class LessonExamTests(DjangoTestCase):
         self.assertIn('<div class="answer-pairs">', html)
         self.assertIn('<span>4</span>', html)
         self.assertIn('<span>a</span>', html)
+
+    def test_exam_mode_hides_result_before_finish(self):
+        self.client.post(
+            reverse('lesson_exam', args=[self.lesson.pk]) + '?task=1',
+            {'task_id': self.text_task.pk, 'answer_text': '42'},
+        )
+        response = self.client.get(
+            reverse('lesson_exam', args=[self.lesson.pk]) + '?task=1',
+        )
+        self.assertFalse(response.context['training'])
+        self.assertNotContains(response, 'Правильный ответ')
+        self.assertNotContains(response, 'exam-task-btn answered correct')
+        result = self.client.get(
+            reverse('lesson_exam_result', args=[self.lesson.pk]),
+        )
+        self.assertContains(result, 'Правильный ответ')
+
+    def test_training_mode_shows_result_and_green_mark(self):
+        self.lesson.mode = Lesson.Mode.TRAINING
+        self.lesson.save(update_fields=['mode'])
+        self.client.post(
+            reverse('lesson_exam', args=[self.lesson.pk]) + '?task=1',
+            {'task_id': self.text_task.pk, 'answer_text': '42'},
+        )
+        response = self.client.get(
+            reverse('lesson_exam', args=[self.lesson.pk]) + '?task=1',
+        )
+        self.assertTrue(response.context['training'])
+        self.assertContains(response, 'Верно')
+        self.assertContains(response, 'exam-result-correct')
+        self.assertContains(response, 'exam-task-btn answered correct')
+        self.assertContains(response, 'Итоги')
+
+    def test_training_mode_marks_partial_and_wrong_answers(self):
+        self.lesson.mode = Lesson.Mode.TRAINING
+        self.lesson.save(update_fields=['mode'])
+        TaskBlock.objects.create(
+            task=self.gap_task, kind=TaskBlock.Kind.GAP, answers='9', order=1,
+        )
+        self.gap_task.score_by_cells = True
+        self.gap_task.save(update_fields=['score_by_cells'])
+        self.client.post(
+            reverse('lesson_exam', args=[self.lesson.pk]) + '?task=2',
+            {'task_id': self.gap_task.pk, 'gap_1': '4', 'gap_2': '8'},
+        )
+        response = self.client.get(
+            reverse('lesson_exam', args=[self.lesson.pk]) + '?task=2',
+        )
+        self.assertContains(response, 'Частично верно')
+        self.assertContains(response, 'exam-result-partial')
+        self.assertContains(response, 'exam-task-btn answered partial')
+        self.client.post(
+            reverse('lesson_exam', args=[self.lesson.pk]) + '?task=2',
+            {'task_id': self.gap_task.pk, 'gap_1': '0', 'gap_2': '0'},
+        )
+        response = self.client.get(
+            reverse('lesson_exam', args=[self.lesson.pk]) + '?task=2',
+        )
+        self.assertContains(response, 'Неверно')
+        self.assertContains(response, 'exam-task-btn answered incorrect')
 
     def test_author_can_preview_exam_without_exam_mode(self):
         self.course.exam_mode = False

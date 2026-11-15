@@ -499,6 +499,10 @@ class CourseModule(models.Model):
 
 
 class Lesson(models.Model):
+    class Mode(models.TextChoices):
+        EXAM = 'exam', 'Экзамен'
+        TRAINING = 'training', 'Тренировка'
+
     module = models.ForeignKey(
         CourseModule,
         on_delete=models.CASCADE,
@@ -509,6 +513,14 @@ class Lesson(models.Model):
     )
     title = models.CharField(max_length=255, verbose_name='Название урока')
     description = models.TextField(blank=True, verbose_name='Описание')
+    mode = models.CharField(
+        max_length=16,
+        choices=Mode.choices,
+        default=Mode.EXAM,
+        verbose_name='Режим пробника',
+        help_text='В режиме экзамена результат показывается после завершения, '
+                  'в режиме тренировки — сразу после ответа',
+    )
     order = models.PositiveIntegerField(default=0, verbose_name='Порядок')
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,

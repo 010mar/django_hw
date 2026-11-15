@@ -1,10 +1,10 @@
-{% load task_filters %}
+{% load task_filters dicts %}
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ lesson.title }} — экзамен</title>
+    <title>{{ lesson.title }} — {% if training %}тренировка{% else %}экзамен{% endif %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     {% include 'tasks/_katex_head.html' %}
@@ -153,6 +153,25 @@
             border-color: #1f3864;
             color: #fff;
             font-weight: 600;
+            box-shadow: inset 0 0 0 3px rgba(31, 56, 100, .9);
+        }
+        .exam-task-btn.correct,
+        .exam-task-btn.correct:hover {
+            background: #6fbf73;
+            border-color: #5aa85e;
+            color: #fff;
+        }
+        .exam-task-btn.partial,
+        .exam-task-btn.partial:hover {
+            background: #f2c94c;
+            border-color: #dfb43f;
+            color: #3b2e00;
+        }
+        .exam-task-btn.incorrect,
+        .exam-task-btn.incorrect:hover {
+            background: #ec7a7a;
+            border-color: #d96565;
+            color: #fff;
         }
         .exam-main {
             position: relative;
@@ -287,6 +306,28 @@
             background: #e6f7f2;
             color: #007a6c;
             font-size: 14px;
+        }
+        .exam-result {
+            margin-bottom: 16px;
+            padding: 10px 14px;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            font-size: 15px;
+        }
+        .exam-result-correct {
+            background: #e6f7ea;
+            border-color: #b7e4c0;
+            color: #1e7a34;
+        }
+        .exam-result-partial {
+            background: #fff7e0;
+            border-color: #f2d675;
+            color: #8a6d00;
+        }
+        .exam-result-incorrect {
+            background: #fdecec;
+            border-color: #f3b6b6;
+            color: #b02a2a;
         }
         .exam-preview-banner {
             margin-bottom: 16px;
@@ -433,11 +474,14 @@
         <span class="exam-id">БР № {{ request.user.pk }}</span>
     </div>
     <div class="exam-topbar-right">
-        <a href="{% url 'lesson_exam_result' lesson.pk %}{% if preview %}?preview=1{% endif %}">Завершить экзамен досрочно</a>
+        <a href="{% url 'lesson_exam_result' lesson.pk %}{% if preview %}?preview=1{% endif %}"
+           {% if not training %}onclick="return confirm('Завершить пробник и посмотреть результаты?');"{% endif %}>
+            {% if training %}Итоги{% else %}Завершить пробник{% endif %}
+        </a>
         {% if preview %}
             <a href="{% url 'lesson_detail' lesson.pk %}">← К уроку</a>
         {% endif %}
-        <span class="exam-icon" title="Экзаменационный режим">?</span>
+        <span class="exam-icon" title="{% if training %}Режим тренировки{% else %}Экзаменационный режим{% endif %}">?</span>
         <a href="{% url 'home' %}" class="exam-icon" title="Свернуть">&#8211;</a>
         <a href="{% url 'home' %}" class="exam-icon" title="Закрыть">&#215;</a>
     </div>
@@ -452,10 +496,12 @@
                 <a href="#" class="exam-scroll-btn" id="exam-scroll-top" aria-label="Вверх">&uarr;</a>
                 <div class="exam-task-list" id="exam-task-list">
                     {% for item in tasks %}
-                        <a href="{% url 'lesson_exam' lesson.pk %}?task={{ forloop.counter }}{% if preview %}&preview=1{% endif %}"
-                           class="exam-task-btn{% if item.pk in answered_ids %} answered{% endif %}{% if forloop.counter == task_index %} active{% endif %}">
-                            {{ forloop.counter }}
-                        </a>
+                        {% with state=task_states|get_item:item.pk %}
+                            <a href="{% url 'lesson_exam' lesson.pk %}?task={{ forloop.counter }}{% if preview %}&preview=1{% endif %}"
+                               class="exam-task-btn{% if item.pk in answered_ids %} answered{% endif %}{% if training and state %} {{ state }}{% endif %}{% if forloop.counter == task_index %} active{% endif %}">
+                                {{ forloop.counter }}
+                            </a>
+                        {% endwith %}
                     {% endfor %}
                 </div>
                 <a href="#" class="exam-scroll-btn" id="exam-scroll-bottom" aria-label="Вниз">&darr;</a>
@@ -477,8 +523,22 @@
                                 Просмотр как ученик. Ответы в этом режиме не сохраняются.
                             </div>
                         {% endif %}
-                        {% if saved %}
+                        {% if saved and not training %}
                             <div class="exam-saved">Ответ сохранён</div>
+                        {% endif %}
+                        {% if training and latest %}
+                            <div class="exam-result exam-result-{{ latest_state }}">
+                                <strong>
+                                    {% if latest_state == 'correct' %}Верно{% elif latest_state == 'partial' %}Частично верно{% else %}Неверно{% endif %}
+                                </strong>
+                                <span class="ms-2">{{ latest.score|floatformat:"-2" }} из {{ current_task.points }} б.</span>
+                                {% if latest_state != 'correct' and current_task.type == 'text' and current_task.answer_mode != 'choice' and current_task.correct_answer %}
+                                    <div class="small mt-1">Правильный ответ: {{ current_task.correct_answer }}</div>
+                                {% endif %}
+                                {% if latest.details %}
+                                    <div class="small mt-1">{{ latest.details|linebreaksbr }}</div>
+                                {% endif %}
+                            </div>
                         {% endif %}
                         <h1 class="exam-task-title">
                             Задание {{ task_index }}{% if current_task.task_number %} (№{{ current_task.task_number }}){% endif %}.
