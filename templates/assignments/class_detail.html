@@ -202,6 +202,20 @@
             <div class="tab-pane fade{% if active_tab == 'students' %} show active{% endif %}" id="tab-students" role="tabpanel">
                 <div class="card mb-4">
                     <div class="card-body">
+                        <h5 class="mb-3">Ссылка-приглашение</h5>
+                        <p class="text-muted small">Отправьте эту ссылку ученику. По ней он сможет вступить в класс.</p>
+                        <div class="input-group">
+                            <input type="text" class="form-control" value="{{ invite_url }}" id="invite-link" readonly>
+                            <button class="btn btn-outline-secondary" type="button"
+                                    onclick="navigator.clipboard.writeText(document.getElementById('invite-link').value).then(()=>this.textContent='Скопировано!')">
+                                Копировать
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
                         <h5 class="mb-3">Ученики ({{ students|length }})</h5>
                         {% for student in students %}
                             <div class="d-flex justify-content-between align-items-center list-group-item">
@@ -217,32 +231,6 @@
                         {% empty %}
                             <div class="text-muted">В классе пока нет учеников.</div>
                         {% endfor %}
-                    </div>
-                </div>
-
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <h5 class="mb-3">Добавить ученика</h5>
-                        <form method="post" action="{% url 'class_add_student' class_group.pk %}" class="d-flex gap-2">
-                            {% csrf_token %}
-                            <input type="text" name="username" class="form-control" placeholder="Логин ученика" required
-                                   style="max-width: 300px;">
-                            <button type="submit" class="btn btn-primary btn-sm">Добавить</button>
-                        </form>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="mb-3">Ссылка-приглашение</h5>
-                        <p class="text-muted small">Отправьте эту ссылку ученику. По ней он сможет вступить в класс.</p>
-                        <div class="input-group">
-                            <input type="text" class="form-control" value="{{ invite_url }}" id="invite-link" readonly>
-                            <button class="btn btn-outline-secondary" type="button"
-                                    onclick="navigator.clipboard.writeText(document.getElementById('invite-link').value).then(()=>this.textContent='Скопировано!')">
-                                Копировать
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
