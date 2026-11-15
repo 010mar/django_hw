@@ -4,13 +4,14 @@ from decimal import ROUND_HALF_UP, Decimal
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, IntegerField, OuterRef, Q, Subquery
+from django.db.models import Count, IntegerField, OuterRef, Prefetch, Q, Subquery
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from accounts.decorators import teacher_required
 from sandbox.runner import get_runner
-from tasks.models import Course, Task, TaskBlock
+from tasks.models import Course, Lesson, LessonTask, Task, TaskBlock
 
 from .forms import AssignmentForm, ClassForm
 from .models import Assignment, ClassGroup, Submission
@@ -72,6 +73,44 @@ def class_create(request):
     return render(request, 'assignments/class_form.html', {'form': form, 'is_create': True})
 
 
+def _class_course_tasks(course):
+    if course is None:
+        return []
+    modules = (
+        course.modules
+        .order_by('order', 'id')
+        .prefetch_related(
+            Prefetch(
+                'lessons',
+                queryset=(
+                    Lesson.objects
+                    .order_by('order', 'created_at')
+                    .prefetch_related(
+                        Prefetch(
+                            'entries',
+                            queryset=(
+                                LessonTask.objects
+                                .select_related('task')
+                                .order_by('order', 'id')
+                            ),
+                        )
+                    )
+                ),
+            )
+        )
+    )
+    tasks = []
+    seen = set()
+    for module in modules:
+        for lesson in module.lessons.all():
+            for entry in lesson.entries.all():
+                if entry.task_id in seen:
+                    continue
+                seen.add(entry.task_id)
+                tasks.append(entry.task)
+    return tasks
+
+
 @teacher_required
 def class_detail(request, pk):
     class_group = get_object_or_404(
@@ -82,14 +121,55 @@ def class_detail(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, 'Класс обновлён.')
-            return redirect('class_detail', pk=class_group.pk)
+            return redirect(
+                f'{reverse("class_detail", args=[class_group.pk])}?tab=settings'
+            )
     else:
         form = ClassForm(instance=class_group, teacher=request.user)
+    active_tab = 'settings' if request.method == 'POST' else request.GET.get('tab', 'grades')
+    if active_tab not in ('settings', 'grades', 'students'):
+        active_tab = 'grades'
+    students = list(
+        class_group.students.order_by('last_name', 'first_name', 'username')
+    )
+    tasks = _class_course_tasks(class_group.course)
+    latest = {}
+    if tasks and students:
+        submissions = (
+            Submission.objects
+            .filter(student__in=students, task__in=tasks)
+            .filter(
+                Q(assignment__class_group=class_group)
+                | Q(lesson__module__course=class_group.course)
+            )
+            .select_related('student', 'task')
+            .order_by('-created_at')
+        )
+        for submission in submissions:
+            latest.setdefault(
+                (submission.task_id, submission.student_id), submission,
+            )
+    task_rows = []
+    for number, task in enumerate(tasks, start=1):
+        task_rows.append({
+            'number': number,
+            'task': task,
+            'rows': [
+                {
+                    'student': student,
+                    'submission': latest.get((task.pk, student.pk)),
+                }
+                for student in students
+            ],
+        })
     invite_url = request.build_absolute_uri(f'/classes/join/{class_group.invite_token}/')
     return render(request, 'assignments/class_detail.html', {
         'class_group': class_group,
         'form': form,
         'invite_url': invite_url,
+        'students': students,
+        'task_rows': task_rows,
+        'active_tab': active_tab,
     })
 
 

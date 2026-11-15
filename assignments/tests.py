@@ -11,6 +11,7 @@ from django.utils import timezone
 from tasks.models import (
     AnswerOption,
     Course,
+    CourseModule,
     Lesson,
     LessonTask,
     Task,
@@ -514,3 +515,42 @@ class ClassCourseTests(DjangoTestCase):
         response = self.client.get(reverse('course_detail', args=[self.course.pk]))
         self.assertContains(response, 'Классы курса')
         self.assertContains(response, '9А')
+
+    def test_class_page_has_sections_and_task_results(self):
+        module = CourseModule.objects.create(
+            course=self.course, title='Модуль', order=1,
+        )
+        lesson = Lesson.objects.create(
+            module=module, title='Урок', author=self.teacher, order=1,
+        )
+        task = Task.objects.create(title='Задача', author=self.teacher)
+        LessonTask.objects.create(lesson=lesson, task=task, order=1)
+        Submission.objects.create(
+            lesson=lesson, task=task, student=self.student,
+            status=Submission.Status.CORRECT, answer_text='42',
+        )
+        class_group = ClassGroup.objects.create(
+            teacher=self.teacher, course=self.course, title='9А',
+        )
+        class_group.students.add(self.student)
+        self.client.force_login(self.teacher)
+        response = self.client.get(
+            reverse('class_detail', args=[class_group.pk]),
+        )
+        self.assertEqual(response.context['active_tab'], 'grades')
+        self.assertContains(response, 'Настройки класса')
+        self.assertContains(response, 'Оценки и решения')
+        self.assertContains(response, 'Учащиеся (1)')
+        self.assertContains(response, 'Задание 1')
+        self.assertContains(response, 'Верно')
+        self.assertContains(response, '42')
+
+    def test_class_page_opens_requested_tab(self):
+        class_group = ClassGroup.objects.create(
+            teacher=self.teacher, course=self.course, title='9А',
+        )
+        self.client.force_login(self.teacher)
+        response = self.client.get(
+            f'{reverse("class_detail", args=[class_group.pk])}?tab=students',
+        )
+        self.assertEqual(response.context['active_tab'], 'students')

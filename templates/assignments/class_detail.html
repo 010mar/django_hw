@@ -2,10 +2,48 @@
 
 {% block title %}Класс {{ class_group.title }}{% endblock %}
 
+{% block extra_head %}
+<style>
+    .class-nav .nav-link {
+        color: #212529;
+        padding: .35rem 0;
+        text-align: left;
+    }
+    .class-nav .nav-link:hover {
+        color: #198754;
+    }
+    .class-nav .nav-link.active {
+        color: #198754;
+        background: transparent;
+        font-weight: 600;
+    }
+    .class-tasks .accordion-button {
+        color: #212529;
+        background: #fff;
+        box-shadow: none;
+    }
+    .class-tasks .accordion-button:not(.collapsed) {
+        color: #198754;
+        background: #fff;
+    }
+    .class-tasks .accordion-button:focus {
+        box-shadow: none;
+    }
+    .class-tasks .task-number {
+        color: #8a8f98;
+        min-width: 1.75rem;
+        display: inline-block;
+    }
+    .class-tasks .accordion-body {
+        padding: 0;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-start mb-4">
     <div>
-        <h2 class="mb-1">Класс {{ class_group.title }}</h2>
+        <h2 class="mb-1">{{ class_group.title }}</h2>
         <div class="text-muted">
             {% if class_group.course %}
                 Курс: <a href="{% url 'course_detail' class_group.course.pk %}">{{ class_group.course.title }}</a>
@@ -14,87 +52,203 @@
             {% endif %}
         </div>
     </div>
-    <div>
-        <a href="{% url 'class_stats' class_group.pk %}" class="btn btn-outline-primary btn-sm">Статистика класса</a>
-        <form method="post" action="{% url 'class_delete' class_group.pk %}" class="d-inline"
-              onsubmit="return confirm('Удалить класс?');">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-outline-danger btn-sm">Удалить</button>
-        </form>
-    </div>
+    <a href="{% url 'class_stats' class_group.pk %}" class="btn btn-outline-primary btn-sm">Статистика класса</a>
 </div>
 
-<div class="card mb-4">
-    <div class="card-body">
-        <h5 class="mb-3">Ученики ({{ class_group.students.count }})</h5>
-        {% for student in class_group.students.all %}
-            <div class="d-flex justify-content-between align-items-center list-group-item">
-                <a href="{% url 'student_stats' student.pk %}">
-                    {{ student.get_full_name|default:student.username }}
-                </a>
-                <form method="post" action="{% url 'class_remove_student' class_group.pk student.pk %}" class="d-inline">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-sm btn-outline-danger"
-                            onclick="return confirm('Удалить {{ student.username }} из класса?');">✕</button>
-                </form>
+<div class="row g-4">
+    <div class="col-md-3">
+        <ul class="nav flex-column class-nav" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link{% if active_tab == 'settings' %} active{% endif %}"
+                        type="button" role="tab" data-bs-toggle="tab" data-bs-target="#tab-settings">
+                    Настройки класса
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link{% if active_tab == 'grades' %} active{% endif %}"
+                        type="button" role="tab" data-bs-toggle="tab" data-bs-target="#tab-grades">
+                    Оценки и решения
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link{% if active_tab == 'students' %} active{% endif %}"
+                        type="button" role="tab" data-bs-toggle="tab" data-bs-target="#tab-students">
+                    Учащиеся ({{ students|length }})
+                </button>
+            </li>
+        </ul>
+    </div>
+
+    <div class="col-md-9">
+        <div class="tab-content">
+            <div class="tab-pane fade{% if active_tab == 'settings' %} show active{% endif %}" id="tab-settings" role="tabpanel">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="mb-3">Настройки класса</h5>
+                        <form method="post" action="{% url 'class_detail' class_group.pk %}">
+                            {% csrf_token %}
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-5">
+                                    <label class="form-label">{{ form.course.label }}</label>
+                                    {{ form.course }}
+                                    {% if form.course.errors %}
+                                        <div class="text-danger small mt-1">{{ form.course.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label">{{ form.title.label }}</label>
+                                    {{ form.title }}
+                                    {% if form.title.errors %}
+                                        <div class="text-danger small mt-1">{{ form.title.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-2">
+                                    <button type="submit" class="btn btn-primary w-100">Сохранить</button>
+                                </div>
+                            </div>
+                        </form>
+                        <hr>
+                        <form method="post" action="{% url 'class_delete' class_group.pk %}"
+                              onsubmit="return confirm('Удалить класс?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger btn-sm">Удалить класс</button>
+                        </form>
+                    </div>
+                </div>
             </div>
-        {% empty %}
-            <div class="text-muted">В классе пока нет учеников.</div>
-        {% endfor %}
-    </div>
-</div>
 
-<div class="card mb-4">
-    <div class="card-body">
-        <h5 class="mb-3">Добавить ученика</h5>
-        <form method="post" action="{% url 'class_add_student' class_group.pk %}" class="d-flex gap-2">
-            {% csrf_token %}
-            <input type="text" name="username" class="form-control" placeholder="Логин ученика" required
-                   style="max-width: 300px;">
-            <button type="submit" class="btn btn-primary btn-sm">Добавить</button>
-        </form>
-    </div>
-</div>
+            <div class="tab-pane fade{% if active_tab == 'grades' %} show active{% endif %}" id="tab-grades" role="tabpanel">
+                <div class="d-flex flex-wrap gap-2 mb-4">
+                    <button type="button" class="btn btn-success">Табель успеваемости</button>
+                    <button type="button" class="btn btn-outline-success">Сформировать отчёт</button>
+                </div>
 
-<div class="card mb-4">
-    <div class="card-body">
-        <h5 class="mb-3">Ссылка-приглашение</h5>
-        <p class="text-muted small">Отправьте эту ссылку ученику. По ней он сможет вступить в класс.</p>
-        <div class="input-group">
-            <input type="text" class="form-control" value="{{ invite_url }}" id="invite-link" readonly>
-            <button class="btn btn-outline-secondary" type="button"
-                    onclick="navigator.clipboard.writeText(document.getElementById('invite-link').value).then(()=>this.textContent='Скопировано!')">
-                Копировать
-            </button>
+                {% if task_rows %}
+                    <div class="accordion accordion-flush class-tasks" id="classTasksAccordion">
+                        {% for item in task_rows %}
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#class-task-{{ item.task.pk }}">
+                                        <span class="task-number">{{ item.number }}</span>
+                                        Задание {{ item.number }}
+                                    </button>
+                                </h2>
+                                <div id="class-task-{{ item.task.pk }}" class="accordion-collapse collapse"
+                                     data-bs-parent="#classTasksAccordion">
+                                    <div class="accordion-body">
+                                        <table class="table table-sm align-middle mb-0">
+                                            <thead>
+                                            <tr>
+                                                <th>Ученик</th>
+                                                <th style="width: 140px;">Статус</th>
+                                                <th style="width: 80px;">Баллы</th>
+                                                <th>Ответ</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            {% for row in item.rows %}
+                                                <tr>
+                                                    <td>
+                                                        <a href="{% url 'student_stats' row.student.pk %}">
+                                                            {{ row.student.get_full_name|default:row.student.username }}
+                                                        </a>
+                                                    </td>
+                                                    {% if row.submission %}
+                                                        <td>
+                                                            {% if row.submission.is_solved %}
+                                                                <span class="badge bg-success">Верно</span>
+                                                            {% elif row.submission.status == 'pending' %}
+                                                                <span class="badge bg-warning text-dark">На проверке</span>
+                                                            {% else %}
+                                                                <span class="badge bg-danger">{{ row.submission.get_status_display }}</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td>{{ row.submission.score|floatformat:"-2" }}</td>
+                                                        <td class="small">
+                                                            {% if row.submission.answer_text %}
+                                                                {{ row.submission.answer_text|truncatechars:60 }}
+                                                            {% elif row.submission.code %}
+                                                                <code>{{ row.submission.code|truncatechars:60 }}</code>
+                                                            {% elif row.submission.gap_answers %}
+                                                                {% for key, value in row.submission.gap_answers.items %}{{ value }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                                                            {% else %}
+                                                                <span class="text-muted">—</span>
+                                                            {% endif %}
+                                                        </td>
+                                                    {% else %}
+                                                        <td class="text-muted">нет решения</td>
+                                                        <td></td>
+                                                        <td></td>
+                                                    {% endif %}
+                                                </tr>
+                                            {% empty %}
+                                                <tr>
+                                                    <td colspan="4" class="text-center text-muted py-3">В классе нет учеников.</td>
+                                                </tr>
+                                            {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-secondary">
+                        В курсе этого класса пока нет заданий.
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="tab-pane fade{% if active_tab == 'students' %} show active{% endif %}" id="tab-students" role="tabpanel">
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="mb-3">Ученики ({{ students|length }})</h5>
+                        {% for student in students %}
+                            <div class="d-flex justify-content-between align-items-center list-group-item">
+                                <a href="{% url 'student_stats' student.pk %}">
+                                    {{ student.get_full_name|default:student.username }}
+                                </a>
+                                <form method="post" action="{% url 'class_remove_student' class_group.pk student.pk %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                                            onclick="return confirm('Удалить {{ student.username }} из класса?');">✕</button>
+                                </form>
+                            </div>
+                        {% empty %}
+                            <div class="text-muted">В классе пока нет учеников.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="mb-3">Добавить ученика</h5>
+                        <form method="post" action="{% url 'class_add_student' class_group.pk %}" class="d-flex gap-2">
+                            {% csrf_token %}
+                            <input type="text" name="username" class="form-control" placeholder="Логин ученика" required
+                                   style="max-width: 300px;">
+                            <button type="submit" class="btn btn-primary btn-sm">Добавить</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="mb-3">Ссылка-приглашение</h5>
+                        <p class="text-muted small">Отправьте эту ссылку ученику. По ней он сможет вступить в класс.</p>
+                        <div class="input-group">
+                            <input type="text" class="form-control" value="{{ invite_url }}" id="invite-link" readonly>
+                            <button class="btn btn-outline-secondary" type="button"
+                                    onclick="navigator.clipboard.writeText(document.getElementById('invite-link').value).then(()=>this.textContent='Скопировано!')">
+                                Копировать
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
-</div>
-
-<div class="card">
-    <div class="card-body">
-        <h5 class="mb-3">Настройки класса</h5>
-        <form method="post" action="{% url 'class_detail' class_group.pk %}">
-            {% csrf_token %}
-            <div class="row g-2 align-items-end">
-                <div class="col-md-5">
-                    <label class="form-label">{{ form.course.label }}</label>
-                    {{ form.course }}
-                    {% if form.course.errors %}
-                        <div class="text-danger small mt-1">{{ form.course.errors.0 }}</div>
-                    {% endif %}
-                </div>
-                <div class="col-md-5">
-                    <label class="form-label">{{ form.title.label }}</label>
-                    {{ form.title }}
-                    {% if form.title.errors %}
-                        <div class="text-danger small mt-1">{{ form.title.errors.0 }}</div>
-                    {% endif %}
-                </div>
-                <div class="col-md-2">
-                    <button type="submit" class="btn btn-primary w-100">Сохранить</button>
-                </div>
-            </div>
-        </form>
     </div>
 </div>
 {% endblock %}
