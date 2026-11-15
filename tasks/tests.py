@@ -790,11 +790,9 @@ class LessonExamTests(DjangoTestCase):
         response = self.client.get(
             reverse('lesson_exam', args=[self.lesson.pk]) + '?task=2',
         )
-        self.assertContains(response, 'gap-feedback')
-        self.assertContains(response, 'Пропуск 1')
-        self.assertContains(response, 'Пропуск 2')
-        self.assertContains(response, 'badge bg-success">верно')
-        self.assertContains(response, 'badge bg-danger">неверно')
+        self.assertContains(response, 'is-valid')
+        self.assertContains(response, 'is-invalid')
+        self.assertNotContains(response, 'gap-feedback')
         self.assertContains(response, 'exam-task-btn answered partial')
         self.client.post(
             reverse('lesson_exam', args=[self.lesson.pk]) + '?task=2',
@@ -803,7 +801,7 @@ class LessonExamTests(DjangoTestCase):
         response = self.client.get(
             reverse('lesson_exam', args=[self.lesson.pk]) + '?task=2',
         )
-        self.assertContains(response, 'badge bg-danger">неверно')
+        self.assertContains(response, 'is-invalid')
         self.assertContains(response, 'exam-task-btn answered incorrect')
 
     def test_author_can_preview_exam_without_exam_mode(self):
