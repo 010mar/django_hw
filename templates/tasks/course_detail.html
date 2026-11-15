@@ -213,6 +213,33 @@
     .course-flat-list .course-lesson:first-child {
         border-top: 0;
     }
+    .course-lesson .drag-handle {
+        display: none;
+        cursor: grab;
+        padding: .15rem .45rem;
+        line-height: 1;
+    }
+    .course-lesson .edit-title {
+        display: none;
+    }
+    .course-lesson.dragging {
+        opacity: .55;
+        background: #f1f8f1;
+    }
+    .course-flat-list.editing .course-lesson .drag-handle {
+        display: inline-flex;
+        align-items: center;
+    }
+    .course-flat-list.editing .course-lesson .edit-title {
+        display: block;
+    }
+    .course-flat-list.editing .course-lesson .view-title,
+    .course-flat-list.editing .course-lesson .course-lesson-actions {
+        display: none;
+    }
+    .course-flat-list.editing .course-lesson {
+        background: #fbfdfb;
+    }
     @media (max-width: 767.98px) {
         .course-shell {
             flex-direction: column;
@@ -330,10 +357,22 @@
                     {{ course.modules.count }} модулей · {{ course.lesson_count }} уроков
                 {% endif %}
             </div>
-            <button class="btn btn-primary btn-sm" type="button"
-                    data-bs-toggle="collapse" data-bs-target="#module-add-form">
-                {% if course.flat_modules %}+ Добавить пробник{% else %}+ Добавить модуль{% endif %}
-            </button>
+            <div class="d-flex gap-2">
+                {% if course.flat_modules %}
+                    <button class="btn btn-outline-secondary btn-sm" type="button" id="content-edit-toggle">
+                        Редактировать содержание
+                    </button>
+                {% endif %}
+                <button class="btn btn-primary btn-sm" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#module-add-form">
+                    {% if course.flat_modules %}+ Добавить пробник{% else %}+ Добавить модуль{% endif %}
+                </button>
+            </div>
+        </div>
+
+        <div class="d-none d-flex gap-2 mb-3" id="content-edit-actions">
+            <button type="button" class="btn btn-success btn-sm" id="content-save">Сохранить</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="content-cancel">Отмена</button>
         </div>
 
         <div class="collapse mb-3" id="module-add-form">
@@ -359,22 +398,30 @@
         </div>
 
         {% if course.flat_modules %}
-            <div class="course-flat-list">
+            <div class="course-flat-list" id="course-content"
+                 data-save-url="{% url 'course_content_update' course.pk %}"
+                 data-csrf="{{ csrf_token }}">
                 {% for item in items %}
-                    <div class="course-lesson">
+                    <div class="course-lesson" data-module-id="{{ item.module.pk }}">
+                        <button type="button" class="btn btn-light border btn-sm drag-handle"
+                                title="Зажмите и перетащите, чтобы изменить порядок">&#8942;&#8942;</button>
                         <div class="course-lesson-index">{{ forloop.counter }}</div>
                         <div class="flex-grow-1">
                             {% if item.lesson %}
-                                <a href="{% url 'lesson_exam' item.lesson.pk %}?preview=1" class="course-lesson-title">{{ item.lesson.title }}</a>
+                                <a href="{% url 'lesson_exam' item.lesson.pk %}?preview=1" class="course-lesson-title view-title">{{ item.lesson.title }}</a>
+                                <input type="text" class="form-control form-control-sm edit-title"
+                                       value="{{ item.lesson.title }}" maxlength="255">
                                 <div class="course-lesson-meta">
                                     {% if item.lesson.author %}{{ item.lesson.author.get_full_name|default:item.lesson.author.username }} · {% endif %}{{ item.lesson.entries.count }} задач
                                 </div>
                             {% else %}
-                                <span class="course-lesson-title">{{ item.module.title }}</span>
+                                <span class="course-lesson-title view-title">{{ item.module.title }}</span>
+                                <input type="text" class="form-control form-control-sm edit-title"
+                                       value="{{ item.module.title }}" maxlength="255">
                                 <div class="course-lesson-meta">Урок ещё не создан</div>
                             {% endif %}
                         </div>
-                        <div class="course-lesson-actions">
+                        <div class="course-lesson-actions view-actions">
                             {% if item.lesson %}
                                 <a href="{% url 'lesson_detail' item.lesson.pk %}" class="btn btn-light border btn-sm">Редактировать</a>
                                 <form method="post" action="{% url 'lesson_delete' item.lesson.pk %}"
@@ -473,4 +520,133 @@
         {% endif %}
     </section>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var list = document.getElementById('course-content');
+    var toggle = document.getElementById('content-edit-toggle');
+    var save = document.getElementById('content-save');
+    var cancel = document.getElementById('content-cancel');
+    var actions = document.getElementById('content-edit-actions');
+    if (!list || !toggle || !save || !cancel || !actions) {
+        return;
+    }
+    var saveUrl = list.dataset.saveUrl;
+    var csrfToken = list.dataset.csrf;
+    var dragged = null;
+
+    function renumber() {
+        list.querySelectorAll('.course-lesson').forEach(function (row, index) {
+            var number = row.querySelector('.course-lesson-index');
+            if (number) {
+                number.textContent = index + 1;
+            }
+        });
+    }
+
+    function enterEdit() {
+        list.classList.add('editing');
+        toggle.classList.add('d-none');
+        actions.classList.remove('d-none');
+    }
+
+    function resetDrag() {
+        if (dragged) {
+            dragged.classList.remove('dragging');
+            dragged.draggable = false;
+            dragged = null;
+        }
+        renumber();
+    }
+
+    toggle.addEventListener('click', enterEdit);
+    cancel.addEventListener('click', function () {
+        window.location.reload();
+    });
+
+    list.querySelectorAll('.drag-handle').forEach(function (handle) {
+        handle.addEventListener('mousedown', function () {
+            var row = handle.closest('.course-lesson');
+            if (row) {
+                row.draggable = true;
+            }
+        });
+        handle.addEventListener('mouseup', function () {
+            var row = handle.closest('.course-lesson');
+            if (row && !dragged) {
+                row.draggable = false;
+            }
+        });
+    });
+
+    list.addEventListener('dragstart', function (event) {
+        var row = event.target.closest('.course-lesson');
+        if (!row || !row.draggable) {
+            event.preventDefault();
+            return;
+        }
+        dragged = row;
+        row.classList.add('dragging');
+        event.dataTransfer.effectAllowed = 'move';
+        try {
+            event.dataTransfer.setData('text/plain', row.dataset.moduleId);
+        } catch (error) {
+            // ignore
+        }
+    });
+
+    list.addEventListener('dragover', function (event) {
+        if (!dragged) {
+            return;
+        }
+        event.preventDefault();
+        var row = event.target.closest('.course-lesson');
+        if (!row || row === dragged) {
+            return;
+        }
+        var rect = row.getBoundingClientRect();
+        var after = (event.clientY - rect.top) > rect.height / 2;
+        list.insertBefore(dragged, after ? row.nextSibling : row);
+    });
+
+    list.addEventListener('dragend', resetDrag);
+
+    save.addEventListener('click', function () {
+        var data = new FormData();
+        var valid = true;
+        list.querySelectorAll('.course-lesson').forEach(function (row) {
+            var input = row.querySelector('.edit-title');
+            var title = input ? input.value.trim() : '';
+            if (!title) {
+                valid = false;
+            }
+            data.append('module_id', row.dataset.moduleId);
+            data.append('title', title);
+        });
+        if (!valid) {
+            window.alert('Название пробника не может быть пустым.');
+            return;
+        }
+        save.disabled = true;
+        fetch(saveUrl, {
+            method: 'POST',
+            body: data,
+            headers: {'X-CSRFToken': csrfToken},
+            credentials: 'same-origin'
+        })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error('failed');
+                }
+                window.location.reload();
+            })
+            .catch(function () {
+                save.disabled = false;
+                window.alert('Не удалось сохранить содержание курса.');
+            });
+    });
+})();
+</script>
 {% endblock %}

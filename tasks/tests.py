@@ -529,6 +529,53 @@ class CourseViewTests(DjangoTestCase):
             f'href="{reverse("lesson_edit", args=[lesson.pk])}"',
         )
 
+    def test_flat_course_has_content_edit_button(self):
+        course = Course.objects.create(
+            title='probniki ЕГЭ', author=self.teacher, flat_modules=True,
+        )
+        CourseModule.objects.create(course=course, title='Пробник 1')
+        response = self.client.get(reverse('course_detail', args=[course.pk]))
+        self.assertContains(response, 'Редактировать содержание')
+        self.assertContains(
+            response,
+            f'data-save-url="{reverse("course_content_update", args=[course.pk])}"',
+        )
+
+    def test_course_content_update_renames_and_reorders_probniks(self):
+        course = Course.objects.create(
+            title='probniki ЕГЭ', author=self.teacher, flat_modules=True,
+        )
+        first = CourseModule.objects.create(
+            course=course, title='Первый', order=1,
+        )
+        first_lesson = Lesson.objects.create(
+            title='Первый', author=self.teacher, module=first,
+        )
+        second = CourseModule.objects.create(
+            course=course, title='Второй', order=2,
+        )
+        second_lesson = Lesson.objects.create(
+            title='Второй', author=self.teacher, module=second,
+        )
+        response = self.client.post(
+            reverse('course_content_update', args=[course.pk]),
+            {
+                'module_id': [second.pk, first.pk],
+                'title': ['Новый второй', 'Новый первый'],
+            },
+        )
+        self.assertRedirects(response, reverse('course_detail', args=[course.pk]))
+        second.refresh_from_db()
+        first.refresh_from_db()
+        first_lesson.refresh_from_db()
+        second_lesson.refresh_from_db()
+        self.assertEqual(second.order, 1)
+        self.assertEqual(second.title, 'Новый второй')
+        self.assertEqual(second_lesson.title, 'Новый второй')
+        self.assertEqual(first.order, 2)
+        self.assertEqual(first.title, 'Новый первый')
+        self.assertEqual(first_lesson.title, 'Новый первый')
+
     def test_flat_course_delete_lesson_removes_its_module(self):
         course = Course.objects.create(
             title='probniki ЕГЭ', author=self.teacher, flat_modules=True,

@@ -1158,6 +1158,36 @@ def course_edit(request, pk):
     })
 
 
+@require_POST
+@teacher_required
+def course_content_update(request, pk):
+    course = get_object_or_404(Course, pk=pk, author=request.user)
+    module_ids = request.POST.getlist('module_id')
+    titles = request.POST.getlist('title')
+    if len(module_ids) != len(titles):
+        messages.error(request, 'Не удалось сохранить содержание курса.')
+        return redirect('course_detail', pk=course.pk)
+    modules = {
+        module.pk: module
+        for module in course.modules.filter(pk__in=module_ids)
+    }
+    for index, (module_id, title) in enumerate(zip(module_ids, titles), start=1):
+        module = modules.get(_parse_id(module_id))
+        title = title.strip()
+        if module is None or not title:
+            continue
+        module.title = title
+        module.order = index
+        module.save(update_fields=['title', 'order'])
+        if course.flat_modules:
+            lesson = module.lessons.first()
+            if lesson is not None:
+                lesson.title = title
+                lesson.save(update_fields=['title'])
+    messages.success(request, 'Содержание курса обновлено.')
+    return redirect('course_detail', pk=course.pk)
+
+
 @teacher_required
 def course_delete(request, pk):
     course = get_object_or_404(Course, pk=pk, author=request.user)
