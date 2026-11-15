@@ -35,7 +35,33 @@
         display: inline-block;
     }
     .class-tasks .accordion-body {
-        padding: 0;
+        padding: 1rem 1.25rem 1.25rem;
+    }
+    .class-tasks .lesson-row {
+        margin-bottom: 1.1rem;
+    }
+    .class-tasks .lesson-row:last-child {
+        margin-bottom: 0;
+    }
+    .class-tasks .lesson-title {
+        color: #212529;
+        margin-bottom: .4rem;
+    }
+    .class-tasks .lesson-number {
+        color: #6c757d;
+        margin-right: .35rem;
+    }
+    .class-tasks .task-square {
+        width: 30px;
+        height: 30px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        background: #454552;
+        color: #fff;
+        font-weight: 500;
+        line-height: 1;
     }
 </style>
 {% endblock %}
@@ -123,72 +149,37 @@
                     <button type="button" class="btn btn-outline-success">Сформировать отчёт</button>
                 </div>
 
-                {% if task_rows %}
-                    <div class="accordion accordion-flush class-tasks" id="classTasksAccordion">
-                        {% for item in task_rows %}
+                {% if module_rows %}
+                    <div class="accordion accordion-flush class-tasks" id="classModulesAccordion">
+                        {% for module_row in module_rows %}
                             <div class="accordion-item">
                                 <h2 class="accordion-header">
                                     <button class="accordion-button collapsed" type="button"
-                                            data-bs-toggle="collapse" data-bs-target="#class-task-{{ item.task.pk }}">
-                                        <span class="task-number">{{ item.number }}</span>
-                                        Задание {{ item.number }}
+                                            data-bs-toggle="collapse" data-bs-target="#class-module-{{ module_row.module.pk }}">
+                                        <span class="task-number">{{ module_row.number }}</span>
+                                        {{ module_row.module.title }}
                                     </button>
                                 </h2>
-                                <div id="class-task-{{ item.task.pk }}" class="accordion-collapse collapse"
-                                     data-bs-parent="#classTasksAccordion">
+                                <div id="class-module-{{ module_row.module.pk }}" class="accordion-collapse collapse"
+                                     data-bs-parent="#classModulesAccordion">
                                     <div class="accordion-body">
-                                        <table class="table table-sm align-middle mb-0">
-                                            <thead>
-                                            <tr>
-                                                <th>Ученик</th>
-                                                <th style="width: 140px;">Статус</th>
-                                                <th style="width: 80px;">Баллы</th>
-                                                <th>Ответ</th>
-                                            </tr>
-                                            </thead>
-                                            <tbody>
-                                            {% for row in item.rows %}
-                                                <tr>
-                                                    <td>
-                                                        <a href="{% url 'student_stats' row.student.pk %}">
-                                                            {{ row.student.get_full_name|default:row.student.username }}
-                                                        </a>
-                                                    </td>
-                                                    {% if row.submission %}
-                                                        <td>
-                                                            {% if row.submission.is_solved %}
-                                                                <span class="badge bg-success">Верно</span>
-                                                            {% elif row.submission.status == 'pending' %}
-                                                                <span class="badge bg-warning text-dark">На проверке</span>
-                                                            {% else %}
-                                                                <span class="badge bg-danger">{{ row.submission.get_status_display }}</span>
-                                                            {% endif %}
-                                                        </td>
-                                                        <td>{{ row.submission.score|floatformat:"-2" }}</td>
-                                                        <td class="small">
-                                                            {% if row.submission.answer_text %}
-                                                                {{ row.submission.answer_text|truncatechars:60 }}
-                                                            {% elif row.submission.code %}
-                                                                <code>{{ row.submission.code|truncatechars:60 }}</code>
-                                                            {% elif row.submission.gap_answers %}
-                                                                {% for key, value in row.submission.gap_answers.items %}{{ value }}{% if not forloop.last %}, {% endif %}{% endfor %}
-                                                            {% else %}
-                                                                <span class="text-muted">—</span>
-                                                            {% endif %}
-                                                        </td>
-                                                    {% else %}
-                                                        <td class="text-muted">нет решения</td>
-                                                        <td></td>
-                                                        <td></td>
-                                                    {% endif %}
-                                                </tr>
-                                            {% empty %}
-                                                <tr>
-                                                    <td colspan="4" class="text-center text-muted py-3">В классе нет учеников.</td>
-                                                </tr>
-                                            {% endfor %}
-                                            </tbody>
-                                        </table>
+                                        {% for lesson_row in module_row.lessons %}
+                                            <div class="lesson-row">
+                                                <div class="lesson-title">
+                                                    <span class="lesson-number">{{ lesson_row.number }}</span>
+                                                    {{ lesson_row.lesson.title }}
+                                                </div>
+                                                {% if lesson_row.tasks %}
+                                                    <div class="d-flex flex-wrap gap-1">
+                                                        {% for task in lesson_row.tasks %}
+                                                            <span class="task-square" title="{{ task.title }}">?</span>
+                                                        {% endfor %}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        {% empty %}
+                                            <div class="text-muted">В модуле нет уроков.</div>
+                                        {% endfor %}
                                     </div>
                                 </div>
                             </div>
@@ -196,7 +187,7 @@
                     </div>
                 {% else %}
                     <div class="alert alert-secondary">
-                        В курсе этого класса пока нет заданий.
+                        В курсе этого класса пока нет модулей.
                     </div>
                 {% endif %}
             </div>

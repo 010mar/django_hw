@@ -73,10 +73,10 @@ def class_create(request):
     return render(request, 'assignments/class_form.html', {'form': form, 'is_create': True})
 
 
-def _class_course_tasks(course):
+def _class_course_modules(course):
     if course is None:
         return []
-    modules = (
+    return list(
         course.modules
         .order_by('order', 'id')
         .prefetch_related(
@@ -99,16 +99,6 @@ def _class_course_tasks(course):
             )
         )
     )
-    tasks = []
-    seen = set()
-    for module in modules:
-        for lesson in module.lessons.all():
-            for entry in lesson.entries.all():
-                if entry.task_id in seen:
-                    continue
-                seen.add(entry.task_id)
-                tasks.append(entry.task)
-    return tasks
 
 
 @teacher_required
@@ -132,35 +122,21 @@ def class_detail(request, pk):
     students = list(
         class_group.students.order_by('last_name', 'first_name', 'username')
     )
-    tasks = _class_course_tasks(class_group.course)
-    latest = {}
-    if tasks and students:
-        submissions = (
-            Submission.objects
-            .filter(student__in=students, task__in=tasks)
-            .filter(
-                Q(assignment__class_group=class_group)
-                | Q(lesson__module__course=class_group.course)
-            )
-            .select_related('student', 'task')
-            .order_by('-created_at')
-        )
-        for submission in submissions:
-            latest.setdefault(
-                (submission.task_id, submission.student_id), submission,
-            )
-    task_rows = []
-    for number, task in enumerate(tasks, start=1):
-        task_rows.append({
-            'number': number,
-            'task': task,
-            'rows': [
-                {
-                    'student': student,
-                    'submission': latest.get((task.pk, student.pk)),
-                }
-                for student in students
-            ],
+    module_rows = []
+    for module_number, module in enumerate(
+        _class_course_modules(class_group.course), start=1,
+    ):
+        lesson_rows = []
+        for lesson_number, lesson in enumerate(module.lessons.all(), start=1):
+            lesson_rows.append({
+                'number': f'{module_number}.{lesson_number}',
+                'lesson': lesson,
+                'tasks': [entry.task for entry in lesson.entries.all()],
+            })
+        module_rows.append({
+            'number': module_number,
+            'module': module,
+            'lessons': lesson_rows,
         })
     invite_url = request.build_absolute_uri(f'/classes/join/{class_group.invite_token}/')
     return render(request, 'assignments/class_detail.html', {
@@ -168,7 +144,7 @@ def class_detail(request, pk):
         'form': form,
         'invite_url': invite_url,
         'students': students,
-        'task_rows': task_rows,
+        'module_rows': module_rows,
         'active_tab': active_tab,
     })
 

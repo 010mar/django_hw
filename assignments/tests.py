@@ -516,7 +516,7 @@ class ClassCourseTests(DjangoTestCase):
         self.assertContains(response, 'Классы курса')
         self.assertContains(response, '9А')
 
-    def test_class_page_has_sections_and_task_results(self):
+    def test_class_page_has_sections_and_module_tasks(self):
         module = CourseModule.objects.create(
             course=self.course, title='Модуль', order=1,
         )
@@ -525,10 +525,6 @@ class ClassCourseTests(DjangoTestCase):
         )
         task = Task.objects.create(title='Задача', author=self.teacher)
         LessonTask.objects.create(lesson=lesson, task=task, order=1)
-        Submission.objects.create(
-            lesson=lesson, task=task, student=self.student,
-            status=Submission.Status.CORRECT, answer_text='42',
-        )
         class_group = ClassGroup.objects.create(
             teacher=self.teacher, course=self.course, title='9А',
         )
@@ -541,9 +537,11 @@ class ClassCourseTests(DjangoTestCase):
         self.assertContains(response, 'Настройки класса')
         self.assertContains(response, 'Оценки и решения')
         self.assertContains(response, 'Учащиеся (1)')
-        self.assertContains(response, 'Задание 1')
-        self.assertContains(response, 'Верно')
-        self.assertContains(response, '42')
+        self.assertContains(response, 'Модуль')
+        self.assertContains(response, '1.1')
+        self.assertContains(response, 'Урок')
+        self.assertContains(response, 'task-square')
+        self.assertContains(response, 'title="Задача"')
 
     def test_class_page_opens_requested_tab(self):
         class_group = ClassGroup.objects.create(
