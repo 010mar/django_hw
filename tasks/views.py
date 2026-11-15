@@ -4,7 +4,7 @@ from urllib.parse import urlencode
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import connection
-from django.db.models import Max, Prefetch
+from django.db.models import Max, Prefetch, Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -1022,21 +1022,57 @@ def course_learn(request, pk):
     if not is_author and not _is_course_member(request.user, course):
         raise Http404
     modules = list(course.modules.prefetch_related(
-        Prefetch('lessons', queryset=Lesson.objects.order_by('order', 'created_at'))
+        Prefetch(
+            'lessons',
+            queryset=(
+                Lesson.objects
+                .order_by('order', 'created_at')
+                .prefetch_related(
+                    Prefetch(
+                        'entries',
+                        queryset=(
+                            LessonTask.objects
+                            .select_related('task')
+                            .order_by('order', 'id')
+                        ),
+                    )
+                )
+            ),
+        )
     ))
-    items = []
-    if course.flat_modules:
-        for module in modules:
-            lessons = list(module.lessons.all())
-            if lessons:
-                for lesson in lessons:
-                    items.append({'module': module, 'lesson': lesson})
-            else:
-                items.append({'module': module, 'lesson': None})
+    module_blocks = []
+    all_tasks = []
+    for module in modules:
+        lesson_items = []
+        for lesson in module.lessons.all():
+            tasks = [entry.task for entry in lesson.entries.all()]
+            all_tasks.extend(tasks)
+            lesson_items.append({'lesson': lesson, 'tasks': tasks})
+        module_blocks.append({'module': module, 'lessons': lesson_items})
+    scores = {}
+    if not is_author and all_tasks:
+        from assignments.models import Submission
+
+        submissions = (
+            Submission.objects
+            .filter(student=request.user, task__in=all_tasks)
+            .filter(
+                Q(lesson__module__course=course)
+                | Q(assignment__class_group__course=course)
+            )
+        )
+        for submission in submissions:
+            if submission.score > scores.get(submission.task_id, 0):
+                scores[submission.task_id] = submission.score
+    for block in module_blocks:
+        for item in block['lessons']:
+            item['total_points'] = sum(task.points for task in item['tasks'])
+            item['earned_points'] = sum(
+                scores.get(task.pk, 0) for task in item['tasks']
+            )
     return render(request, 'tasks/course_learn.html', {
         'course': course,
-        'modules': modules,
-        'items': items,
+        'module_blocks': module_blocks,
         'is_author': is_author,
     })
 

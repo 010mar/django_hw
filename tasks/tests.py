@@ -698,6 +698,32 @@ class CourseLearnTests(DjangoTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Урок 1')
 
+    def test_course_program_shows_all_modules_with_open_lessons(self):
+        second_module = CourseModule.objects.create(
+            course=self.course, title='Модуль 2', order=2,
+        )
+        Lesson.objects.create(
+            title='Урок 2', author=self.teacher, module=second_module, order=1,
+        )
+        task = Task.objects.create(
+            title='Задача', author=self.teacher, points=2,
+        )
+        LessonTask.objects.create(lesson=self.lesson, task=task, order=1)
+        Submission.objects.create(
+            lesson=self.lesson, task=task, student=self.student,
+            status=Submission.Status.CORRECT, score=2,
+        )
+        self.class_group.students.add(self.student)
+        self.client.force_login(self.student)
+        response = self.client.get(
+            reverse('course_learn', args=[self.course.pk]),
+        )
+        self.assertContains(response, 'Программа курса')
+        self.assertContains(response, 'Модуль 2')
+        self.assertContains(response, 'Урок 2')
+        self.assertContains(response, '2.1 Урок 2')
+        self.assertContains(response, '2 / 2')
+
     def test_other_student_cannot_open_course(self):
         self.client.force_login(self.student)
         response = self.client.get(reverse('course_learn', args=[self.course.pk]))
