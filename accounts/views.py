@@ -11,7 +11,9 @@ from .models import ParentLink
 
 
 def landing(request):
-    return render(request, 'landing.html')
+    if request.user.is_authenticated:
+        return redirect('home')
+    return redirect('account_login')
 
 
 @login_required

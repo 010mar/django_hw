@@ -14,6 +14,24 @@ from PIL import Image
 from .models import ParentLink, User
 
 
+class RootRedirectTests(TestCase):
+    def test_anonymous_root_redirects_to_login(self):
+        response = Client().get(reverse('landing'))
+        self.assertRedirects(response, reverse('account_login'))
+
+    def test_authenticated_root_redirects_to_home(self):
+        user = User.objects.create_user(
+            username='student@example.com',
+            email='student@example.com',
+            password='pass12345',
+            role=User.Role.STUDENT,
+        )
+        client = Client()
+        client.force_login(user)
+        response = client.get(reverse('landing'))
+        self.assertRedirects(response, reverse('home'))
+
+
 class AuthFlowTests(TestCase):
     def test_signup_with_role_student(self):
         response = Client().post(
