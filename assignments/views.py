@@ -345,11 +345,17 @@ def class_remove_student(request, pk, user_id):
 
 @login_required
 def class_join(request, token):
-    class_group = get_object_or_404(ClassGroup, invite_token=token)
+    class_group = get_object_or_404(
+        ClassGroup.objects.select_related('course'), invite_token=token,
+    )
     user = request.user
     if not user.is_student:
-        messages.error(request, 'Только ученики могут вступать в классы.')
+        messages.error(request, 'Только ученик может вступить в класс.')
         return redirect('home')
+    if request.method != 'POST':
+        return render(request, 'assignments/class_join_confirm.html', {
+            'class_group': class_group,
+        })
     if class_group.students.filter(pk=user.pk).exists():
         messages.info(request, f'Вы уже в классе «{class_group.title}».')
     else:

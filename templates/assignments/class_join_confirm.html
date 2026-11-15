@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% block title %}Вступить в класс{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow-sm">
+            <div class="card-body p-4 text-center">
+                <h1 class="h4 mb-3">Вступить в класс?</h1>
+                <p class="text-muted mb-4">
+                    Класс «{{ class_group.title }}»
+                    {% if class_group.course %}
+                        по курсу «{{ class_group.course.title }}»
+                    {% endif %}
+                </p>
+                <form method="post" action="{% url 'class_join' class_group.invite_token %}"
+                      class="d-flex justify-content-center gap-2">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success px-4">Да</button>
+                    <a href="{% url 'home' %}" class="btn btn-outline-secondary px-4">Нет</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

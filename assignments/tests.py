@@ -497,9 +497,11 @@ class ClassCourseTests(DjangoTestCase):
             teacher=self.teacher, course=self.course, title='9А',
         )
         self.client.force_login(self.student)
-        response = self.client.get(
-            reverse('class_join', args=[class_group.invite_token]),
-        )
+        url = reverse('class_join', args=[class_group.invite_token])
+        response = self.client.get(url)
+        self.assertContains(response, 'Вступить в класс?')
+        self.assertFalse(class_group.students.filter(pk=self.student.pk).exists())
+        response = self.client.post(url)
         self.assertRedirects(
             response, reverse('course_learn', args=[self.course.pk]),
         )
@@ -508,6 +510,18 @@ class ClassCourseTests(DjangoTestCase):
             reverse('course_learn', args=[self.course.pk]),
         )
         self.assertEqual(response.status_code, 200)
+
+    def test_invite_confirmation_does_not_join_without_consent(self):
+        class_group = ClassGroup.objects.create(
+            teacher=self.teacher, course=self.course, title='9А',
+        )
+        self.client.force_login(self.student)
+        response = self.client.get(
+            reverse('class_join', args=[class_group.invite_token]),
+        )
+        self.assertContains(response, 'Вступить в класс?')
+        self.assertContains(response, 'Нет')
+        self.assertFalse(class_group.students.filter(pk=self.student.pk).exists())
 
     def test_teacher_sees_course_classes_on_course_page(self):
         ClassGroup.objects.create(
