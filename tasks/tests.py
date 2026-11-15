@@ -507,6 +507,28 @@ class CourseViewTests(DjangoTestCase):
         self.assertContains(response, '+ Добавить пробник')
         self.assertNotContains(response, '+ Добавить модуль')
 
+    def test_flat_course_lesson_links_preview_and_editor(self):
+        course = Course.objects.create(
+            title='probniki ЕГЭ', author=self.teacher, flat_modules=True,
+        )
+        module = CourseModule.objects.create(course=course, title='Пробник 1')
+        lesson = Lesson.objects.create(
+            title='Пробник 1', author=self.teacher, module=module,
+        )
+        response = self.client.get(reverse('course_detail', args=[course.pk]))
+        self.assertContains(
+            response,
+            f'href="{reverse("lesson_exam", args=[lesson.pk])}?preview=1"',
+        )
+        self.assertContains(
+            response,
+            f'href="{reverse("lesson_detail", args=[lesson.pk])}"',
+        )
+        self.assertNotContains(
+            response,
+            f'href="{reverse("lesson_edit", args=[lesson.pk])}"',
+        )
+
     def test_flat_course_delete_lesson_removes_its_module(self):
         course = Course.objects.create(
             title='probniki ЕГЭ', author=self.teacher, flat_modules=True,

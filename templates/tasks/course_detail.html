@@ -365,11 +365,7 @@
                         <div class="course-lesson-index">{{ forloop.counter }}</div>
                         <div class="flex-grow-1">
                             {% if item.lesson %}
-                                {% if course.exam_mode %}
-                                    <a href="{% url 'lesson_exam' item.lesson.pk %}" class="course-lesson-title">{{ item.lesson.title }}</a>
-                                {% else %}
-                                    <a href="{% url 'lesson_detail' item.lesson.pk %}" class="course-lesson-title">{{ item.lesson.title }}</a>
-                                {% endif %}
+                                <a href="{% url 'lesson_exam' item.lesson.pk %}?preview=1" class="course-lesson-title">{{ item.lesson.title }}</a>
                                 <div class="course-lesson-meta">
                                     {% if item.lesson.author %}{{ item.lesson.author.get_full_name|default:item.lesson.author.username }} · {% endif %}{{ item.lesson.entries.count }} задач
                                 </div>
@@ -380,10 +376,7 @@
                         </div>
                         <div class="course-lesson-actions">
                             {% if item.lesson %}
-                                {% if course.exam_mode %}
-                                    <a href="{% url 'lesson_detail' item.lesson.pk %}" class="btn btn-light border btn-sm">Управление</a>
-                                {% endif %}
-                                <a href="{% url 'lesson_edit' item.lesson.pk %}" class="btn btn-light border btn-sm">Редактировать</a>
+                                <a href="{% url 'lesson_detail' item.lesson.pk %}" class="btn btn-light border btn-sm">Редактировать</a>
                                 <form method="post" action="{% url 'lesson_delete' item.lesson.pk %}"
                                       onsubmit="return confirm('Удалить пробник?');">
                                     {% csrf_token %}
@@ -432,21 +425,14 @@
                     <div class="course-lesson">
                         <div class="course-lesson-index">{{ forloop.parentloop.counter }}.{{ forloop.counter }}</div>
                         <div class="flex-grow-1">
-                            {% if course.exam_mode %}
-                                <a href="{% url 'lesson_exam' lesson.pk %}" class="course-lesson-title">{{ lesson.title }}</a>
-                            {% else %}
-                                <a href="{% url 'lesson_detail' lesson.pk %}" class="course-lesson-title">{{ lesson.title }}</a>
-                            {% endif %}
+                            <a href="{% url 'lesson_exam' lesson.pk %}?preview=1" class="course-lesson-title">{{ lesson.title }}</a>
                             <div class="course-lesson-meta">
                                 {% if lesson.author %}{{ lesson.author.get_full_name|default:lesson.author.username }}{% endif %}
                                 · {{ lesson.entries.count }} задач
                             </div>
                         </div>
                         <div class="course-lesson-actions">
-                            {% if course.exam_mode %}
-                                <a href="{% url 'lesson_detail' lesson.pk %}" class="btn btn-light border btn-sm">Управление</a>
-                            {% endif %}
-                            <a href="{% url 'lesson_edit' lesson.pk %}" class="btn btn-light border btn-sm">Редактировать</a>
+                            <a href="{% url 'lesson_detail' lesson.pk %}" class="btn btn-light border btn-sm">Редактировать</a>
                             <form method="post" action="{% url 'lesson_delete' lesson.pk %}"
                                   onsubmit="return confirm('Удалить урок?');">
                                 {% csrf_token %}
