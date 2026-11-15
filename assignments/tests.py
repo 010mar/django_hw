@@ -544,6 +544,9 @@ class ClassCourseTests(DjangoTestCase):
         self.assertContains(response, 'Урок')
         self.assertContains(response, 'task-square')
         self.assertContains(response, 'title="Задача"')
+        self.assertContains(
+            response, reverse('class_gradebook', args=[class_group.pk]),
+        )
 
     def test_class_page_opens_requested_tab(self):
         class_group = ClassGroup.objects.create(
@@ -617,3 +620,65 @@ class ClassCourseTests(DjangoTestCase):
         self.assertContains(response, 'Решений пока нет.')
         response = self.client.get(f'{url}?q=student')
         self.assertContains(response, 'student')
+
+    def test_class_gradebook_shows_cells_and_totals(self):
+        other_student = User.objects.create_user(
+            username='other_student', password='pass12345',
+            role=User.Role.STUDENT,
+        )
+        bank = TaskBank.objects.create(name='Банк', author=self.teacher)
+        topic = Topic.objects.create(bank=bank, name='Тема 1', order=1)
+        module = CourseModule.objects.create(
+            course=self.course, title='Модуль', order=1,
+        )
+        lesson = Lesson.objects.create(
+            module=module, title='Урок', author=self.teacher, order=1,
+        )
+        solved_task = Task.objects.create(
+            title='Решённая', author=self.teacher, topic=topic, points=2,
+        )
+        failed_task = Task.objects.create(
+            title='Не решённая', author=self.teacher, topic=topic, points=1,
+        )
+        LessonTask.objects.create(lesson=lesson, task=solved_task, order=1)
+        LessonTask.objects.create(lesson=lesson, task=failed_task, order=2)
+        class_group = ClassGroup.objects.create(
+            teacher=self.teacher, course=self.course, title='9А',
+        )
+        class_group.students.set([self.student, other_student])
+        Submission.objects.create(
+            lesson=lesson, task=solved_task, student=self.student,
+            status=Submission.Status.CORRECT, score=2,
+        )
+        Submission.objects.create(
+            lesson=lesson, task=failed_task, student=self.student,
+            status=Submission.Status.INCORRECT, score=0,
+        )
+        self.client.force_login(self.teacher)
+        response = self.client.get(
+            reverse('class_gradebook', args=[class_group.pk]),
+        )
+        self.assertContains(response, 'Табель успеваемости')
+        self.assertContains(response, 'Q1')
+        self.assertContains(response, 'Q2')
+        self.assertContains(response, 'Max:')
+        self.assertContains(response, '—')
+        self.assertEqual(response.context['max_total'], 3)
+        rows = {
+            row['student'].username: row
+            for row in response.context['student_rows']
+        }
+        self.assertEqual(rows['student']['lessons'][0], ['solved', 'failed'])
+        self.assertEqual(rows['student']['total'], Decimal('2'))
+        self.assertEqual(
+            rows['other_student']['lessons'][0], ['none', 'none'],
+        )
+        self.assertEqual(rows['other_student']['total'], Decimal('0'))
+
+        response = self.client.get(
+            f'{reverse("class_gradebook", args=[class_group.pk])}?q=other',
+        )
+        self.assertEqual(
+            [row['student'].username for row in response.context['student_rows']],
+            ['other_student'],
+        )

@@ -210,6 +210,108 @@ def class_task_submissions(request, pk, lesson_id, task_id):
     })
 
 
+@teacher_required
+def class_gradebook(request, pk):
+    class_group = get_object_or_404(
+        ClassGroup.objects.select_related('course'), pk=pk, teacher=request.user,
+    )
+    lesson_blocks = []
+    all_tasks = []
+    if class_group.course is not None:
+        seen = set()
+        for module in _class_course_modules(class_group.course):
+            for lesson in module.lessons.all():
+                lesson_tasks = [entry.task for entry in lesson.entries.all()]
+                lesson_blocks.append({'lesson': lesson, 'tasks': lesson_tasks})
+                for task in lesson_tasks:
+                    if task.pk in seen:
+                        continue
+                    seen.add(task.pk)
+                    all_tasks.append(task)
+    student_qs = class_group.students.all()
+    query = request.GET.get('q', '').strip()
+    if query:
+        lookup = query.lstrip('#')
+        filters = (
+            Q(first_name__icontains=query)
+            | Q(last_name__icontains=query)
+            | Q(username__icontains=query)
+            | Q(email__icontains=query)
+        )
+        if lookup.isdigit():
+            filters |= Q(pk=int(lookup))
+        student_qs = student_qs.filter(filters)
+    students = list(
+        student_qs.order_by('last_name', 'first_name', 'username')
+    )
+    results = {}
+    if all_tasks and students:
+        submissions = (
+            Submission.objects
+            .filter(student__in=students, task__in=all_tasks)
+            .filter(
+                Q(lesson__module__course=class_group.course)
+                | Q(assignment__class_group=class_group)
+            )
+            .select_related('task')
+            .order_by('created_at')
+        )
+        for submission in submissions:
+            info = results.setdefault(
+                (submission.student_id, submission.task_id),
+                {'solved': False, 'score': Decimal('0')},
+            )
+            if submission.is_solved:
+                info['solved'] = True
+            if submission.score > info['score']:
+                info['score'] = submission.score
+    student_rows = []
+    for student in students:
+        total = Decimal('0')
+        lesson_cells = []
+        for block in lesson_blocks:
+            cells = []
+            for task in block['tasks']:
+                info = results.get((student.pk, task.pk))
+                if info is None:
+                    cells.append('none')
+                elif info['solved']:
+                    cells.append('solved')
+                else:
+                    cells.append('failed')
+                if info is not None:
+                    total += info['score']
+            lesson_cells.append(cells)
+        student_rows.append({
+            'student': student,
+            'total': total,
+            'lessons': lesson_cells,
+        })
+    sort = request.GET.get('sort', 'total')
+    if sort == 'name':
+        student_rows.sort(
+            key=lambda row: (
+                row['student'].last_name.lower(),
+                row['student'].first_name.lower(),
+                row['student'].username.lower(),
+            )
+        )
+    elif sort == 'id':
+        student_rows.sort(key=lambda row: row['student'].pk)
+    else:
+        student_rows.sort(key=lambda row: row['total'], reverse=True)
+    max_total = sum(task.points for task in all_tasks)
+    return render(request, 'assignments/class_gradebook.html', {
+        'class_group': class_group,
+        'lesson_blocks': lesson_blocks,
+        'student_rows': student_rows,
+        'max_total': max_total,
+        'task_count': sum(len(block['tasks']) for block in lesson_blocks),
+        'query': query,
+        'sort': sort,
+    })
+
+
 @require_POST
 @teacher_required
 def class_add_student(request, pk):

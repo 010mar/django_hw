@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+
+{% block title %}Табель успеваемости — {{ class_group.title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .gradebook-table {
+        font-size: .82rem;
+    }
+    .gradebook-table th {
+        background: #f8f9fb;
+        border-bottom: 1px solid #dfe3e8;
+        text-align: center;
+        padding: .5rem .4rem;
+        font-weight: 600;
+        color: #212529;
+        white-space: nowrap;
+    }
+    .gradebook-table td {
+        border-bottom: 1px solid #eef0f2;
+        padding: .45rem .4rem;
+        text-align: center;
+        white-space: nowrap;
+    }
+    .gradebook-table th.col-id,
+    .gradebook-table th.col-user,
+    .gradebook-table td.col-id,
+    .gradebook-table td.col-user {
+        text-align: left;
+    }
+    .gradebook-table th.lesson-col {
+        color: #2563eb;
+        border-left: 1px solid #dfe3e8;
+    }
+    .gradebook-table th.lesson-col a,
+    .gradebook-table th.task-col {
+        color: #2563eb;
+        text-decoration: none;
+    }
+    .gradebook-table th.lesson-col a:hover {
+        text-decoration: underline;
+    }
+    .gradebook-table th.task-col {
+        font-weight: 600;
+        border-left: 1px solid #eef0f2;
+    }
+    .gradebook-table .grade-cell.solved {
+        background: #9fd79f;
+    }
+    .gradebook-table .grade-cell.failed {
+        background: #fff;
+    }
+    .gradebook-table .grade-cell.none {
+        color: #b8bcc2;
+    }
+    .gradebook-table .max-row td {
+        background: #fafbfc;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h2 class="h3 mb-3">
+    Табель успеваемости курса
+    {% if class_group.course %}
+        <a href="{% url 'course_detail' class_group.course.pk %}">{{ class_group.course.title }}</a>
+    {% endif %}
+</h2>
+
+<div class="d-flex flex-wrap align-items-center gap-3 mb-4">
+    <span class="text-muted">{{ class_group.title }}</span>
+    <form method="get" class="d-flex gap-2 align-items-center">
+        <input type="hidden" name="sort" value="{{ sort }}">
+        <input type="search" name="q" value="{{ query }}" class="form-control form-control-sm"
+               placeholder="Поиск по ID, email, имени учащегося" style="min-width: 280px;">
+        <button type="submit" class="btn btn-success btn-sm">Искать</button>
+    </form>
+    <span class="small">
+        Скачайте табель на <a href="{% url 'class_stats' class_group.pk %}">странице отчета</a>
+    </span>
+</div>
+
+<div class="table-responsive">
+    <table class="table gradebook-table mb-0">
+        <thead>
+        <tr>
+            <th class="col-id">
+                <a href="?sort=id&q={{ query|urlencode }}" class="text-decoration-none text-dark">ID</a>
+            </th>
+            <th class="col-user">
+                <a href="?sort=name&q={{ query|urlencode }}" class="text-decoration-none text-dark">Пользователь</a>
+                {% if sort == 'name' %}▴{% else %}▾{% endif %}
+            </th>
+            <th>
+                <a href="?sort=total&q={{ query|urlencode }}" class="text-decoration-none text-dark">Итог</a>
+            </th>
+            {% for block in lesson_blocks %}
+                <th class="lesson-col" colspan="{{ block.tasks|length }}">
+                    <a href="{% url 'lesson_detail' block.lesson.pk %}">{{ block.lesson.title }}</a>
+                </th>
+            {% endfor %}
+        </tr>
+        <tr>
+            <th class="col-id"></th>
+            <th class="col-user"></th>
+            <th></th>
+            {% for block in lesson_blocks %}
+                {% for task in block.tasks %}
+                    <th class="task-col">Q{{ forloop.counter }}</th>
+                {% endfor %}
+            {% endfor %}
+        </tr>
+        </thead>
+        <tbody>
+        <tr class="max-row">
+            <td class="col-id"></td>
+            <td class="col-user text-end">Max:</td>
+            <td>{{ max_total }}</td>
+            {% for block in lesson_blocks %}
+                <td colspan="{{ block.tasks|length }}"></td>
+            {% endfor %}
+        </tr>
+        {% for row in student_rows %}
+            <tr>
+                <td class="col-id text-muted">{{ row.student.pk }}</td>
+                <td class="col-user">
+                    <a href="{% url 'student_stats' row.student.pk %}">{{ row.student.get_full_name|default:row.student.username }}</a>
+                </td>
+                <td>{{ row.total|floatformat:"-2" }}</td>
+                {% for cells in row.lessons %}
+                    {% for state in cells %}
+                        <td class="grade-cell {{ state }}">{% if state == 'none' %}—{% elif state == 'solved' %}1{% else %}0{% endif %}</td>
+                    {% endfor %}
+                {% endfor %}
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="{{ task_count|add:3 }}" class="text-center text-muted py-4">Учащихся нет.</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
