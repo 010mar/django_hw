@@ -24,6 +24,7 @@ urlpatterns = [
     path('lessons/new/', views.lesson_create, name='lesson_create'),
     path('lessons/<int:pk>/', views.lesson_detail, name='lesson_detail'),
     path('lessons/<int:pk>/exam/', views.lesson_exam, name='lesson_exam'),
+    path('lessons/<int:pk>/exam/files/', views.lesson_exam_files, name='lesson_exam_files'),
     path('lessons/<int:pk>/exam/result/', views.lesson_exam_result, name='lesson_exam_result'),
     path('lessons/<int:pk>/edit/', views.lesson_edit, name='lesson_edit'),
     path('lessons/<int:pk>/mode/', views.lesson_mode_update, name='lesson_mode_update'),

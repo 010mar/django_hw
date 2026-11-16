@@ -2,6 +2,7 @@ import importlib
 import os
 import shutil
 import tempfile
+import zipfile
 from decimal import Decimal
 from io import BytesIO
 
@@ -657,6 +658,61 @@ class LessonExamTests(DjangoTestCase):
         self.assertContains(response, 'exam-footer-answer')
         self.assertContains(response, 'Сохранить ответ')
         self.assertContains(response, f'exam-task-scroll-{self.lesson.pk}')
+
+    def test_student_opens_exam_info_page(self):
+        response = self.client.get(
+            reverse('lesson_exam', args=[self.lesson.pk]) + '?info=1',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context['info_page'])
+        self.assertContains(response, 'Дано ответов')
+        self.assertContains(response, 'exam-info-btn active')
+        self.assertContains(response, 'В заданиях используются следующие соглашения')
+        self.assertContains(response, 'Обозначения для логических связок (операций)')
+        self.assertNotContains(response, 'exam-task-btn active')
+        self.assertNotContains(response, 'name="answer_text"')
+        self.assertNotContains(response, 'exam-arrow exam-arrow-right')
+
+    def test_info_page_downloads_all_lesson_files(self):
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            TaskAttachment.objects.create(
+                task=self.text_task,
+                file=SimpleUploadedFile('a.txt', b'one'),
+                original_name='a.txt',
+            )
+            TaskAttachment.objects.create(
+                task=self.gap_task,
+                file=SimpleUploadedFile('b.txt', b'two'),
+                original_name='b.txt',
+            )
+            response = self.client.get(
+                reverse('lesson_exam', args=[self.lesson.pk]) + '?info=1',
+            )
+            self.assertContains(response, 'Скачать все файлы')
+            self.assertContains(
+                response, reverse('lesson_exam_files', args=[self.lesson.pk]),
+            )
+            files = self.client.get(
+                reverse('lesson_exam_files', args=[self.lesson.pk]),
+            )
+        self.assertEqual(files.status_code, 200)
+        self.assertEqual(files['Content-Type'], 'application/zip')
+        with zipfile.ZipFile(BytesIO(files.content)) as archive:
+            self.assertEqual(sorted(archive.namelist()), ['a.txt', 'b.txt'])
+            self.assertEqual(archive.read('a.txt'), b'one')
+            self.assertEqual(archive.read('b.txt'), b'two')
+
+    def test_info_page_hides_download_without_files(self):
+        response = self.client.get(
+            reverse('lesson_exam', args=[self.lesson.pk]) + '?info=1',
+        )
+        self.assertNotContains(response, 'Скачать все файлы')
+
+    def test_download_all_files_without_attachments_returns_404(self):
+        response = self.client.get(
+            reverse('lesson_exam_files', args=[self.lesson.pk]),
+        )
+        self.assertEqual(response.status_code, 404)
 
     def test_attachment_shown_in_exam_footer(self):
         with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):

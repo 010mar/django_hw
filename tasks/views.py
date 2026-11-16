@@ -1,11 +1,13 @@
+import io
 import os
+import zipfile
 from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import connection
 from django.db.models import Max, Prefetch, Q
-from django.http import Http404, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
@@ -836,7 +838,12 @@ def lesson_exam(request, pk):
             'task_count': 0,
             'preview': preview,
             'training': training,
+            'info_page': False,
+            'has_attachments': False,
         })
+
+    info_page = request.GET.get('info') == '1'
+    has_attachments = TaskAttachment.objects.filter(task__in=tasks).exists()
 
     task_index = _parse_id(request.GET.get('task')) or 1
     task_index = max(1, min(task_index, len(tasks)))
@@ -931,7 +938,39 @@ def lesson_exam(request, pk):
         'saved': request.GET.get('saved') == '1',
         'preview': preview,
         'training': training,
+        'info_page': info_page,
+        'has_attachments': has_attachments,
     })
+
+
+@login_required
+def lesson_exam_files(request, pk):
+    lesson, _course = _get_exam_lesson(request, pk)
+    attachments = list(
+        TaskAttachment.objects.filter(task__in=lesson.tasks_ordered)
+    )
+    buffer = io.BytesIO()
+    used_names = set()
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as archive:
+        for attachment in attachments:
+            field = attachment.file
+            if not field or not field.storage.exists(field.name):
+                continue
+            name = attachment.filename
+            base, extension = os.path.splitext(name)
+            candidate = name
+            counter = 2
+            while candidate in used_names:
+                candidate = f'{base} ({counter}){extension}'
+                counter += 1
+            used_names.add(candidate)
+            with field.open('rb') as source:
+                archive.writestr(candidate, source.read())
+    if not used_names:
+        raise Http404
+    response = HttpResponse(buffer.getvalue(), content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="lesson-{lesson.pk}-files.zip"'
+    return response
 
 
 def _task_correct_answers(task):

@@ -117,15 +117,37 @@
             align-items: center;
             justify-content: center;
             border-radius: 6px;
-            border: 1px solid #cfd8e8;
-            background: #fff;
-            color: #1f3864;
+            border: 1px solid #1f3864;
+            background: #1f3864;
+            color: #fff;
             text-decoration: none;
             font-size: 18px;
         }
         .exam-scroll-btn:hover {
-            background: #e2e9f6;
-            color: #1f3864;
+            background: #2b4d8f;
+            color: #fff;
+        }
+        .exam-info-btn {
+            width: 42px;
+            height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            border: 1px solid #1f3864;
+            background: #1f3864;
+            color: #fff;
+            text-decoration: none;
+            font-size: 17px;
+            font-style: italic;
+            font-family: Georgia, "Times New Roman", serif;
+        }
+        .exam-info-btn:hover {
+            background: #2b4d8f;
+            color: #fff;
+        }
+        .exam-info-btn.active {
+            box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .45);
         }
         .exam-task-btn {
             width: 48px;
@@ -434,6 +456,46 @@
         .exam-tests {
             margin-top: 16px;
         }
+        .exam-info {
+            font-size: 17px;
+            line-height: 1.45;
+            max-width: 1180px;
+        }
+        .exam-info-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .exam-info-num {
+            flex: 0 0 22px;
+            font-weight: 700;
+            text-align: right;
+        }
+        .exam-info-body p {
+            margin: 0 0 6px;
+        }
+        .exam-info-body p:last-child {
+            margin-bottom: 0;
+        }
+        .exam-info-intro {
+            font-weight: 700;
+            margin-bottom: 14px;
+        }
+        .exam-download-all {
+            display: inline-block;
+            margin-top: 22px;
+            padding: 8px 16px;
+            border-radius: 4px;
+            background: #00a896;
+            color: #fff;
+            font-size: 15px;
+            text-decoration: none;
+        }
+        .exam-download-all:hover {
+            background: #009182;
+            color: #fff;
+        }
         .exam-empty {
             padding: 40px;
             color: #6b7280;
@@ -454,7 +516,7 @@
     <div class="exam-topbar-right">
         <a href="{% url 'lesson_exam_result' lesson.pk %}{% if preview %}?preview=1{% endif %}"
            {% if not training %}onclick="return confirm('Завершить пробник и посмотреть результаты?');"{% endif %}>
-            {% if training %}Итоги{% else %}Завершить пробник{% endif %}
+            {% if training %}Итоги{% else %}Завершить экзамен досрочно{% endif %}
         </a>
         {% if preview %}
             <a href="{% url 'lesson_detail' lesson.pk %}">← К уроку</a>
@@ -472,11 +534,14 @@
         {% if tasks %}
             <div class="exam-nav-scroll">
                 <a href="#" class="exam-scroll-btn" id="exam-scroll-top" aria-label="Вверх">&uarr;</a>
+                <a href="{% url 'lesson_exam' lesson.pk %}?info=1{% if preview %}&preview=1{% endif %}"
+                   class="exam-info-btn{% if info_page %} active{% endif %}"
+                   aria-label="Справка" title="Справка">i</a>
                 <div class="exam-task-list" id="exam-task-list">
                     {% for item in tasks %}
                         {% with state=task_states|get_item:item.pk %}
                             <a href="{% url 'lesson_exam' lesson.pk %}?task={{ forloop.counter }}{% if preview %}&preview=1{% endif %}"
-                               class="exam-task-btn{% if item.pk in answered_ids %} answered{% endif %}{% if training and state %} {{ state }}{% endif %}{% if forloop.counter == task_index %} active{% endif %}">
+                               class="exam-task-btn{% if item.pk in answered_ids %} answered{% endif %}{% if training and state %} {{ state }}{% endif %}{% if not info_page and forloop.counter == task_index %} active{% endif %}">
                                 {{ forloop.counter }}
                             </a>
                         {% endwith %}
@@ -496,6 +561,9 @@
             <main class="exam-main">
                 <div class="exam-content-scroll">
                     <div class="exam-content">
+                        {% if info_page %}
+                            {% include 'tasks/_exam_info.html' %}
+                        {% else %}
                         {% if preview %}
                             <div class="exam-preview-banner">
                                 Просмотр как ученик. Ответы в этом режиме не сохраняются.
@@ -571,9 +639,11 @@
                                 </div>
                             </div>
                         {% endif %}
+                        {% endif %}
                     </div>
                 </div>
 
+                {% if not info_page %}
                 {% if prev_index %}
                     <a class="exam-arrow exam-arrow-left"
                        href="{% url 'lesson_exam' lesson.pk %}?task={{ prev_index }}{% if preview %}&preview=1{% endif %}"
@@ -588,8 +658,9 @@
                 {% else %}
                     <span class="exam-arrow exam-arrow-right disabled" aria-label="Следующее задание">&#8594;</span>
                 {% endif %}
+                {% endif %}
 
-                {% if current_task.attachments.all or current_task.type != 'gap' %}
+                {% if not info_page %}{% if current_task.attachments.all or current_task.type != 'gap' %}
                     <div class="exam-footer">
                         {% if current_task.attachments.all %}
                             <div class="exam-footer-files">
@@ -623,9 +694,9 @@
                             </div>
                         {% endif %}
                     </div>
-                {% endif %}
+                {% endif %}{% endif %}
             </main>
-            {% if current_task.type == 'gap' %}
+            {% if current_task.type == 'gap' and not info_page %}
                 <aside class="exam-answer-panel">
                     <div class="exam-answer-panel-head">
                         Введите или скопируйте свой ответ в поля таблицы
