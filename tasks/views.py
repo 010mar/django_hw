@@ -1034,6 +1034,8 @@ def lesson_exam_result(request, pk):
         request.GET.get('preview') == '1'
         and lesson.author_id == request.user.pk
     )
+    if lesson.mode == Lesson.Mode.TRAINING and not preview:
+        return redirect('course_learn', pk=course.pk)
     latest_by_task = _lesson_latest_submissions(lesson, request.user)
     rows = []
     total_score = 0
@@ -1041,13 +1043,15 @@ def lesson_exam_result(request, pk):
         submission = latest_by_task.get(task.pk)
         score = submission.score if submission else 0
         total_score += score
+        solved = submission is not None and submission.is_solved
         rows.append({
             'index': index,
             'task': task,
             'submission': submission,
             'score': score,
+            'solved': solved,
             'user_answers': _submission_user_answers(submission),
-            'correct_answers': _task_correct_answers(task),
+            'correct_answers': _task_correct_answers(task) if solved else [],
         })
     middle = (len(rows) + 1) // 2
     return render(request, 'tasks/lesson_exam_result.html', {

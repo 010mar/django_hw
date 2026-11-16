@@ -585,9 +585,9 @@
     </div>
     <div class="exam-topbar-right">
         <a class="exam-finish"
-           href="{% url 'lesson_exam_result' lesson.pk %}{% if preview %}?preview=1{% endif %}"
+           href="{% if training %}{% url 'course_learn' course.pk %}{% else %}{% url 'lesson_exam_result' lesson.pk %}{% if preview %}?preview=1{% endif %}{% endif %}"
            {% if not training %}onclick="return confirm('Завершить пробник и посмотреть результаты?');"{% endif %}>
-            {% if training %}Итоги{% else %}Завершить экзамен досрочно{% endif %}
+            {% if training %}Завершить работу досрочно{% else %}Завершить экзамен досрочно{% endif %}
         </a>
         {% if preview %}
             <a href="{% url 'lesson_detail' lesson.pk %}">← К уроку</a>

@@ -826,6 +826,10 @@ class LessonExamTests(DjangoTestCase):
             task=self.gap_task, kind=TaskBlock.Kind.GAP,
             answers='a\nb\nc', order=1,
         )
+        self.client.post(
+            reverse('lesson_exam', args=[self.lesson.pk]) + '?task=2',
+            {'task_id': self.gap_task.pk, 'gap_1': '4', 'gap_2': 'a'},
+        )
         response = self.client.get(
             reverse('lesson_exam_result', args=[self.lesson.pk]),
         )
@@ -850,6 +854,53 @@ class LessonExamTests(DjangoTestCase):
         )
         self.assertContains(result, 'Правильный ответ')
 
+    def test_exam_result_hides_answer_for_unsolved_task(self):
+        result = self.client.get(
+            reverse('lesson_exam_result', args=[self.lesson.pk]),
+        )
+        self.assertContains(result, 'Правильный ответ')
+        self.assertNotContains(result, '42')
+
+    def test_exam_result_hides_answer_for_wrong_task(self):
+        self.client.post(
+            reverse('lesson_exam', args=[self.lesson.pk]) + '?task=1',
+            {'task_id': self.text_task.pk, 'answer_text': '0'},
+        )
+        result = self.client.get(
+            reverse('lesson_exam_result', args=[self.lesson.pk]),
+        )
+        self.assertNotContains(result, '42')
+
+    def test_exam_result_shows_answer_for_solved_task(self):
+        self.client.post(
+            reverse('lesson_exam', args=[self.lesson.pk]) + '?task=1',
+            {'task_id': self.text_task.pk, 'answer_text': '42'},
+        )
+        result = self.client.get(
+            reverse('lesson_exam_result', args=[self.lesson.pk]),
+        )
+        self.assertContains(result, '42')
+
+    def test_training_finish_returns_student_to_course(self):
+        group = ClassGroup.objects.create(
+            teacher=self.teacher, course=self.course, title='Класс',
+        )
+        group.students.add(self.student)
+        self.lesson.mode = Lesson.Mode.TRAINING
+        self.lesson.save(update_fields=['mode'])
+        response = self.client.get(
+            reverse('lesson_exam', args=[self.lesson.pk]),
+        )
+        self.assertContains(
+            response, reverse('course_learn', args=[self.course.pk]),
+        )
+        result = self.client.get(
+            reverse('lesson_exam_result', args=[self.lesson.pk]),
+        )
+        self.assertRedirects(
+            result, reverse('course_learn', args=[self.course.pk]),
+        )
+
     def test_training_mode_shows_result_and_green_mark(self):
         self.lesson.mode = Lesson.Mode.TRAINING
         self.lesson.save(update_fields=['mode'])
@@ -863,7 +914,7 @@ class LessonExamTests(DjangoTestCase):
         self.assertTrue(response.context['training'])
         self.assertNotContains(response, 'exam-result')
         self.assertContains(response, 'exam-task-btn answered correct')
-        self.assertContains(response, 'Итоги')
+        self.assertContains(response, 'Завершить работу досрочно')
 
     def test_training_mode_marks_partial_and_wrong_answers(self):
         self.lesson.mode = Lesson.Mode.TRAINING
