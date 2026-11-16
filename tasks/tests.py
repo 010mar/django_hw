@@ -770,6 +770,39 @@ class LessonExamTests(DjangoTestCase):
         self.assertContains(response, 'name="gap_1"')
         self.assertContains(response, 'Очистить')
 
+    def test_gap_grid_for_regular_task_has_single_row_and_two_columns(self):
+        response = self.client.get(
+            reverse('lesson_exam', args=[self.lesson.pk]) + '?task=2',
+        )
+        grid = response.context['gap_grid']
+        self.assertEqual(grid['columns'], [1, 2])
+        self.assertEqual(len(grid['rows']), 1)
+        self.assertEqual(
+            [cell['number'] for cell in grid['rows'][0]['cells']],
+            [1, 2],
+        )
+
+    def test_task_25_gap_grid_has_ten_rows(self):
+        self.gap_task.task_number = '25_1'
+        self.gap_task.save(update_fields=['task_number'])
+        response = self.client.get(
+            reverse('lesson_exam', args=[self.lesson.pk]) + '?task=2',
+        )
+        grid = response.context['gap_grid']
+        self.assertEqual(grid['columns'], [1, 2])
+        self.assertEqual(len(grid['rows']), 10)
+        self.assertEqual([row['number'] for row in grid['rows']], list(range(1, 11)))
+        self.assertContains(response, 'name="gap_20"')
+
+    def test_task_25_by_position_has_ten_rows(self):
+        from .views import _exam_gap_grid
+
+        grid = _exam_gap_grid(self.gap_task, 25, 10)
+        self.assertEqual(len(grid['rows']), 10)
+        self.assertEqual(grid['columns'], [1, 2])
+        self.assertTrue(grid['rows'][4]['cells'][0]['required'])
+        self.assertFalse(grid['rows'][5]['cells'][0]['required'])
+
     def test_exam_counts_answered_and_shows_result(self):
         self.client.post(
             reverse('lesson_exam', args=[self.lesson.pk]) + '?task=1',

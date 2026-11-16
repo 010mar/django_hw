@@ -74,6 +74,7 @@
             height: calc(100vh - 63px);
         }
         .exam-form {
+            position: relative;
             flex: 1;
             min-width: 0;
             display: flex;
@@ -244,6 +245,9 @@
             flex: 1;
             overflow-y: auto;
             padding: 33px 112px 24px 110px;
+        }
+        .exam-main-gap .exam-content-scroll {
+            padding-right: 556px;
         }
         .exam-content {
             width: 100%;
@@ -419,42 +423,45 @@
             margin-bottom: 14px;
         }
         .exam-answer-panel {
-            flex: 0 0 380px;
-            max-width: 380px;
+            position: absolute;
+            top: 24px;
+            right: 98px;
+            bottom: 122px;
+            width: 418px;
             display: flex;
             flex-direction: column;
             min-height: 0;
-            border-left: 1px solid #cfd8e8;
+            border: 2px solid #1e325a;
             background: #fff;
         }
         .exam-answer-panel-head {
-            background: #1f3864;
+            background: #1e325a;
             color: #fff;
             font-size: 13px;
-            line-height: 1.25;
+            line-height: 17px;
             text-align: center;
-            padding: 10px 10px;
+            padding: 6px 10px;
         }
         .exam-answer-panel-body {
             flex: 1;
             min-height: 0;
             overflow: auto;
-            padding: 10px 8px;
+            padding: 12px 11px;
         }
         .exam-answer-panel-footer {
             display: flex;
-            gap: 8px;
-            padding: 8px;
-            border-top: 1px solid #cfd8e8;
+            gap: 12px;
+            padding: 0 11px 9px;
         }
         .exam-clear {
             flex: 1;
-            padding: 8px;
+            height: 44px;
+            padding: 0;
             border-radius: 4px;
-            border: 1px solid #ef9a9a;
+            border: 1px solid #f89187;
             background: #fff;
-            color: #e57373;
-            font-size: 13px;
+            color: #f89187;
+            font-size: 14px;
         }
         .exam-clear:hover {
             background: #fff5f5;
@@ -462,24 +469,27 @@
         .exam-answer-panel-footer .exam-save {
             flex: 1;
             min-width: 0;
-            padding: 8px;
-            font-size: 13px;
+            height: 44px;
+            padding: 0;
+            font-size: 14px;
+            border-radius: 4px;
         }
         .exam-gap-table {
-            width: 100%;
+            width: 334px;
             border-collapse: collapse;
             table-layout: fixed;
         }
         .exam-gap-table th,
         .exam-gap-table td {
+            width: 110px;
             height: 32px;
             padding: 0;
-            border: 1px solid #8a96a3;
+            border: 1px solid #808080;
             text-align: center;
             vertical-align: middle;
         }
         .exam-gap-table th {
-            background: #e3ebf6;
+            background: #e7edf9;
             font-weight: 400;
             font-size: 16px;
         }
@@ -543,6 +553,8 @@
             .exam-content-scroll { padding: 24px 72px; }
             .exam-footer { padding: 16px 72px; }
             .exam-tools { left: 12px; }
+            .exam-answer-panel { right: 20px; bottom: 116px; width: 380px; }
+            .exam-main-gap .exam-content-scroll { padding-right: 440px; }
         }
         @media (max-width: 900px) {
             .exam-topbar { padding-left: 20px; gap: 12px; }
@@ -554,6 +566,14 @@
             .exam-arrow { width: 52px; height: 52px; }
             .exam-arrow-left { left: 4px; }
             .exam-arrow-right { right: 4px; }
+            .exam-form { flex-direction: column; }
+            .exam-answer-panel {
+                position: static;
+                width: auto;
+                height: 460px;
+                border: 2px solid #1e325a;
+            }
+            .exam-main-gap .exam-content-scroll { padding-right: 48px; }
         }
     </style>
 </head>
@@ -617,7 +637,7 @@
               class="exam-form">
             {% csrf_token %}
             <input type="hidden" name="task_id" value="{{ current_task.pk }}">
-            <main class="exam-main">
+            <main class="exam-main{% if gap_grid %} exam-main-gap{% endif %}">
                 <div class="exam-tools" aria-hidden="true">
                     <span class="exam-tool">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -800,7 +820,11 @@
                         {% endif %}
                     </div>
                 {% endif %}{% endif %}
-                {% if info_page %}<div class="exam-footer exam-footer-empty"></div>{% endif %}
+                {% if info_page %}
+                    <div class="exam-footer exam-footer-empty"></div>
+                {% elif current_task.type == 'gap' and not current_task.attachments.all %}
+                    <div class="exam-footer exam-footer-empty"></div>
+                {% endif %}
             </main>
             {% if current_task.type == 'gap' and not info_page %}
                 <aside class="exam-answer-panel">
@@ -829,7 +853,8 @@
                                                                id="gap-input-{{ cell.number }}"
                                                                class="{% if cell.state == 'valid' %}is-valid{% elif cell.state == 'invalid' %}is-invalid{% endif %}"
                                                                value="{{ cell.answer|default:'' }}"
-                                                               {% if preview %}disabled{% endif %} required>
+                                                               {% if preview %}disabled{% endif %}
+                                                               {% if cell.required %}required{% endif %}>
                                                     {% endif %}
                                                 </td>
                                             {% endfor %}

@@ -821,6 +821,28 @@ def _lesson_latest_submissions(lesson, user):
     return latest
 
 
+def _exam_gap_grid(task, task_index, gap_count):
+    columns = 2
+    is_task_25 = (
+        task_index == 25
+        or (task.task_number or '').startswith('25_')
+    )
+    rows_count = 10 if is_task_25 else 1
+    rows_count = max(rows_count, (gap_count + columns - 1) // columns)
+    rows = []
+    number = 0
+    for row_index in range(1, rows_count + 1):
+        cells = []
+        for _ in range(columns):
+            number += 1
+            cells.append({
+                'number': number,
+                'required': number <= gap_count,
+            })
+        rows.append({'number': row_index, 'cells': cells})
+    return {'rows': rows, 'columns': list(range(1, columns + 1))}
+
+
 @login_required
 def lesson_exam(request, pk):
     lesson, course = _get_exam_lesson(request, pk)
@@ -898,16 +920,16 @@ def lesson_exam(request, pk):
     gap_blocks = []
     gap_grid = None
     if current_task.type == Task.Type.GAP:
-        from assignments.views import _gap_block_items, _gap_grid
+        from assignments.views import _gap_block_items
 
         gap_blocks = _gap_block_items(current_task)
-        gap_grid = _gap_grid(gap_blocks)
+        gap_grid = _exam_gap_grid(
+            current_task, task_index, len(current_task.gap_blocks),
+        )
         if latest:
             answers = latest.gap_answers or {}
             for row in gap_grid['rows']:
                 for cell in row['cells']:
-                    if not cell:
-                        continue
                     value = answers.get(str(cell['number']), '')
                     cell['answer'] = value
                     if training and value:
