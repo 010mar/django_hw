@@ -995,6 +995,15 @@ def lesson_exam_files(request, pk):
     return response
 
 
+def _gap_answer_lines(values):
+    lines = []
+    for index in range(0, len(values), 2):
+        pair = [value for value in values[index:index + 2] if value]
+        if pair:
+            lines.append(' '.join(pair))
+    return lines
+
+
 def _task_correct_answers(task):
     if task.type == Task.Type.TEXT:
         if task.answer_mode == Task.AnswerMode.CHOICE:
@@ -1004,11 +1013,11 @@ def _task_correct_answers(task):
             ]
         return [task.correct_answer] if task.correct_answer else []
     if task.type == Task.Type.GAP:
-        return [
-            answer
+        return _gap_answer_lines([
+            block.accepted_answers[0]
             for block in task.gap_blocks
-            for answer in block.accepted_answers
-        ]
+            if block.accepted_answers
+        ])
     return []
 
 
@@ -1020,10 +1029,22 @@ def _submission_user_answers(submission):
     if submission.answer_text:
         return [submission.answer_text]
     if submission.gap_answers:
-        return [str(value) for value in submission.gap_answers.values()]
+        values = [
+            str(value)
+            for _, value in sorted(
+                submission.gap_answers.items(),
+                key=lambda item: int(item[0]),
+            )
+        ]
+        return _gap_answer_lines(values)
     if submission.code:
         return ['Код отправлен']
     return []
+
+
+def _task_display_number(task, index):
+    raw = (task.task_number or '').split('_', 1)[0].strip()
+    return int(raw) if raw.isdigit() else index
 
 
 @login_required
@@ -1046,6 +1067,7 @@ def lesson_exam_result(request, pk):
         solved = submission is not None and submission.is_solved
         rows.append({
             'index': index,
+            'number': _task_display_number(task, index),
             'task': task,
             'submission': submission,
             'score': score,
@@ -1054,11 +1076,17 @@ def lesson_exam_result(request, pk):
             'correct_answers': _task_correct_answers(task) if solved else [],
         })
     middle = (len(rows) + 1) // 2
+    left_rows = [row for row in rows if row['number'] <= 16]
+    right_rows = [row for row in rows if row['number'] > 16]
+    if left_rows and right_rows:
+        tables = [left_rows, right_rows]
+    else:
+        tables = [rows[:middle], rows[middle:]] if rows else []
     return render(request, 'tasks/lesson_exam_result.html', {
         'lesson': lesson,
         'course': course,
         'rows': rows,
-        'tables': [rows[:middle], rows[middle:]] if rows else [],
+        'tables': tables,
         'task_count': len(tasks),
         'answered_count': len(latest_by_task),
         'total_score': total_score,

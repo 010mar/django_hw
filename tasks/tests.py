@@ -815,13 +815,13 @@ class LessonExamTests(DjangoTestCase):
         )
         self.assertContains(result, '1/2')
         self.assertContains(result, '2/4')
-        self.assertContains(result, 'Правильный ответ')
+        self.assertContains(result, 'Правильный<br>ответ')
         self.assertContains(result, 'Единый государственный экзамен')
         self.assertEqual(
             result.content.decode().count('<div class="result-table-wrap">'), 2,
         )
 
-    def test_result_shows_answers_two_per_row(self):
+    def test_result_shows_gap_answers_as_pairs(self):
         TaskBlock.objects.create(
             task=self.gap_task, kind=TaskBlock.Kind.GAP,
             answers='a\nb\nc', order=1,
@@ -834,9 +834,27 @@ class LessonExamTests(DjangoTestCase):
             reverse('lesson_exam_result', args=[self.lesson.pk]),
         )
         html = response.content.decode()
-        self.assertIn('<div class="answer-pairs">', html)
-        self.assertIn('<span>4</span>', html)
-        self.assertIn('<span>a</span>', html)
+        self.assertIn('<div class="answer-lines">', html)
+        self.assertIn('<div>4 a</div>', html)
+
+    def test_result_pairs_long_gap_answers(self):
+        for order, answer in enumerate(('2', '3', '4'), start=1):
+            TaskBlock.objects.create(
+                task=self.gap_task, kind=TaskBlock.Kind.GAP,
+                answers=answer, order=order,
+            )
+        self.client.post(
+            reverse('lesson_exam', args=[self.lesson.pk]) + '?task=2',
+            {
+                'task_id': self.gap_task.pk,
+                'gap_1': '4', 'gap_2': '2', 'gap_3': '3', 'gap_4': '4',
+            },
+        )
+        response = self.client.get(
+            reverse('lesson_exam_result', args=[self.lesson.pk]),
+        )
+        self.assertContains(response, '4 2')
+        self.assertContains(response, '3 4')
 
     def test_exam_mode_hides_result_before_finish(self):
         self.client.post(
@@ -847,18 +865,18 @@ class LessonExamTests(DjangoTestCase):
             reverse('lesson_exam', args=[self.lesson.pk]) + '?task=1',
         )
         self.assertFalse(response.context['training'])
-        self.assertNotContains(response, 'Правильный ответ')
+        self.assertNotContains(response, 'Правильный<br>ответ')
         self.assertNotContains(response, 'exam-task-btn answered correct')
         result = self.client.get(
             reverse('lesson_exam_result', args=[self.lesson.pk]),
         )
-        self.assertContains(result, 'Правильный ответ')
+        self.assertContains(result, 'Правильный<br>ответ')
 
     def test_exam_result_hides_answer_for_unsolved_task(self):
         result = self.client.get(
             reverse('lesson_exam_result', args=[self.lesson.pk]),
         )
-        self.assertContains(result, 'Правильный ответ')
+        self.assertContains(result, 'Правильный<br>ответ')
         self.assertNotContains(result, '42')
 
     def test_exam_result_hides_answer_for_wrong_task(self):

@@ -11,132 +11,152 @@
         body {
             margin: 0;
             min-height: 100vh;
-            background: #e7eef8;
-            color: #1f2937;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background: #e7edf9;
+            color: #222;
+            font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+            font-size: 16px;
         }
         .result-topbar {
-            background: #1f3864;
+            height: 64px;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            padding: 0 21px;
+            background: #1e325a;
             color: #fff;
-            padding: 14px 32px;
-            font-size: 22px;
-            line-height: 1.3;
+            font-size: 26px;
+            line-height: 1.2;
         }
         .result-container {
-            max-width: 1280px;
-            margin: 38px auto 60px;
-            padding: 0 20px;
+            width: 1100px;
+            max-width: calc(100% - 40px);
+            margin: 81px auto 60px;
         }
         .result-banner {
             background: #fff;
             text-align: center;
-            padding: 18px 20px;
-            font-size: 22px;
-            margin-bottom: 18px;
+            padding: 10px 20px;
+            font-size: 32px;
+            line-height: 40px;
+            color: #222;
         }
         .result-answered {
             text-align: center;
-            font-size: 16px;
-            margin-bottom: 18px;
+            font-size: 22px;
+            line-height: 30px;
+            margin: 12px 0 8px;
+            color: #222;
         }
         .result-grid {
             display: flex;
-            gap: 24px;
+            gap: 34px;
             align-items: flex-start;
         }
         .result-summary {
-            flex: 0 0 210px;
-            padding-top: 8px;
+            flex: 0 0 200px;
+            text-align: center;
         }
         .result-summary-title {
-            color: #6b7280;
-            font-size: 16px;
-            margin-bottom: 4px;
+            color: #666;
+            font-size: 17px;
+            line-height: 22px;
         }
         .result-summary-total {
-            font-size: 44px;
-            line-height: 1.1;
-            margin-bottom: 4px;
+            font-size: 53px;
+            line-height: 56px;
+            color: #222;
         }
         .result-summary-primary {
-            color: #6b7280;
-            font-size: 15px;
+            color: #666;
+            font-size: 17px;
+            line-height: 24px;
         }
         .result-tables {
             flex: 1;
             display: flex;
-            gap: 22px;
-            align-items: flex-start;
+            gap: 12px;
+            align-items: stretch;
             min-width: 0;
         }
         .result-table-wrap {
             flex: 1 1 0;
+            display: flex;
             min-width: 0;
         }
         .result-table {
             width: 100%;
-            table-layout: fixed;
+            height: 100%;
+            table-layout: auto;
             border-collapse: collapse;
             background: #fff;
-            font-size: 14px;
+            color: #222;
+            font-size: 16px;
         }
         .result-table th,
         .result-table td {
-            border: 1px solid #8a96a3;
-            padding: 6px 8px;
+            border: 1px solid #808080;
+            padding: 3px 6px;
+            text-align: center;
             vertical-align: middle;
         }
         .result-table th {
-            background: #e3ebf6;
-            font-weight: 600;
-            text-align: center;
-            color: #1f2937;
+            background: #fff;
+            font-weight: 700;
+            font-size: 15px;
+            line-height: 18px;
+            padding: 4px 6px;
         }
         .result-table td {
-            text-align: center;
-        }
-        .result-table td.answer-cell {
-            text-align: left;
-            word-break: break-word;
-        }
-        .answer-pairs {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 2px 16px;
-            text-align: left;
-        }
-        .answer-pairs span {
-            min-width: 0;
-            word-break: break-word;
+            height: 28px;
+            padding: 2px 6px;
+            line-height: 20px;
         }
         .result-table .col-number {
-            width: 44px;
-        }
-        .result-table .col-score {
             width: 54px;
         }
+        .result-table .col-score {
+            width: 80px;
+        }
         .result-table .col-user {
-            width: 92px;
+            width: 90px;
+        }
+        .result-table td.task-number {
+            color: #2a5885;
+        }
+        .answer-cell {
+            text-align: center;
+        }
+        .answer-lines {
+            line-height: 22px;
+        }
+        .answer-lines > div {
+            white-space: nowrap;
         }
         .result-footer {
             text-align: center;
-            margin-top: 30px;
+            margin-top: 12px;
         }
         .result-finish {
-            border: 0;
-            background: #0f6fb5;
-            color: #fff;
-            padding: 12px 34px;
-            font-size: 16px;
-            text-decoration: none;
             display: inline-block;
+            padding: 12px 23px;
+            background: #2196b5;
+            color: #fff;
+            font-size: 19.5px;
+            line-height: 22px;
+            text-decoration: none;
         }
         .result-finish:hover {
-            background: #0c5f9d;
+            background: #1b86a3;
             color: #fff;
         }
         @media (max-width: 1100px) {
             .result-grid { flex-direction: column; }
+            .result-summary { flex-basis: auto; }
+            .result-tables { width: 100%; }
+        }
+        @media (max-width: 760px) {
+            .result-topbar { font-size: 18px; padding: 0 14px; }
+            .result-banner { font-size: 20px; line-height: 28px; }
             .result-tables { flex-direction: column; }
         }
     </style>
@@ -145,7 +165,7 @@
 <div class="result-topbar">Единый государственный экзамен Информатика и ИКТ (КЕГЭ)</div>
 <div class="result-container">
     <div class="result-banner">
-        КИМ № {{ lesson.pk }} &nbsp;&nbsp; БР № {{ request.user.pk }}
+        КИМ № {{ lesson.pk }} БР № {{ request.user.pk }}
     </div>
     <div class="result-answered">Дано ответов {{ answered_count }}/{{ task_count }}</div>
 
@@ -169,30 +189,26 @@
                                 <tr>
                                     <th class="col-number">№</th>
                                     <th class="col-score">Балл</th>
-                                    <th class="col-user">Ваш ответ</th>
-                                    <th>Правильный ответ</th>
+                                    <th class="col-user">Ваш<br>ответ</th>
+                                    <th>Правильный<br>ответ</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for row in table_rows %}
                                     <tr>
-                                        <td>{{ row.index }}</td>
+                                        <td class="task-number">{{ row.number }}</td>
                                         <td>{{ row.score|floatformat:'-2' }}</td>
-                                        <td>
-                                            {% if row.user_answers|length == 1 %}
-                                                {{ row.user_answers.0 }}
-                                            {% elif row.user_answers %}
-                                                <div class="answer-pairs">
-                                                    {% for value in row.user_answers %}<span>{{ value }}</span>{% endfor %}
+                                        <td class="answer-cell">
+                                            {% if row.user_answers %}
+                                                <div class="answer-lines">
+                                                    {% for line in row.user_answers %}<div>{{ line }}</div>{% endfor %}
                                                 </div>
                                             {% endif %}
                                         </td>
                                         <td class="answer-cell">
-                                            {% if row.correct_answers|length == 1 %}
-                                                {{ row.correct_answers.0 }}
-                                            {% elif row.correct_answers %}
-                                                <div class="answer-pairs">
-                                                    {% for value in row.correct_answers %}<span>{{ value }}</span>{% endfor %}
+                                            {% if row.correct_answers %}
+                                                <div class="answer-lines">
+                                                    {% for line in row.correct_answers %}<div>{{ line }}</div>{% endfor %}
                                                 </div>
                                             {% endif %}
                                         </td>
