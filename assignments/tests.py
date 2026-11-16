@@ -268,6 +268,7 @@ class AssignmentFlowTests(DjangoTestCase):
         self.assertContains(response, 'Сохранить ответ')
         self.assertContains(response, 'Очистить')
         self.assertNotContains(response, 'Пропуск 1')
+        self.assertContains(response, "addEventListener('paste'")
 
     def test_gap_grid_without_breaks_is_single_row(self):
         from assignments.views import _gap_block_items, _gap_grid

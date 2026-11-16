@@ -951,6 +951,38 @@
             });
         });
     }
+    document.querySelectorAll('.exam-gap-table input').forEach(function (input) {
+        input.addEventListener('paste', function (event) {
+            var clipboard = event.clipboardData || window.clipboardData;
+            if (!clipboard) {
+                return;
+            }
+            var values = clipboard.getData('text').split(/\s+/).filter(Boolean);
+            if (values.length < 2) {
+                return;
+            }
+            var table = input.closest('table');
+            if (!table) {
+                return;
+            }
+            var inputs = Array.prototype.slice.call(
+                table.querySelectorAll('input')
+            );
+            var start = inputs.indexOf(input);
+            if (start < 0) {
+                return;
+            }
+            event.preventDefault();
+            values.forEach(function (value, index) {
+                var target = inputs[start + index];
+                if (!target) {
+                    return;
+                }
+                target.value = value;
+                target.classList.remove('is-valid', 'is-invalid');
+            });
+        });
+    });
 })();
 </script>
 </body>

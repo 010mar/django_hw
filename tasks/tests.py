@@ -770,6 +770,12 @@ class LessonExamTests(DjangoTestCase):
         self.assertContains(response, 'name="gap_1"')
         self.assertContains(response, 'Очистить')
 
+    def test_gap_inputs_distribute_pasted_values(self):
+        response = self.client.get(
+            reverse('lesson_exam', args=[self.lesson.pk]) + '?task=2',
+        )
+        self.assertContains(response, "addEventListener('paste'")
+
     def test_gap_grid_for_regular_task_has_single_row_and_two_columns(self):
         response = self.client.get(
             reverse('lesson_exam', args=[self.lesson.pk]) + '?task=2',
