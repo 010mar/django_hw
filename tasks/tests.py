@@ -671,7 +671,8 @@ class LessonExamTests(DjangoTestCase):
         self.assertContains(response, 'Обозначения для логических связок (операций)')
         self.assertNotContains(response, 'exam-task-btn active')
         self.assertNotContains(response, 'name="answer_text"')
-        self.assertNotContains(response, 'exam-arrow exam-arrow-right')
+        self.assertContains(response, 'exam-arrow exam-arrow-left')
+        self.assertContains(response, 'exam-arrow exam-arrow-right')
 
     def test_info_page_downloads_all_lesson_files(self):
         with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):

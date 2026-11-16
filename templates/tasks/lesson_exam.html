@@ -14,28 +14,31 @@
             height: 100vh;
             overflow: hidden;
             background: #fff;
-            color: #1f2937;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            color: #222;
+            font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+            font-size: 22px;
+            line-height: 1.5;
         }
         .exam-topbar {
-            height: 56px;
-            flex: 0 0 56px;
+            height: 63px;
+            flex: 0 0 63px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 24px;
-            padding: 0 28px;
-            background: #1f3864;
+            padding: 0 8px 0 64px;
+            background: #1e325a;
             color: #fff;
         }
         .exam-topbar-left {
             display: flex;
-            align-items: baseline;
-            gap: 48px;
+            align-items: center;
+            gap: 36px;
             min-width: 0;
         }
         .exam-id {
-            font-size: 18px;
+            font-size: 26px;
+            font-weight: 400;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -43,25 +46,32 @@
         .exam-topbar-right {
             display: flex;
             align-items: center;
-            gap: 18px;
-            font-size: 15px;
+            gap: 44px;
+            font-size: 18px;
+            color: #d5dce8;
         }
         .exam-topbar-right a,
         .exam-topbar-right span {
-            color: #fff;
+            color: #d5dce8;
             text-decoration: none;
         }
+        .exam-topbar-right .exam-finish {
+            color: #fff;
+        }
         .exam-topbar-right a:hover {
-            color: #dce6f8;
+            color: #fff;
         }
         .exam-icon {
-            font-size: 22px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: 300;
             line-height: 1;
-            opacity: .85;
         }
         .exam-layout {
             display: flex;
-            height: calc(100vh - 56px);
+            height: calc(100vh - 63px);
         }
         .exam-form {
             flex: 1;
@@ -69,26 +79,27 @@
             display: flex;
         }
         .exam-sidebar {
-            flex: 0 0 132px;
+            flex: 0 0 162px;
+            width: 162px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 10px;
-            padding: 16px 10px;
-            background: #eef3fb;
-            border-right: 1px solid #dbe3f0;
+            gap: 0;
+            padding: 18px 0 4px;
+            background: #e7edf9;
             overflow: hidden;
         }
         .exam-answered-label {
-            color: #6b7280;
-            font-size: 13px;
+            color: #666;
+            font-size: 18px;
             text-align: center;
-            line-height: 1.2;
+            line-height: 22px;
         }
         .exam-answered-count {
-            font-size: 32px;
+            font-size: 42px;
             line-height: 1.1;
-            margin-bottom: 4px;
+            color: #222;
+            margin: 7px 0 15px;
         }
         .exam-nav-scroll {
             flex: 1;
@@ -96,7 +107,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 8px;
+            gap: 12px;
             min-height: 0;
         }
         .exam-task-list {
@@ -106,93 +117,96 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 8px;
-            padding: 2px 0;
-            scrollbar-width: thin;
+            gap: 12px;
+            padding: 0;
+            scrollbar-width: none;
+        }
+        .exam-task-list::-webkit-scrollbar {
+            display: none;
         }
         .exam-scroll-btn {
-            width: 42px;
-            height: 34px;
+            width: 44px;
+            height: 44px;
+            flex: 0 0 44px;
             display: flex;
             align-items: center;
             justify-content: center;
             border-radius: 6px;
-            border: 1px solid #1f3864;
-            background: #1f3864;
+            border: 0;
+            background: #1e325a;
             color: #fff;
             text-decoration: none;
             font-size: 18px;
+            line-height: 1;
         }
         .exam-scroll-btn:hover {
             background: #2b4d8f;
             color: #fff;
         }
         .exam-info-btn {
-            width: 42px;
-            height: 34px;
+            width: 44px;
+            height: 44px;
+            flex: 0 0 44px;
             display: flex;
             align-items: center;
             justify-content: center;
             border-radius: 6px;
-            border: 1px solid #1f3864;
-            background: #1f3864;
+            border: 0;
+            background: #1e325a;
             color: #fff;
             text-decoration: none;
-            font-size: 17px;
-            font-style: italic;
+            font-size: 20px;
+            line-height: 1;
             font-family: Georgia, "Times New Roman", serif;
+            font-style: italic;
         }
         .exam-info-btn:hover {
             background: #2b4d8f;
             color: #fff;
         }
         .exam-info-btn.active {
-            box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .45);
+            background: #1e325a;
         }
         .exam-task-btn {
-            width: 48px;
-            min-height: 34px;
+            width: 44px;
+            height: 44px;
+            flex: 0 0 44px;
             display: flex;
             align-items: center;
             justify-content: center;
             border-radius: 6px;
-            border: 1px solid #cfd8e8;
+            border: 0;
             background: #fff;
-            color: #1f2937;
+            color: #222;
             text-decoration: none;
-            font-size: 16px;
+            font-size: 18px;
+            line-height: 1;
         }
         .exam-task-btn:hover {
-            background: #e2e9f6;
-            color: #1f2937;
+            background: #fff;
+            color: #1e325a;
         }
         .exam-task-btn.answered {
-            border-color: #9fc0ea;
-            background: #dbe8fb;
+            background: #dce8fa;
         }
         .exam-task-btn.active {
-            background: #1f3864;
-            border-color: #1f3864;
+            background: #1e325a;
             color: #fff;
-            font-weight: 600;
-            box-shadow: inset 0 0 0 3px rgba(31, 56, 100, .9);
+            font-weight: 400;
         }
         .exam-task-btn.correct,
         .exam-task-btn.correct:hover {
             background: #6fbf73;
-            border-color: #5aa85e;
             color: #fff;
         }
         .exam-task-btn.partial,
         .exam-task-btn.partial:hover {
             background: #f2c94c;
-            border-color: #dfb43f;
             color: #3b2e00;
         }
         .exam-task-btn.incorrect,
         .exam-task-btn.incorrect:hover {
             background: #ec7a7a;
-            border-color: #d96565;
             color: #fff;
         }
         .exam-main {
@@ -202,23 +216,50 @@
             display: flex;
             flex-direction: column;
         }
+        .exam-tools {
+            position: absolute;
+            top: 44px;
+            left: 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 2;
+        }
+        .exam-tool {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed #bbd2f7;
+            background: #fff;
+            color: #a8c7f6;
+        }
+        .exam-tool svg {
+            width: 20px;
+            height: 20px;
+            display: block;
+        }
         .exam-content-scroll {
             flex: 1;
             overflow-y: auto;
-            padding: 28px 84px 24px;
+            padding: 33px 112px 24px 110px;
         }
         .exam-content {
             width: 100%;
             max-width: 100%;
+            font-size: 22px;
+            line-height: 33px;
         }
         .exam-task-title {
-            font-size: 18px;
+            font-size: 22px;
             font-weight: 700;
-            margin: 0 0 12px;
+            margin: 0 0 14px;
+            line-height: 33px;
         }
         .exam-condition {
-            font-size: 17px;
-            line-height: 1.45;
+            font-size: 22px;
+            line-height: 33px;
             margin-bottom: 18px;
         }
         .exam-condition img {
@@ -227,33 +268,38 @@
         }
         .exam-arrow {
             position: absolute;
-            top: 50%;
+            top: calc((100% - 93px) / 2);
             transform: translateY(-50%);
-            width: 52px;
-            height: 52px;
+            width: 68px;
+            height: 68px;
             border-radius: 50%;
-            border: 2px solid #b9cdf0;
+            border: 2px solid #a8c7f6;
             background: #fff;
-            color: #2b4d8f;
+            color: #222;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 22px;
             text-decoration: none;
         }
+        .exam-arrow svg {
+            width: 30px;
+            height: 16px;
+            display: block;
+        }
         .exam-arrow:hover {
-            background: #f1f5fd;
-            color: #1f3864;
+            background: #fff;
+            color: #000;
+            border-color: #8fb4ed;
         }
         .exam-arrow.disabled {
             opacity: .35;
             pointer-events: none;
         }
         .exam-arrow-left {
-            left: 12px;
+            left: 11px;
         }
         .exam-arrow-right {
-            right: 12px;
+            right: 4px;
         }
         .exam-footer {
             flex: 0 0 auto;
@@ -261,9 +307,14 @@
             justify-content: space-between;
             align-items: center;
             gap: 12px;
-            padding: 12px 28px;
-            border-top: 1px solid #e5e7eb;
+            min-height: 103px;
+            box-sizing: border-box;
+            padding: 16px 112px;
+            border-top: 3px solid #e7edf9;
             background: #fff;
+        }
+        .exam-footer-empty {
+            padding: 0;
         }
         .exam-footer-files {
             display: flex;
@@ -281,13 +332,13 @@
             border: 1px solid #cfd8e8;
             border-radius: 6px;
             background: #f8faff;
-            color: #1f3864;
+            color: #1e325a;
             font-size: 15px;
             text-decoration: none;
         }
         .exam-file-link:hover {
             background: #eef3fb;
-            color: #1f3864;
+            color: #1e325a;
         }
         .exam-file-link i {
             flex: 0 0 auto;
@@ -307,18 +358,19 @@
         .exam-footer-answer {
             width: 420px;
             max-width: 60vw;
+            font-size: 18px;
         }
         .exam-save {
             min-width: 150px;
             padding: 9px 18px;
             border: 0;
-            border-radius: 6px;
-            background: #00a896;
-            color: #fff;
+            border-radius: 4px;
+            background: #00c3a2;
+            color: #004a46;
             font-size: 15px;
         }
         .exam-save:hover {
-            background: #009182;
+            background: #00b195;
         }
         .exam-saved {
             display: inline-block;
@@ -457,53 +509,51 @@
             margin-top: 16px;
         }
         .exam-info {
-            font-size: 17px;
-            line-height: 1.45;
-            max-width: 1180px;
+            font-size: 22px;
+            line-height: 33px;
+            color: #222;
         }
-        .exam-info-item {
-            display: flex;
-            align-items: flex-start;
-            gap: 8px;
-            margin-bottom: 12px;
+        .exam-info p {
+            margin: 0;
         }
-        .exam-info-num {
-            flex: 0 0 22px;
+        .exam-info strong {
             font-weight: 700;
-            text-align: right;
-        }
-        .exam-info-body p {
-            margin: 0 0 6px;
-        }
-        .exam-info-body p:last-child {
-            margin-bottom: 0;
-        }
-        .exam-info-intro {
-            font-weight: 700;
-            margin-bottom: 14px;
         }
         .exam-download-all {
             display: inline-block;
-            margin-top: 22px;
-            padding: 8px 16px;
-            border-radius: 4px;
-            background: #00a896;
-            color: #fff;
-            font-size: 15px;
+            margin-top: 33px;
+            height: 51px;
+            line-height: 51px;
+            padding: 0 8px;
+            background: #00c3a2;
+            color: #004a46;
+            font-size: 14.5px;
             text-decoration: none;
+            border-radius: 0;
         }
         .exam-download-all:hover {
-            background: #009182;
-            color: #fff;
+            background: #00b195;
+            color: #004a46;
         }
         .exam-empty {
             padding: 40px;
-            color: #6b7280;
+            color: #666;
+        }
+        @media (max-width: 1100px) {
+            .exam-content-scroll { padding: 24px 72px; }
+            .exam-footer { padding: 16px 72px; }
+            .exam-tools { left: 12px; }
         }
         @media (max-width: 900px) {
-            .exam-content-scroll { padding: 20px 56px; }
-            .exam-sidebar { flex-basis: 96px; }
-            .exam-id { font-size: 15px; }
+            .exam-topbar { padding-left: 20px; gap: 12px; }
+            .exam-id { font-size: 20px; }
+            .exam-sidebar { flex-basis: 120px; width: 120px; }
+            .exam-content-scroll { padding: 20px 48px; }
+            .exam-footer { padding: 16px 48px; }
+            .exam-tools { display: none; }
+            .exam-arrow { width: 52px; height: 52px; }
+            .exam-arrow-left { left: 4px; }
+            .exam-arrow-right { right: 4px; }
         }
     </style>
 </head>
@@ -514,7 +564,8 @@
         <span class="exam-id">БР № {{ request.user.pk }}</span>
     </div>
     <div class="exam-topbar-right">
-        <a href="{% url 'lesson_exam_result' lesson.pk %}{% if preview %}?preview=1{% endif %}"
+        <a class="exam-finish"
+           href="{% url 'lesson_exam_result' lesson.pk %}{% if preview %}?preview=1{% endif %}"
            {% if not training %}onclick="return confirm('Завершить пробник и посмотреть результаты?');"{% endif %}>
             {% if training %}Итоги{% else %}Завершить экзамен досрочно{% endif %}
         </a>
@@ -522,8 +573,16 @@
             <a href="{% url 'lesson_detail' lesson.pk %}">← К уроку</a>
         {% endif %}
         <span class="exam-icon" title="{% if training %}Режим тренировки{% else %}Экзаменационный режим{% endif %}">?</span>
-        <a href="{% url 'home' %}" class="exam-icon" title="Свернуть">&#8211;</a>
-        <a href="{% url 'home' %}" class="exam-icon" title="Закрыть">&#215;</a>
+        <a href="{% url 'home' %}" class="exam-icon" title="Свернуть">
+            <svg width="19" height="2" viewBox="0 0 19 2" aria-hidden="true">
+                <line x1="0" y1="1" x2="19" y2="1" stroke="currentColor" stroke-width="1.6"/>
+            </svg>
+        </a>
+        <a href="{% url 'home' %}" class="exam-icon" title="Закрыть">
+            <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+                <path d="M1 1l16 16M17 1L1 17" stroke="currentColor" stroke-width="1.2"/>
+            </svg>
+        </a>
     </div>
 </div>
 
@@ -559,6 +618,30 @@
             {% csrf_token %}
             <input type="hidden" name="task_id" value="{{ current_task.pk }}">
             <main class="exam-main">
+                <div class="exam-tools" aria-hidden="true">
+                    <span class="exam-tool">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                            <rect x="2.5" y="13" width="8.5" height="8.5"/>
+                            <path d="M10.5 14L21 3.5"/>
+                            <path d="M14.5 3.5H21V10"/>
+                        </svg>
+                    </span>
+                    <span class="exam-tool">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                            <path d="M4.5 19.5L19.5 4.5"/>
+                            <path d="M14 4.5h5.5V10"/>
+                            <path d="M4.5 14v5.5H10"/>
+                        </svg>
+                    </span>
+                    <span class="exam-tool">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                            <path d="M20 4L12.5 11.5"/>
+                            <path d="M12.5 6v5.5h5.5"/>
+                            <path d="M4 20l7.5-7.5"/>
+                            <path d="M11.5 18v-5.5H6"/>
+                        </svg>
+                    </span>
+                </div>
                 <div class="exam-content-scroll">
                     <div class="exam-content">
                         {% if info_page %}
@@ -643,21 +726,43 @@
                     </div>
                 </div>
 
-                {% if not info_page %}
                 {% if prev_index %}
                     <a class="exam-arrow exam-arrow-left"
                        href="{% url 'lesson_exam' lesson.pk %}?task={{ prev_index }}{% if preview %}&preview=1{% endif %}"
-                       aria-label="Предыдущее задание">&#8592;</a>
+                       aria-label="Предыдущее задание">
+                        <svg viewBox="0 0 34 18" fill="none" stroke="currentColor" stroke-width="1.7"
+                             stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M32 9H3"/>
+                            <path d="M9 3L3 9l6 6"/>
+                        </svg>
+                    </a>
                 {% else %}
-                    <span class="exam-arrow exam-arrow-left disabled" aria-label="Предыдущее задание">&#8592;</span>
+                    <span class="exam-arrow exam-arrow-left disabled" aria-label="Предыдущее задание">
+                        <svg viewBox="0 0 34 18" fill="none" stroke="currentColor" stroke-width="1.7"
+                             stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M32 9H3"/>
+                            <path d="M9 3L3 9l6 6"/>
+                        </svg>
+                    </span>
                 {% endif %}
                 {% if next_index %}
                     <a class="exam-arrow exam-arrow-right"
                        href="{% url 'lesson_exam' lesson.pk %}?task={{ next_index }}{% if preview %}&preview=1{% endif %}"
-                       aria-label="Следующее задание">&#8594;</a>
+                       aria-label="Следующее задание">
+                        <svg viewBox="0 0 34 18" fill="none" stroke="currentColor" stroke-width="1.7"
+                             stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M2 9h29"/>
+                            <path d="M25 3l6 6-6 6"/>
+                        </svg>
+                    </a>
                 {% else %}
-                    <span class="exam-arrow exam-arrow-right disabled" aria-label="Следующее задание">&#8594;</span>
-                {% endif %}
+                    <span class="exam-arrow exam-arrow-right disabled" aria-label="Следующее задание">
+                        <svg viewBox="0 0 34 18" fill="none" stroke="currentColor" stroke-width="1.7"
+                             stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M2 9h29"/>
+                            <path d="M25 3l6 6-6 6"/>
+                        </svg>
+                    </span>
                 {% endif %}
 
                 {% if not info_page %}{% if current_task.attachments.all or current_task.type != 'gap' %}
@@ -695,6 +800,7 @@
                         {% endif %}
                     </div>
                 {% endif %}{% endif %}
+                {% if info_page %}<div class="exam-footer exam-footer-empty"></div>{% endif %}
             </main>
             {% if current_task.type == 'gap' and not info_page %}
                 <aside class="exam-answer-panel">
