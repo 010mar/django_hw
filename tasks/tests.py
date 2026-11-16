@@ -817,6 +817,9 @@ class LessonExamTests(DjangoTestCase):
         self.assertContains(result, '2/4')
         self.assertContains(result, 'Правильный<br>ответ')
         self.assertContains(result, 'Единый государственный экзамен')
+        self.assertContains(
+            result, reverse('course_learn', args=[self.course.pk]),
+        )
         self.assertEqual(
             result.content.decode().count('<div class="result-table-wrap">'), 2,
         )

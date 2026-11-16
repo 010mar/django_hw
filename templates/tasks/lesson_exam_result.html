@@ -225,7 +225,7 @@
     </div>
 
     <div class="result-footer">
-        <a href="{% if preview %}{% url 'lesson_detail' lesson.pk %}{% else %}{% url 'home' %}{% endif %}"
+        <a href="{% if preview %}{% url 'lesson_detail' lesson.pk %}{% else %}{% url 'course_learn' course.pk %}{% endif %}"
            class="result-finish">Завершить экзамен</a>
     </div>
 </div>
