@@ -8,8 +8,10 @@ from io import BytesIO
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import connection
 from django.test import TestCase as DjangoTestCase
 from django.test import override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from PIL import Image as PILImage
 
@@ -1796,8 +1798,52 @@ class TaskTopicTests(DjangoTestCase):
         response = self.client.get(reverse('bank_detail', args=[self.bank.pk]))
         self.assertContains(response, 'Логика')
         self.assertContains(response, 'Кодирование')
+        self.assertContains(response, 'Логика (1)')
         self.assertContains(response, 'Задача в теме')
         self.assertContains(response, 'Задача без темы')
+
+    def _bulk_tasks(self, count, topic=None):
+        Task.objects.bulk_create([
+            Task(
+                title=f'Задача {index}',
+                author=self.teacher,
+                bank=self.bank,
+                topic=topic,
+            )
+            for index in range(count)
+        ])
+
+    def test_bank_detail_paginates_tasks(self):
+        self._bulk_tasks(120)
+        response = self.client.get(reverse('bank_detail', args=[self.bank.pk]))
+        self.assertEqual(len(response.context['tasks']), 100)
+        self.assertEqual(response.context['page_obj'].paginator.num_pages, 2)
+        self.assertContains(response, '1 из 2')
+
+        response = self.client.get(
+            reverse('bank_detail', args=[self.bank.pk]), {'page': 2},
+        )
+        self.assertEqual(len(response.context['tasks']), 20)
+        self.assertContains(response, '2 из 2')
+
+    def test_bank_detail_query_count_is_constant(self):
+        topic = Topic.objects.create(bank=self.bank, name='Логика')
+        self._bulk_tasks(1, topic=topic)
+        with CaptureQueriesContext(connection) as few:
+            self.client.get(reverse('bank_detail', args=[self.bank.pk]))
+
+        self._bulk_tasks(60, topic=topic)
+        with CaptureQueriesContext(connection) as many:
+            self.client.get(reverse('bank_detail', args=[self.bank.pk]))
+
+        self.assertEqual(len(few), len(many))
+
+    def test_task_list_paginates_tasks(self):
+        self._bulk_tasks(120)
+        response = self.client.get(reverse('task_list'))
+        self.assertEqual(len(response.context['tasks']), 100)
+        response = self.client.get(reverse('task_list'), {'page': 2})
+        self.assertEqual(len(response.context['tasks']), 20)
 
     def test_save_task_with_topic(self):
         topic = Topic.objects.create(bank=self.bank, name='Логика', order=1)

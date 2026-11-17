@@ -5,8 +5,9 @@ from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db import connection
-from django.db.models import Max, Prefetch, Q
+from django.db.models import Count, Max, Prefetch, Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -21,8 +22,8 @@ from .forms import (
     CourseModuleForm,
     LessonForm,
     TaskBankForm,
-    TaskForm,
     TaskBlockFormSet,
+    TaskForm,
     TestCaseFormSet,
     TopicForm,
     task_number_sort_key,
@@ -46,6 +47,13 @@ from .models import (
 
 MAX_INLINE_IMAGE_SIZE = 10 * 1024 * 1024
 MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024
+PAGE_SIZE = 100
+
+
+def _querystring_without_page(request) -> str:
+    params = request.GET.copy()
+    params.pop('page', None)
+    return params.urlencode()
 
 
 @teacher_required
@@ -55,13 +63,17 @@ def task_list(request):
         .filter(author=request.user)
         .select_related('author', 'bank', 'topic')
         .prefetch_related('related_tasks')
+        .order_by('bank_id', 'topic__order', 'pk')
     )
     bank_id = request.GET.get('bank')
     if bank_id:
         tasks = tasks.filter(bank_id=bank_id)
     banks = TaskBank.objects.filter(author=request.user)
+    page_obj = Paginator(tasks, PAGE_SIZE).get_page(request.GET.get('page'))
     return render(request, 'tasks/task_list.html', {
-        'tasks': tasks,
+        'tasks': page_obj.object_list,
+        'page_obj': page_obj,
+        'querystring': _querystring_without_page(request),
         'banks': banks,
         'current_bank': bank_id,
     })
@@ -97,8 +109,16 @@ def bank_detail(request, pk):
         except (ValueError, Task.DoesNotExist):
             pass
 
-    tasks = bank.tasks.select_related('author').all()
-    topics = bank.topics.all()
+    tasks = (
+        bank.tasks
+        .select_related('author', 'topic')
+        .order_by('topic__order', 'pk')
+    )
+    topics = (
+        bank.topics
+        .annotate(task_count=Count('tasks'))
+        .order_by('order', 'name')
+    )
 
     topic_id = request.GET.get('topic_id', '').strip()
     current_topic = None
@@ -109,10 +129,13 @@ def bank_detail(request, pk):
         except (ValueError, Topic.DoesNotExist):
             pass
 
+    page_obj = Paginator(tasks, PAGE_SIZE).get_page(request.GET.get('page'))
     return render(request, 'tasks/bank_detail.html', {
         'bank': bank,
         'topics': topics,
-        'tasks': tasks,
+        'tasks': page_obj.object_list,
+        'page_obj': page_obj,
+        'querystring': _querystring_without_page(request),
         'current_topic': current_topic,
         'topic_form': TopicForm(),
     })
