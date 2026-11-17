@@ -1,33 +1,37 @@
 {% extends 'base.html' %}
+{% load stats_tags %}
 
 {% block title %}Статистика: {{ student.get_full_name|default:student.username }}{% endblock %}
 
 {% block content %}
-<h2 class="mb-1">Статистика: {{ student.get_full_name|default:student.username }}</h2>
+<h2 class="mb-4">Статистика: {{ student.get_full_name|default:student.username }}</h2>
 
-<div class="row g-3 mb-4">
-    <div class="col-md-6 col-lg-3">
-        <div class="card text-center">
-            <div class="card-body">
-                <div class="display-6">{{ stats.solved_total }}</div>
-                <div class="text-muted small">задач решено всего</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 col-lg-3">
-        <div class="card text-center">
-            <div class="card-body">
-                <div class="display-6">{{ stats.assignment_progress|length }}</div>
-                <div class="text-muted small">заданий назначено</div>
-            </div>
-        </div>
-    </div>
-</div>
-
+<h5 class="mb-3">Активность за последний год</h5>
 <div class="card mb-4">
     <div class="card-body">
-        <h5 class="mb-3">Активность за последний год</h5>
         {% include 'stats/_heatmap.html' %}
+        <div class="text-end text-muted small mt-2">Следующий день в 00:00 МСК</div>
+        <hr class="my-4">
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="stat-value">{{ stats.current_streak }}</div>
+                <div class="text-muted">
+                    {{ stats.current_streak|plural_ru:"день,дня,дней" }} без перерыва
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-value">{{ stats.longest_streak }}</div>
+                <div class="text-muted">
+                    {{ stats.longest_streak|plural_ru:"день,дня,дней" }} без перерыва (макс.)
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-value">{{ stats.solved_total }}</div>
+                <div class="text-muted">
+                    {{ stats.solved_total|plural_ru:"задача решена,задачи решено,задач решено" }}
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -66,4 +70,8 @@
         {% endif %}
     </div>
 </div>
+
+<style>
+    .stat-value { font-size: 2rem; font-weight: 700; line-height: 1.1; }
+</style>
 {% endblock %}

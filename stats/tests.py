@@ -10,6 +10,8 @@ from assignments.models import Assignment, ClassGroup, Submission
 from tasks.models import Task
 
 from .heatmap import build_heatmap, level_for
+from .services import activity_streaks
+from .templatetags.stats_tags import plural_ru
 
 
 def create_user(username, role):
@@ -49,7 +51,8 @@ class MyStatsTests(StatsViewsBase):
         self.client.force_login(self.student)
         response = self.client.get(reverse('my_stats'))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'задач решено всего')
+        self.assertContains(response, 'Активность за последний год')
+        self.assertContains(response, 'задача решена')
 
     def test_parent_redirected_from_my_stats(self):
         self.client.force_login(self.parent)
@@ -98,6 +101,17 @@ class StudentStatsTests(StatsViewsBase):
         self.assertContains(response, '1</div>')
         self.assertContains(response, 'Прогресс по заданиям')
 
+    def test_activity_summary_shown(self):
+        self.make_submission(
+            self.student, Submission.Status.OK, timezone.now(),
+        )
+        self.client.force_login(self.student)
+        response = self.client.get(reverse('student_stats', args=[self.student.pk]))
+        self.assertContains(response, 'Активность за последний год')
+        self.assertContains(response, 'Следующий день в 00:00 МСК')
+        self.assertContains(response, 'день без перерыва')
+        self.assertContains(response, 'задача решена')
+
     def test_progress_percent(self):
         self.make_submission(
             self.student, Submission.Status.OK, timezone.now(),
@@ -144,6 +158,79 @@ class ClassStatsTests(StatsViewsBase):
         self.assertEqual(response.status_code, 404)
 
 
+class StreakTests(TestCase):
+    def setUp(self):
+        self.today = timezone.localdate()
+
+    def test_empty_counts(self):
+        result = activity_streaks({})
+        self.assertEqual(result['current'], 0)
+        self.assertEqual(result['longest'], 0)
+
+    def test_consecutive_days(self):
+        counts = {
+            self.today: 2,
+            self.today - timedelta(days=1): 1,
+            self.today - timedelta(days=2): 3,
+        }
+        result = activity_streaks(counts)
+        self.assertEqual(result['current'], 3)
+        self.assertEqual(result['longest'], 3)
+
+    def test_gap_splits_streaks(self):
+        counts = {
+            self.today: 1,
+            self.today - timedelta(days=1): 1,
+            self.today - timedelta(days=3): 1,
+            self.today - timedelta(days=4): 1,
+            self.today - timedelta(days=5): 1,
+        }
+        result = activity_streaks(counts)
+        self.assertEqual(result['current'], 2)
+        self.assertEqual(result['longest'], 3)
+
+    def test_current_streak_survives_until_yesterday(self):
+        counts = {
+            self.today - timedelta(days=1): 1,
+            self.today - timedelta(days=2): 1,
+        }
+        result = activity_streaks(counts)
+        self.assertEqual(result['current'], 2)
+
+    def test_stale_activity_resets_current_streak(self):
+        counts = {self.today - timedelta(days=3): 1}
+        result = activity_streaks(counts)
+        self.assertEqual(result['current'], 0)
+        self.assertEqual(result['longest'], 1)
+
+    def test_zero_count_day_does_not_break_streak(self):
+        counts = {
+            self.today: 1,
+            self.today - timedelta(days=1): 0,
+            self.today - timedelta(days=2): 1,
+        }
+        result = activity_streaks(counts)
+        self.assertEqual(result['current'], 1)
+        self.assertEqual(result['longest'], 1)
+
+
+class PluralRuTests(TestCase):
+    def test_days(self):
+        forms = 'день,дня,дней'
+        self.assertEqual(plural_ru(1, forms), 'день')
+        self.assertEqual(plural_ru(3, forms), 'дня')
+        self.assertEqual(plural_ru(5, forms), 'дней')
+        self.assertEqual(plural_ru(11, forms), 'дней')
+        self.assertEqual(plural_ru(21, forms), 'день')
+        self.assertEqual(plural_ru(24, forms), 'дня')
+
+    def test_tasks(self):
+        forms = 'задача решена,задачи решено,задач решено'
+        self.assertEqual(plural_ru(1, forms), 'задача решена')
+        self.assertEqual(plural_ru(2, forms), 'задачи решено')
+        self.assertEqual(plural_ru(810, forms), 'задач решено')
+
+
 class HeatmapTests(TestCase):
     def test_shape(self):
         today = date.today()
@@ -160,6 +247,8 @@ class HeatmapTests(TestCase):
         today_cells = [c for c in last_week if c['date'] == today]
         self.assertTrue(today_cells)
         self.assertFalse(today_cells[0]['in_future'])
+        self.assertEqual(result['today'], today)
+        self.assertEqual(result['month_labels'][0]['index'], 0)
 
     def test_levels(self):
         today = date.today()

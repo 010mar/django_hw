@@ -1,6 +1,5 @@
 from datetime import date, timedelta
 
-
 LEVELS = (
     (0, 0),
     (2, 1),
@@ -45,7 +44,7 @@ def build_heatmap(counts: dict[date, int], weeks: int = 53) -> dict:
     previous_month = None
     for index, days in enumerate(columns):
         month = days[0]['date'].month
-        if month != previous_month and index > 0:
+        if month != previous_month:
             month_labels.append({
                 'index': index,
                 'name': MONTH_NAMES[month - 1],
@@ -63,4 +62,5 @@ def build_heatmap(counts: dict[date, int], weeks: int = 53) -> dict:
         'month_labels': month_labels,
         'month_label_at': {m['index']: m['name'] for m in month_labels},
         'weekday_labels': ('пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'),
+        'today': today,
     }

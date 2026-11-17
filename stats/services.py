@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.db.models import Count
 from django.db.models.functions import TruncDate
 from django.utils import timezone
@@ -19,6 +21,35 @@ def solved_counts_by_day(student) -> dict:
         .annotate(total=Count('pk'))
     )
     return {row['day']: row['total'] for row in rows}
+
+
+def activity_streaks(counts: dict) -> dict:
+    today = timezone.localdate()
+    days = sorted(
+        day for day, total in counts.items()
+        if total > 0 and day <= today
+    )
+    longest = 0
+    run = 0
+    previous = None
+    for day in days:
+        if previous is not None and day == previous + timedelta(days=1):
+            run += 1
+        else:
+            run = 1
+        longest = max(longest, run)
+        previous = day
+
+    current = 0
+    if days and days[-1] >= today - timedelta(days=1):
+        active_days = set(days)
+        cursor = days[-1]
+        current = 1
+        while cursor - timedelta(days=1) in active_days:
+            current += 1
+            cursor -= timedelta(days=1)
+
+    return {'current': current, 'longest': longest, 'today': today}
 
 
 def solved_total(student) -> int:
@@ -111,8 +142,12 @@ def class_progress(class_group) -> dict:
 
 
 def student_stats(student) -> dict:
+    counts = solved_counts_by_day(student)
+    streaks = activity_streaks(counts)
     return {
         'solved_total': solved_total(student),
         'assignment_progress': assignment_progress(student),
-        'heatmap': solved_counts_by_day(student),
+        'heatmap': counts,
+        'current_streak': streaks['current'],
+        'longest_streak': streaks['longest'],
     }
