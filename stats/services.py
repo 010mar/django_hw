@@ -1,17 +1,41 @@
 from datetime import timedelta
 
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 
 from assignments.models import Submission
 from assignments.views import _visible_assignments
+from tasks.models import Course
 
 
-def solved_counts_by_day(student) -> dict:
+def _course_condition(course):
+    return (
+        Q(lesson__module__course=course)
+        | Q(assignment__class_group__course=course)
+        | Q(assignment__lesson__module__course=course)
+    )
+
+
+def student_courses(student):
+    return (
+        Course.objects
+        .filter(
+            Q(class_groups__students=student)
+            | Q(modules__lessons__submissions__student=student)
+        )
+        .distinct()
+    )
+
+
+def solved_counts_by_day(student, course=None) -> dict:
+    submissions = Submission.objects.filter(
+        student=student, status__in=Submission.SOLVED_STATUSES,
+    )
+    if course is not None:
+        submissions = submissions.filter(_course_condition(course))
     rows = (
-        Submission.objects
-        .filter(student=student, status__in=Submission.SOLVED_STATUSES)
+        submissions
         .annotate(
             day=TruncDate(
                 'created_at', tzinfo=timezone.get_current_timezone(),
@@ -52,11 +76,14 @@ def activity_streaks(counts: dict) -> dict:
     return {'current': current, 'longest': longest, 'today': today}
 
 
-def solved_total(student) -> int:
-    return Submission.objects.filter(
+def solved_total(student, course=None) -> int:
+    submissions = Submission.objects.filter(
         student=student,
         status__in=Submission.SOLVED_STATUSES,
-    ).values('assignment_id', 'task_id').distinct().count()
+    )
+    if course is not None:
+        submissions = submissions.filter(_course_condition(course))
+    return submissions.values('assignment_id', 'task_id').distinct().count()
 
 
 def solved_totals(students) -> dict:
@@ -141,11 +168,11 @@ def class_progress(class_group) -> dict:
     return {'rows': rows, 'class_percent': class_percent}
 
 
-def student_stats(student) -> dict:
-    counts = solved_counts_by_day(student)
+def student_stats(student, course=None) -> dict:
+    counts = solved_counts_by_day(student, course=course)
     streaks = activity_streaks(counts)
     return {
-        'solved_total': solved_total(student),
+        'solved_total': solved_total(student, course=course),
         'assignment_progress': assignment_progress(student),
         'heatmap': counts,
         'current_streak': streaks['current'],

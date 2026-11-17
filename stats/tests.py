@@ -7,10 +7,10 @@ from django.utils import timezone
 
 from accounts.models import ParentLink
 from assignments.models import Assignment, ClassGroup, Submission
-from tasks.models import Task
+from tasks.models import Course, CourseModule, Lesson, Task
 
 from .heatmap import build_heatmap, level_for
-from .services import activity_streaks
+from .services import activity_streaks, solved_counts_by_day
 from .templatetags.stats_tags import plural_ru
 
 
@@ -121,6 +121,80 @@ class StudentStatsTests(StatsViewsBase):
         self.client.force_login(self.student)
         response = self.client.get(reverse('student_stats', args=[self.student.pk]))
         self.assertContains(response, '100%')
+
+
+class CourseFilterTests(StatsViewsBase):
+    def setUp(self):
+        super().setUp()
+        self.course_a = Course.objects.create(
+            title='infa ЕГЭ', author=self.teacher,
+        )
+        self.course_b = Course.objects.create(
+            title='probniki ЕГЭ', author=self.teacher,
+        )
+        module = CourseModule.objects.create(
+            course=self.course_a, title='Модуль', order=1,
+        )
+        self.lesson = Lesson.objects.create(
+            module=module, title='Урок', author=self.teacher,
+        )
+        for title, course in (('9А', self.course_a), ('9Б', self.course_b)):
+            class_group = ClassGroup.objects.create(
+                title=title, teacher=self.teacher, course=course,
+            )
+            class_group.students.add(self.student)
+        Submission.objects.create(
+            lesson=self.lesson, task=self.task, student=self.student,
+            status=Submission.Status.OK,
+        )
+
+    def test_course_selector_lists_student_courses(self):
+        self.client.force_login(self.student)
+        response = self.client.get(reverse('my_stats'))
+        self.assertEqual(
+            list(response.context['courses']),
+            [self.course_a, self.course_b],
+        )
+        self.assertEqual(response.context['selected_course'], None)
+        self.assertContains(response, 'infa ЕГЭ')
+        self.assertContains(response, 'probniki ЕГЭ')
+
+    def test_heatmap_counts_only_selected_course(self):
+        self.client.force_login(self.student)
+        response = self.client.get(
+            f'{reverse("my_stats")}?course={self.course_a.pk}',
+        )
+        self.assertEqual(response.context['selected_course'], self.course_a)
+        self.assertEqual(sum(response.context['stats']['heatmap'].values()), 1)
+        self.assertEqual(response.context['stats']['solved_total'], 1)
+
+        response = self.client.get(
+            f'{reverse("my_stats")}?course={self.course_b.pk}',
+        )
+        self.assertEqual(response.context['selected_course'], self.course_b)
+        self.assertEqual(sum(response.context['stats']['heatmap'].values()), 0)
+        self.assertEqual(response.context['stats']['current_streak'], 0)
+        self.assertEqual(response.context['stats']['solved_total'], 0)
+
+    def test_unknown_course_falls_back_to_all(self):
+        self.client.force_login(self.student)
+        response = self.client.get(f'{reverse("my_stats")}?course=999')
+        self.assertEqual(response.context['selected_course'], None)
+        self.assertEqual(sum(response.context['stats']['heatmap'].values()), 1)
+
+    def test_solved_counts_filter_by_course(self):
+        self.assertEqual(
+            sum(solved_counts_by_day(
+                self.student, course=self.course_a,
+            ).values()),
+            1,
+        )
+        self.assertEqual(
+            sum(solved_counts_by_day(
+                self.student, course=self.course_b,
+            ).values()),
+            0,
+        )
 
 
 class ParentChildrenTests(StatsViewsBase):

@@ -27,26 +27,45 @@ def _get_visible_student(user, pk):
     return student
 
 
+def _stats_page_context(request, student):
+    courses = list(services.student_courses(student))
+    selected_course = None
+    course_id = request.GET.get('course', '')
+    if course_id.isdigit():
+        selected_course = next(
+            (course for course in courses if course.pk == int(course_id)),
+            None,
+        )
+    stats = services.student_stats(student, course=selected_course)
+    return {
+        'student': student,
+        'stats': stats,
+        'heatmap': build_heatmap(stats['heatmap']),
+        'courses': courses,
+        'selected_course': selected_course,
+    }
+
+
 @login_required
 def my_stats(request):
     if not request.user.is_student:
         messages.warning(request, 'Эта страница доступна только ученику.')
         return redirect('home')
-    return render(request, 'stats/student_stats.html', {
-        'student': request.user,
-        'stats': services.student_stats(request.user),
-        'heatmap': build_heatmap(services.solved_counts_by_day(request.user)),
-    })
+    return render(
+        request,
+        'stats/student_stats.html',
+        _stats_page_context(request, request.user),
+    )
 
 
 @login_required
 def student_stats(request, pk):
     student = _get_visible_student(request.user, pk)
-    return render(request, 'stats/student_stats.html', {
-        'student': student,
-        'stats': services.student_stats(student),
-        'heatmap': build_heatmap(services.solved_counts_by_day(student)),
-    })
+    return render(
+        request,
+        'stats/student_stats.html',
+        _stats_page_context(request, student),
+    )
 
 
 @login_required

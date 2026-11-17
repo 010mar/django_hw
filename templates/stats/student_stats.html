@@ -6,7 +6,27 @@
 {% block content %}
 <h2 class="mb-4">Статистика: {{ student.get_full_name|default:student.username }}</h2>
 
-<h5 class="mb-2">Активность за последний год</h5>
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+    <h5 class="mb-0">Активность за последний год</h5>
+    <div class="dropdown">
+        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false">
+            {% if selected_course %}{{ selected_course.title }}{% else %}Все{% endif %}
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+            <li>
+                <a class="dropdown-item{% if not selected_course %} active{% endif %}"
+                   href="?">Все</a>
+            </li>
+            {% for course in courses %}
+                <li>
+                    <a class="dropdown-item{% if selected_course.pk == course.pk %} active{% endif %}"
+                       href="?course={{ course.pk }}">{{ course.title }}</a>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
 <div class="card stats-card mb-4">
     <div class="card-body p-4">
         {% include 'stats/_heatmap.html' %}
