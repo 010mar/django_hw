@@ -6,6 +6,8 @@
 <style>
     .gradebook-table {
         font-size: .82rem;
+        border-collapse: separate;
+        border-spacing: 0;
     }
     .gradebook-table th {
         background: #f8f9fb;
@@ -27,6 +29,45 @@
     .gradebook-table td.col-id,
     .gradebook-table td.col-user {
         text-align: left;
+    }
+    .gradebook-table .col-id,
+    .gradebook-table .col-user,
+    .gradebook-table .col-total {
+        position: sticky;
+        z-index: 2;
+        background: #fff;
+    }
+    .gradebook-table th.col-id,
+    .gradebook-table th.col-user,
+    .gradebook-table th.col-total {
+        z-index: 3;
+        background: #f8f9fb;
+    }
+    .gradebook-table .col-id {
+        left: 0;
+        width: 64px;
+        min-width: 64px;
+        max-width: 64px;
+    }
+    .gradebook-table .col-user {
+        left: 64px;
+        width: 200px;
+        min-width: 200px;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .gradebook-table .col-total {
+        left: 264px;
+        width: 80px;
+        min-width: 80px;
+        max-width: 80px;
+        box-shadow: 1px 0 0 #dfe3e8;
+    }
+    .gradebook-table .max-row td.col-id,
+    .gradebook-table .max-row td.col-user,
+    .gradebook-table .max-row td.col-total {
+        background: #fafbfc;
     }
     .gradebook-table th.lesson-col {
         color: #2563eb;
@@ -92,7 +133,7 @@
                 <a href="?sort=name&q={{ query|urlencode }}" class="text-decoration-none text-dark">Пользователь</a>
                 {% if sort == 'name' %}▴{% else %}▾{% endif %}
             </th>
-            <th>
+            <th class="col-total">
                 <a href="?sort=total&q={{ query|urlencode }}" class="text-decoration-none text-dark">Итог</a>
             </th>
             {% for block in lesson_blocks %}
@@ -104,7 +145,7 @@
         <tr>
             <th class="col-id"></th>
             <th class="col-user"></th>
-            <th></th>
+            <th class="col-total"></th>
             {% for block in lesson_blocks %}
                 {% for task in block.tasks %}
                     <th class="task-col">Q{{ forloop.counter }}</th>
@@ -116,7 +157,7 @@
         <tr class="max-row">
             <td class="col-id"></td>
             <td class="col-user text-end">Max:</td>
-            <td>{{ max_total }}</td>
+            <td class="col-total">{{ max_total }}</td>
             {% for block in lesson_blocks %}
                 <td colspan="{{ block.tasks|length }}"></td>
             {% endfor %}
@@ -127,7 +168,7 @@
                 <td class="col-user">
                     <a href="{% url 'student_stats' row.student.pk %}">{{ row.student.get_full_name|default:row.student.username }}</a>
                 </td>
-                <td>{{ row.total|floatformat:"-2" }}</td>
+                <td class="col-total">{{ row.total|floatformat:"-2" }}</td>
                 {% for cells in row.lessons %}
                     {% for state in cells %}
                         <td class="grade-cell {{ state }}">{% if state == 'none' %}—{% elif state == 'solved' %}1{% else %}0{% endif %}</td>
