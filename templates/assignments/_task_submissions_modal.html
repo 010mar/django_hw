@@ -1,4 +1,3 @@
-{% load humanize %}
 <div class="task-submissions-modal">
     <h3 class="h5 mb-1">
         Решения задач урока
@@ -31,7 +30,7 @@
                         <span class="status-dot {% if submission.is_solved %}solved{% elif submission.status == 'pending' %}pending{% else %}failed{% endif %}"></span>
                         <span class="submission-id">#{{ submission.pk }}</span>
                     </td>
-                    <td>{{ submission.created_at|naturaltime }}</td>
+                    <td>{{ submission.created_at|date:"d.m.Y H:i" }}</td>
                     <td>{{ submission.score|floatformat:"-2" }}</td>
                 </tr>
             {% empty %}
