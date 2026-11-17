@@ -1,10 +1,11 @@
 {% load dicts %}
 <style>
+    .heatmap-wrap { position: relative; }
     .heatmap-scroll { overflow-x: auto; }
-    .heatmap { border-collapse: separate; border-spacing: 3px; }
-    .heatmap-month { font-size: 11px; color: #6c757d; white-space: nowrap; padding-top: 4px; }
-    .heatmap-weekday { font-size: 11px; color: #6c757d; padding-right: 6px; }
-    .heatmap-cell { width: 12px; height: 12px; border-radius: 2px; }
+    .heatmap { border-collapse: separate; border-spacing: 3px; table-layout: fixed; margin-left: 16px; }
+    .heatmap td { padding: 0; }
+    .heatmap-month { font-size: 12px; color: #6c757d; white-space: nowrap; padding-top: 6px; line-height: 1; }
+    .heatmap-cell { width: 13px; height: 13px; border-radius: 2px; }
     .heatmap-cell-0 { background: #ebedf0; }
     .heatmap-cell-1 { background: #9be9a8; }
     .heatmap-cell-2 { background: #40c463; }
@@ -12,25 +13,39 @@
     .heatmap-cell-4 { background: #216e39; }
     .heatmap-future { opacity: 0.25; }
     .heatmap-today { outline: 1px solid #d73a49; outline-offset: -1px; }
+    .heatmap-tooltip {
+        position: fixed;
+        z-index: 1080;
+        padding: 7px 12px;
+        border-radius: 6px;
+        background: #24292f;
+        color: #fff;
+        font-size: 12px;
+        line-height: 1.5;
+        text-align: center;
+        white-space: nowrap;
+        pointer-events: none;
+        box-shadow: 0 8px 24px rgba(140, 149, 159, 0.25);
+    }
+    .heatmap-tooltip[hidden] { display: none; }
 </style>
 
-{% if heatmap.columns %}
+<div class="heatmap-wrap">
     <div class="heatmap-scroll">
         <table class="heatmap">
             {% for week in heatmap.rows %}
                 <tr>
-                    <td class="heatmap-weekday">{{ heatmap.weekday_labels|get_item:forloop.counter0 }}</td>
                     {% for cell in week %}
                         <td>
                             <div class="heatmap-cell heatmap-cell-{{ cell.level }}{% if cell.in_future %} heatmap-future{% endif %}{% if cell.date == heatmap.today %} heatmap-today{% endif %}"
-                                 title="{{ cell.date|date:'d.m.Y' }} — {{ cell.count }} {% if cell.count == 1 %}решённая задача{% elif cell.count|add:0 == 2 or cell.count == 3 or cell.count == 4 %}решённые задачи{% else %}решённых задач{% endif %}">
-                            </div>
+                                 data-date="{{ cell.date_label }}"
+                                 data-solved="{{ cell.count }}"
+                                 aria-label="{{ cell.date_label }}, решено задач: {{ cell.count }}"></div>
                         </td>
                     {% endfor %}
                 </tr>
             {% endfor %}
             <tr>
-                <td></td>
                 {% for i in heatmap.column_indexes %}
                     <td class="heatmap-month">
                         {% with label=heatmap.month_label_at|get_item:i %}
@@ -41,15 +56,50 @@
             </tr>
         </table>
     </div>
-    <div class="d-flex align-items-center gap-2 mt-2 small text-muted">
-        <span>Меньше</span>
-        <span class="heatmap-cell heatmap-cell-0 d-inline-block"></span>
-        <span class="heatmap-cell heatmap-cell-1 d-inline-block"></span>
-        <span class="heatmap-cell heatmap-cell-2 d-inline-block"></span>
-        <span class="heatmap-cell heatmap-cell-3 d-inline-block"></span>
-        <span class="heatmap-cell heatmap-cell-4 d-inline-block"></span>
-        <span>Больше</span>
-    </div>
-{% else %}
-    <p class="text-muted">Пока нет решённых задач.</p>
-{% endif %}
+    <div class="heatmap-tooltip" hidden></div>
+</div>
+
+<script>
+(function () {
+    document.querySelectorAll('.heatmap-wrap').forEach(function (wrap) {
+        var tooltip = wrap.querySelector('.heatmap-tooltip');
+        var cells = wrap.querySelectorAll('.heatmap-cell[data-date]');
+
+        function position(cell) {
+            var cellRect = cell.getBoundingClientRect();
+            var tipRect = tooltip.getBoundingClientRect();
+            var left = cellRect.left + cellRect.width / 2 - tipRect.width / 2;
+            var top = cellRect.top - tipRect.height - 8;
+            var margin = 8;
+            left = Math.max(margin, Math.min(left, window.innerWidth - tipRect.width - margin));
+            if (top < margin) {
+                top = cellRect.bottom + 8;
+            }
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+        }
+
+        cells.forEach(function (cell) {
+            cell.addEventListener('mouseenter', function () {
+                tooltip.textContent = '';
+                var dateLine = document.createElement('div');
+                dateLine.textContent = cell.dataset.date;
+                var countLine = document.createElement('div');
+                countLine.textContent = 'задач решено — ' + cell.dataset.solved;
+                tooltip.appendChild(dateLine);
+                tooltip.appendChild(countLine);
+                tooltip.hidden = false;
+                position(cell);
+            });
+            cell.addEventListener('mousemove', function () {
+                if (!tooltip.hidden) {
+                    position(cell);
+                }
+            });
+            cell.addEventListener('mouseleave', function () {
+                tooltip.hidden = true;
+            });
+        });
+    });
+})();
+</script>

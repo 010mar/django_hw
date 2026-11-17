@@ -6,9 +6,9 @@
 {% block content %}
 <h2 class="mb-4">Статистика: {{ student.get_full_name|default:student.username }}</h2>
 
-<h5 class="mb-3">Активность за последний год</h5>
-<div class="card mb-4">
-    <div class="card-body">
+<h5 class="mb-2">Активность за последний год</h5>
+<div class="card stats-card mb-4">
+    <div class="card-body p-4">
         {% include 'stats/_heatmap.html' %}
         <div class="text-end text-muted small mt-2">Следующий день в 00:00 МСК</div>
         <hr class="my-4">
@@ -72,6 +72,7 @@
 </div>
 
 <style>
-    .stat-value { font-size: 2rem; font-weight: 700; line-height: 1.1; }
+    .stats-card { border-color: #d0d7de; border-radius: 6px; }
+    .stat-value { font-size: 2.25rem; font-weight: 700; line-height: 1.1; margin-bottom: 2px; }
 </style>
 {% endblock %}

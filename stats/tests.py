@@ -109,6 +109,8 @@ class StudentStatsTests(StatsViewsBase):
         response = self.client.get(reverse('student_stats', args=[self.student.pk]))
         self.assertContains(response, 'Активность за последний год')
         self.assertContains(response, 'Следующий день в 00:00 МСК')
+        self.assertContains(response, 'heatmap-tooltip')
+        self.assertContains(response, 'data-date=')
         self.assertContains(response, 'день без перерыва')
         self.assertContains(response, 'задача решена')
 
@@ -248,7 +250,19 @@ class HeatmapTests(TestCase):
         self.assertTrue(today_cells)
         self.assertFalse(today_cells[0]['in_future'])
         self.assertEqual(result['today'], today)
-        self.assertEqual(result['month_labels'][0]['index'], 0)
+
+    def test_month_labels_skip_partial_first_month(self):
+        result = build_heatmap({}, today=date(2026, 11, 17))
+        self.assertEqual(result['month_labels'][0]['index'], 2)
+        self.assertEqual(result['month_labels'][0]['name'], 'дек.')
+        self.assertEqual(result['month_labels'][-1]['name'], 'нояб.')
+
+    def test_date_label(self):
+        today = date(2026, 11, 17)
+        result = build_heatmap({}, today=today)
+        cells = [cell for week in result['columns'] for cell in week]
+        cell = next(c for c in cells if c['date'] == today)
+        self.assertEqual(cell['date_label'], '17 ноября 2026 г.')
 
     def test_levels(self):
         today = date.today()
