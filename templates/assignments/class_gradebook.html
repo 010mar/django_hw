@@ -11,6 +11,8 @@
         font-size: .82rem;
         border-collapse: separate;
         border-spacing: 0;
+        table-layout: fixed;
+        width: 100%;
     }
     .gradebook-table th {
         background: #f8f9fb;
@@ -48,23 +50,17 @@
     }
     .gradebook-table .col-id {
         left: 0;
-        width: 64px;
-        min-width: 64px;
-        max-width: 64px;
+        width: 88px;
     }
     .gradebook-table .col-user {
-        left: 64px;
-        width: 200px;
-        min-width: 200px;
-        max-width: 200px;
+        left: 88px;
+        width: 150px;
         overflow: hidden;
         text-overflow: ellipsis;
     }
     .gradebook-table .col-total {
-        left: 264px;
-        width: 80px;
-        min-width: 80px;
-        max-width: 80px;
+        left: 238px;
+        width: 56px;
         box-shadow: 1px 0 0 #dfe3e8;
     }
     .gradebook-table .max-row td.col-id,
@@ -87,6 +83,11 @@
     .gradebook-table th.task-col {
         font-weight: 600;
         border-left: 1px solid #eef0f2;
+    }
+    .gradebook-table th.task-col,
+    .gradebook-table td.grade-cell {
+        padding-left: .2rem;
+        padding-right: .2rem;
     }
     .gradebook-table .grade-cell.solved {
         background: #9fd79f;
@@ -136,7 +137,7 @@
 </div>
 
 <div class="table-responsive">
-    <table class="table gradebook-table mb-0">
+    <table class="table gradebook-table mb-0" style="min-width: {{ table_min_width }}px;">
         <thead>
         <tr>
             <th class="col-id">

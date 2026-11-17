@@ -321,12 +321,14 @@ def class_gradebook(request, pk):
     else:
         student_rows.sort(key=lambda row: row['total'], reverse=True)
     max_total = sum(task.points for task in all_tasks)
+    task_count = sum(len(block['tasks']) for block in lesson_blocks)
     return render(request, 'assignments/class_gradebook.html', {
         'class_group': class_group,
         'lesson_blocks': lesson_blocks,
         'student_rows': student_rows,
         'max_total': max_total,
-        'task_count': sum(len(block['tasks']) for block in lesson_blocks),
+        'task_count': task_count,
+        'table_min_width': 294 + task_count * 38,
         'query': query,
         'sort': sort,
     })
