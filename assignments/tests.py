@@ -683,10 +683,17 @@ class ClassCourseTests(DjangoTestCase):
             row['student'].username: row
             for row in response.context['student_rows']
         }
-        self.assertEqual(rows['student']['lessons'][0], ['solved', 'failed'])
+        self.assertEqual(
+            [cell['state'] for cell in rows['student']['lessons'][0]],
+            ['solved', 'failed'],
+        )
         self.assertEqual(rows['student']['total'], Decimal('2'))
         self.assertEqual(
-            rows['other_student']['lessons'][0], ['none', 'none'],
+            [
+                cell['state']
+                for cell in rows['other_student']['lessons'][0]
+            ],
+            ['none', 'none'],
         )
         self.assertEqual(rows['other_student']['total'], Decimal('0'))
 
@@ -697,3 +704,57 @@ class ClassCourseTests(DjangoTestCase):
             [row['student'].username for row in response.context['student_rows']],
             ['other_student'],
         )
+
+    def test_gradebook_cells_open_submissions_modal(self):
+        class_group, lesson, task = self._task_submissions_setup()
+        submission = Submission.objects.create(
+            lesson=lesson, task=task, student=self.student,
+            status=Submission.Status.CORRECT, score=1,
+        )
+        self.client.force_login(self.teacher)
+        response = self.client.get(
+            reverse('class_gradebook', args=[class_group.pk]),
+        )
+        url = reverse('class_gradebook_submissions', args=[
+            class_group.pk, self.student.pk, task.pk,
+        ])
+        self.assertContains(response, url)
+        self.assertContains(response, 'data-fallback-url')
+
+        response = self.client.get(url)
+        self.assertContains(response, f'#{submission.pk}')
+        self.assertContains(response, 'Решения задач урока')
+        self.assertContains(response, 'Шаг 1')
+
+    def test_gradebook_modal_lists_all_student_attempts(self):
+        class_group, lesson, task = self._task_submissions_setup()
+        first = Submission.objects.create(
+            lesson=lesson, task=task, student=self.student,
+            status=Submission.Status.INCORRECT, score=0,
+        )
+        second = Submission.objects.create(
+            lesson=lesson, task=task, student=self.student,
+            status=Submission.Status.CORRECT, score=1,
+        )
+        self.client.force_login(self.teacher)
+        response = self.client.get(
+            reverse('class_gradebook_submissions', args=[
+                class_group.pk, self.student.pk, task.pk,
+            ]),
+        )
+        self.assertContains(response, f'#{first.pk}')
+        self.assertContains(response, f'#{second.pk}')
+
+    def test_gradebook_modal_hidden_from_other_teacher(self):
+        class_group, _lesson, task = self._task_submissions_setup()
+        other = User.objects.create_user(
+            username='other_teacher', password='pass12345',
+            role=User.Role.TEACHER,
+        )
+        self.client.force_login(other)
+        response = self.client.get(
+            reverse('class_gradebook_submissions', args=[
+                class_group.pk, self.student.pk, task.pk,
+            ]),
+        )
+        self.assertEqual(response.status_code, 404)

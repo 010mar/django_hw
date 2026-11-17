@@ -2,7 +2,10 @@
 
 {% block title %}Табель успеваемости — {{ class_group.title }}{% endblock %}
 
+{% block main_class %}container-fluid px-4{% endblock %}
+
 {% block extra_head %}
+{% include 'assignments/_submissions_styles.html' %}
 <style>
     .gradebook-table {
         font-size: .82rem;
@@ -94,6 +97,16 @@
     .gradebook-table .grade-cell.none {
         color: #b8bcc2;
     }
+    .gradebook-table .grade-cell.clickable {
+        cursor: pointer;
+    }
+    .gradebook-table .grade-cell.clickable:hover {
+        box-shadow: inset 0 0 0 2px #2563eb;
+    }
+    .gradebook-table .grade-cell.clickable:focus-visible {
+        outline: 2px solid #2563eb;
+        outline-offset: -2px;
+    }
     .gradebook-table .max-row td {
         background: #fafbfc;
         font-weight: 600;
@@ -170,8 +183,15 @@
                 </td>
                 <td class="col-total">{{ row.total|floatformat:"-2" }}</td>
                 {% for cells in row.lessons %}
-                    {% for state in cells %}
-                        <td class="grade-cell {{ state }}">{% if state == 'none' %}—{% elif state == 'solved' %}1{% else %}0{% endif %}</td>
+                    {% for cell in cells %}
+                        <td class="grade-cell {{ cell.state }}{% if cell.state != 'none' %} clickable{% endif %}"
+                            {% if cell.state != 'none' %}
+                                role="button" tabindex="0"
+                                data-modal-url="{% url 'class_gradebook_submissions' class_group.pk row.student.pk cell.task.pk %}"
+                                data-fallback-url="{% url 'class_task_submissions' class_group.pk cell.lesson.pk cell.task.pk %}?q={{ row.student.pk }}"
+                            {% endif %}>
+                            {% if cell.state == 'none' %}—{% elif cell.state == 'solved' %}1{% else %}0{% endif %}
+                        </td>
                     {% endfor %}
                 {% endfor %}
             </tr>
@@ -183,4 +203,68 @@
         </tbody>
     </table>
 </div>
+
+<div class="modal fade" id="gradebookSubmissionsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Решения ученика</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+            <div class="modal-body" id="gradebookSubmissionsBody">
+                <div class="text-center text-muted py-4">Загрузка…</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var modalElement = document.getElementById('gradebookSubmissionsModal');
+    if (!modalElement) {
+        return;
+    }
+    var modal = new bootstrap.Modal(modalElement);
+    var body = document.getElementById('gradebookSubmissionsBody');
+    var cache = {};
+
+    function showSubmissions(url, fallbackUrl) {
+        body.innerHTML = '<div class="text-center text-muted py-4">Загрузка…</div>';
+        modal.show();
+        if (cache[url]) {
+            body.innerHTML = cache[url];
+            return;
+        }
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error('Request failed: ' + response.status);
+                }
+                return response.text();
+            })
+            .then(function (html) {
+                cache[url] = html;
+                body.innerHTML = html;
+            })
+            .catch(function () {
+                window.location = fallbackUrl;
+            });
+    }
+
+    document.querySelectorAll('.grade-cell[data-modal-url]').forEach(function (cell) {
+        function open() {
+            showSubmissions(cell.dataset.modalUrl, cell.dataset.fallbackUrl);
+        }
+        cell.addEventListener('click', open);
+        cell.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                open();
+            }
+        });
+    });
+})();
+</script>
 {% endblock %}

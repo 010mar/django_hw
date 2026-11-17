@@ -1,0 +1,45 @@
+{% load humanize %}
+<div class="task-submissions-modal">
+    <h3 class="h5 mb-1">
+        Решения задач урока
+        <a href="{% url 'lesson_detail' lesson.pk %}">{{ lesson.title }}</a>
+    </h3>
+    <p class="mb-1">
+        Класс <a href="{% url 'class_detail' class_group.pk %}">«{{ class_group.title }}»</a>
+    </p>
+    <p class="fw-semibold mb-3">Шаг {{ task_index }}: {{ task.title }}</p>
+    <div class="table-responsive">
+        <table class="table submissions-table align-middle mb-0">
+            <thead>
+            <tr>
+                <th>Пользователь</th>
+                <th>Решения</th>
+                <th>Дата отправки</th>
+                <th>Оценка</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for submission in submissions %}
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="user-avatar" style="background-color: {{ submission.avatar_color }}">{{ submission.initials }}</span>
+                            <span>{{ submission.student.get_full_name|default:submission.student.username }}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="status-dot {% if submission.is_solved %}solved{% elif submission.status == 'pending' %}pending{% else %}failed{% endif %}"></span>
+                        <span class="submission-id">#{{ submission.pk }}</span>
+                    </td>
+                    <td>{{ submission.created_at|naturaltime }}</td>
+                    <td>{{ submission.score|floatformat:"-2" }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center text-muted py-4">Решений пока нет.</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

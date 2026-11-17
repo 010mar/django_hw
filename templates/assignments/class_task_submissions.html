@@ -4,42 +4,8 @@
 {% block title %}Решения задач урока {{ lesson.title }}{% endblock %}
 
 {% block extra_head %}
+{% include 'assignments/_submissions_styles.html' %}
 <style>
-    .submissions-table thead th {
-        background: #f3f4f6;
-        color: #4b5563;
-        font-weight: 600;
-        border-bottom: 1px solid #e5e7eb;
-        white-space: nowrap;
-    }
-    .submissions-table td {
-        border-bottom: 1px solid #eef0f2;
-        padding: .85rem .75rem;
-    }
-    .user-avatar {
-        width: 34px;
-        height: 34px;
-        border-radius: 6px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        color: #fff;
-        font-size: .8rem;
-        font-weight: 600;
-        flex: 0 0 auto;
-    }
-    .status-dot {
-        display: inline-block;
-        width: 9px;
-        height: 9px;
-        border-radius: 50%;
-        margin-right: .35rem;
-        vertical-align: middle;
-    }
-    .status-dot.solved { background: #22c55e; }
-    .status-dot.pending { background: #f59e0b; }
-    .status-dot.failed { background: #ef4444; }
-    .submission-id { color: #2563eb; }
     .task-nav-select { max-width: 420px; }
 </style>
 {% endblock %}

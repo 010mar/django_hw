@@ -45,6 +45,26 @@ def _with_attempt_numbers(queryset):
     )
 
 
+def _decorate_submitters(submissions):
+    palette = ['#4f6f5b', '#2f6d8c', '#6b5b95', '#8c5b5b', '#557a8c']
+    for submission in submissions:
+        name = submission.student.get_full_name() or submission.student.username
+        parts = [part for part in name.split() if part]
+        submission.initials = ''.join(part[0].upper() for part in parts[:2]) or '?'
+        submission.avatar_color = palette[submission.student_id % len(palette)]
+    return submissions
+
+
+def _find_course_lesson_task(course, task_id):
+    for module in _class_course_modules(course):
+        for lesson in module.lessons.all():
+            tasks = [entry.task for entry in lesson.entries.all()]
+            for index, task in enumerate(tasks, start=1):
+                if task.pk == task_id:
+                    return lesson, task, index
+    return None, None, 0
+
+
 @teacher_required
 def class_list(request):
     classes = (
@@ -191,12 +211,7 @@ def class_task_submissions(request, pk, lesson_id, task_id):
             filters |= Q(pk=int(lookup))
         submissions = submissions.filter(filters)
     submissions = list(submissions)
-    palette = ['#4f6f5b', '#2f6d8c', '#6b5b95', '#8c5b5b', '#557a8c']
-    for submission in submissions:
-        name = submission.student.get_full_name() or submission.student.username
-        parts = [part for part in name.split() if part]
-        submission.initials = ''.join(part[0].upper() for part in parts[:2]) or '?'
-        submission.avatar_color = palette[submission.student_id % len(palette)]
+    _decorate_submitters(submissions)
     return render(request, 'assignments/class_task_submissions.html', {
         'class_group': class_group,
         'lesson': lesson,
@@ -274,13 +289,18 @@ def class_gradebook(request, pk):
             for task in block['tasks']:
                 info = results.get((student.pk, task.pk))
                 if info is None:
-                    cells.append('none')
+                    state = 'none'
                 elif info['solved']:
-                    cells.append('solved')
+                    state = 'solved'
                 else:
-                    cells.append('failed')
+                    state = 'failed'
                 if info is not None:
                     total += info['score']
+                cells.append({
+                    'lesson': block['lesson'],
+                    'task': task,
+                    'state': state,
+                })
             lesson_cells.append(cells)
         student_rows.append({
             'student': student,
@@ -309,6 +329,38 @@ def class_gradebook(request, pk):
         'task_count': sum(len(block['tasks']) for block in lesson_blocks),
         'query': query,
         'sort': sort,
+    })
+
+
+@teacher_required
+def class_gradebook_submissions(request, pk, student_id, task_id):
+    class_group = get_object_or_404(
+        ClassGroup.objects.select_related('course'), pk=pk, teacher=request.user,
+    )
+    student = get_object_or_404(class_group.students.all(), pk=student_id)
+    lesson, task, task_index = _find_course_lesson_task(
+        class_group.course, task_id,
+    )
+    if task is None:
+        raise Http404
+    submissions = list(
+        Submission.objects
+        .filter(task=task, student=student)
+        .filter(
+            Q(lesson__module__course=class_group.course)
+            | Q(assignment__class_group=class_group)
+        )
+        .select_related('student')
+        .order_by('-created_at')
+    )
+    _decorate_submitters(submissions)
+    return render(request, 'assignments/_task_submissions_modal.html', {
+        'class_group': class_group,
+        'lesson': lesson,
+        'task': task,
+        'task_index': task_index,
+        'student': student,
+        'submissions': submissions,
     })
 
 
