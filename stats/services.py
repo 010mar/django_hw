@@ -6,8 +6,9 @@ from django.utils import timezone
 
 from assignments.models import Submission
 from assignments.views import _visible_assignments
-from tasks.forms import task_number_sort_key
 from tasks.models import Course, Task
+
+TOPIC_COUNT = 27
 
 
 def _course_condition(course):
@@ -37,17 +38,7 @@ def _course_tasks_condition(courses):
     )
 
 
-def _count_level(count: int) -> int:
-    if count <= 0:
-        return 0
-    if count == 1:
-        return 1
-    if count <= 3:
-        return 2
-    return 3
-
-
-def task_results_by_topic(student, course=None) -> list:
+def task_results_chart(student, course=None) -> dict:
     submissions = Submission.objects.filter(student=student)
     if course is not None:
         submissions = submissions.filter(_course_condition(course))
@@ -77,39 +68,27 @@ def task_results_by_topic(student, course=None) -> list:
         )
     }
 
-    groups = {}
+    attempts_by_topic = {}
+    solved_by_topic = {}
+    max_number = TOPIC_COUNT
     for task in tasks:
+        if task.topic is None or task.topic.order < 1:
+            continue
+        number = task.topic.order
+        max_number = max(max_number, number)
         row = counts.get(task.pk, {})
-        item = {
-            'task': task,
-            'label': task.task_number or str(task.pk),
-            'attempts': row.get('attempts', 0),
-            'correct': row.get('correct', 0),
-        }
-        item['attempt_level'] = _count_level(item['attempts'])
-        item['correct_level'] = _count_level(item['correct'])
-        group = groups.setdefault(
-            task.topic_id,
-            {'topic': task.topic, 'tasks': []},
+        attempts_by_topic[number] = (
+            attempts_by_topic.get(number, 0) + row.get('attempts', 0)
         )
-        group['tasks'].append(item)
+        if row.get('correct', 0):
+            solved_by_topic[number] = solved_by_topic.get(number, 0) + 1
 
-    result = []
-    for group in groups.values():
-        topic = group['topic']
-        group['title'] = topic.name if topic else 'Без темы'
-        group['order_key'] = (
-            (1, 0, '') if topic is None else (0, topic.order, topic.name)
-        )
-        group['tasks'].sort(
-            key=lambda item: (
-                task_number_sort_key(item['task'].task_number or ''),
-                item['task'].title,
-            )
-        )
-        result.append(group)
-    result.sort(key=lambda group: group['order_key'])
-    return result
+    numbers = list(range(1, max_number + 1))
+    return {
+        'labels': numbers,
+        'attempts': [attempts_by_topic.get(number, 0) for number in numbers],
+        'solved': [solved_by_topic.get(number, 0) for number in numbers],
+    }
 
 
 def solved_counts_by_day(student, course=None) -> dict:

@@ -21,7 +21,7 @@ from .heatmap import build_heatmap, level_for
 from .services import (
     activity_streaks,
     solved_counts_by_day,
-    task_results_by_topic,
+    task_results_chart,
 )
 from .templatetags.stats_tags import plural_ru
 
@@ -209,7 +209,7 @@ class CourseFilterTests(StatsViewsBase):
         )
 
 
-class TaskResultsByTopicTests(StatsViewsBase):
+class TaskResultsChartTests(StatsViewsBase):
     def setUp(self):
         super().setUp()
         self.course = Course.objects.create(
@@ -260,37 +260,25 @@ class TaskResultsByTopicTests(StatsViewsBase):
             student=self.student, status=Submission.Status.WA,
         )
 
-    def test_groups_tasks_by_topic_in_order(self):
-        groups = task_results_by_topic(self.student, course=self.course)
-        self.assertEqual(
-            [group['title'] for group in groups], ['Тема A', 'Тема B'],
-        )
-        self.assertEqual(
-            [item['label'] for item in groups[0]['tasks']], ['1', '2'],
-        )
+    def test_chart_labels_cover_topics_one_to_27(self):
+        chart = task_results_chart(self.student, course=self.course)
+        self.assertEqual(chart['labels'], list(range(1, 28)))
+        self.assertEqual(len(chart['attempts']), len(chart['labels']))
+        self.assertEqual(len(chart['solved']), len(chart['labels']))
 
-    def test_counts_attempts_and_correct(self):
-        groups = task_results_by_topic(self.student, course=self.course)
-        items = {
-            item['task'].pk: item
-            for group in groups for item in group['tasks']
-        }
-        self.assertEqual(items[self.task_a1.pk]['attempts'], 2)
-        self.assertEqual(items[self.task_a1.pk]['correct'], 1)
-        self.assertEqual(items[self.task_a2.pk]['attempts'], 0)
-        self.assertEqual(items[self.task_a2.pk]['correct'], 0)
-        self.assertEqual(items[self.task_b1.pk]['attempts'], 1)
-        self.assertEqual(items[self.task_b1.pk]['correct'], 0)
+    def test_counts_attempts_and_solved_by_topic(self):
+        chart = task_results_chart(self.student, course=self.course)
+        self.assertEqual(chart['attempts'][0], 2)
+        self.assertEqual(chart['solved'][0], 1)
+        self.assertEqual(chart['attempts'][1], 1)
+        self.assertEqual(chart['solved'][1], 0)
 
-    def test_page_renders_matrix(self):
+    def test_page_renders_chart(self):
         self.client.force_login(self.student)
         response = self.client.get(reverse('my_stats'))
-        self.assertEqual(
-            response.context['task_matrix'][0]['title'], 'Тема A',
-        )
-        self.assertContains(response, 'Решения по задачам')
-        self.assertContains(response, 'Тема A')
-        self.assertContains(response, 'Попытки')
+        self.assertEqual(response.context['task_chart']['labels'][0], 1)
+        self.assertContains(response, 'Решённые задания по темам')
+        self.assertContains(response, 'task-chart-data')
 
 
 class ParentChildrenTests(StatsViewsBase):

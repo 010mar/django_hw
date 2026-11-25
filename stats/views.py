@@ -41,7 +41,7 @@ def _stats_page_context(request, student):
         'student': student,
         'stats': stats,
         'heatmap': build_heatmap(stats['heatmap']),
-        'task_matrix': services.task_results_by_topic(
+        'task_chart': services.task_results_chart(
             student, course=selected_course,
         ),
         'courses': courses,
