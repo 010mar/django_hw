@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.contrib.auth import get_user_model
 from django.db.models import Count, Q
 from django.db.models.functions import TruncDate
 from django.utils import timezone
@@ -36,6 +37,64 @@ def _course_tasks_condition(courses):
         | Q(assignments__lesson__module__course__in=courses)
         | Q(assignments__class_group__course__in=courses)
     )
+
+
+def _chart_students(course) -> set:
+    if course is not None:
+        students = set(
+            course.class_groups.values_list('students__pk', flat=True),
+        )
+        students.update(
+            Submission.objects
+            .filter(_course_condition(course))
+            .values_list('student_id', flat=True),
+        )
+    else:
+        students = set(
+            get_user_model().objects
+            .filter(role='student')
+            .values_list('pk', flat=True),
+        )
+    students.discard(None)
+    return students
+
+
+def _topic_averages(course) -> dict:
+    students = _chart_students(course)
+    if not students:
+        return {'count': 0, 'attempts': {}, 'solved': {}, 'max': 0}
+
+    submissions = Submission.objects.filter(student_id__in=students)
+    if course is not None:
+        submissions = submissions.filter(_course_condition(course))
+
+    rows = (
+        submissions
+        .values('student_id', 'task_id', 'task__topic__order')
+        .annotate(
+            attempts=Count('pk'),
+            correct=Count(
+                'pk', filter=Q(status__in=Submission.SOLVED_STATUSES),
+            ),
+        )
+    )
+    attempts = {}
+    solved = {}
+    max_number = 0
+    for row in rows:
+        number = row['task__topic__order']
+        if not number:
+            continue
+        max_number = max(max_number, number)
+        attempts[number] = attempts.get(number, 0) + row['attempts']
+        if row['correct']:
+            solved[number] = solved.get(number, 0) + 1
+    return {
+        'count': len(students),
+        'attempts': attempts,
+        'solved': solved,
+        'max': max_number,
+    }
 
 
 def task_results_chart(student, course=None) -> dict:
@@ -83,11 +142,29 @@ def task_results_chart(student, course=None) -> dict:
         if row.get('correct', 0):
             solved_by_topic[number] = solved_by_topic.get(number, 0) + 1
 
+    averages = _topic_averages(course)
+    max_number = max(max_number, averages['max'])
     numbers = list(range(1, max_number + 1))
+    student_count = averages['count']
+    if student_count:
+        attempts_avg = [
+            round(averages['attempts'].get(number, 0) / student_count, 2)
+            for number in numbers
+        ]
+        solved_avg = [
+            round(averages['solved'].get(number, 0) / student_count, 2)
+            for number in numbers
+        ]
+    else:
+        attempts_avg = [0 for number in numbers]
+        solved_avg = [0 for number in numbers]
+
     return {
         'labels': numbers,
         'attempts': [attempts_by_topic.get(number, 0) for number in numbers],
         'solved': [solved_by_topic.get(number, 0) for number in numbers],
+        'attempts_avg': attempts_avg,
+        'solved_avg': solved_avg,
     }
 
 

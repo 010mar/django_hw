@@ -194,6 +194,21 @@ class CourseFilterTests(StatsViewsBase):
         self.assertEqual(response.context['selected_course'], None)
         self.assertEqual(sum(response.context['stats']['heatmap'].values()), 1)
 
+    def test_chart_course_defaults_to_page_course(self):
+        self.client.force_login(self.student)
+        response = self.client.get(
+            f'{reverse("my_stats")}?course={self.course_a.pk}',
+        )
+        self.assertEqual(response.context['chart_course'], self.course_a)
+
+    def test_chart_course_selected_independently(self):
+        self.client.force_login(self.student)
+        response = self.client.get(
+            f'{reverse("my_stats")}?chart_course={self.course_b.pk}',
+        )
+        self.assertEqual(response.context['selected_course'], None)
+        self.assertEqual(response.context['chart_course'], self.course_b)
+
     def test_solved_counts_filter_by_course(self):
         self.assertEqual(
             sum(solved_counts_by_day(
@@ -273,12 +288,21 @@ class TaskResultsChartTests(StatsViewsBase):
         self.assertEqual(chart['attempts'][1], 1)
         self.assertEqual(chart['solved'][1], 0)
 
+    def test_average_layers(self):
+        chart = task_results_chart(self.student, course=self.course)
+        self.assertEqual(chart['attempts_avg'][0], 2.0)
+        self.assertEqual(chart['solved_avg'][0], 1.0)
+        self.assertEqual(chart['attempts_avg'][1], 1.0)
+        self.assertEqual(chart['solved_avg'][1], 0)
+
     def test_page_renders_chart(self):
         self.client.force_login(self.student)
         response = self.client.get(reverse('my_stats'))
         self.assertEqual(response.context['task_chart']['labels'][0], 1)
         self.assertContains(response, 'Решённые задания по темам')
         self.assertContains(response, 'task-chart-data')
+        self.assertContains(response, 'Средние попытки')
+        self.assertContains(response, 'chart-toggle')
 
 
 class ParentChildrenTests(StatsViewsBase):

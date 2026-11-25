@@ -57,9 +57,45 @@
 
 <div class="card mb-4">
     <div class="card-body">
-        <h5 class="mb-1">Решённые задания по темам</h5>
-        <div class="text-muted small mb-3">
-            По горизонтали — номера тем, по вертикали — количество заданий.
+        <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-3">
+            <div>
+                <h5 class="mb-1">Решённые задания по темам</h5>
+                <div class="text-muted small">
+                    По горизонтали — номера тем, по вертикали — количество заданий.
+                </div>
+            </div>
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                    {% if chart_course %}{{ chart_course.title }}{% else %}Все курсы{% endif %}
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li>
+                        <a class="dropdown-item{% if not chart_course %} active{% endif %}"
+                           href="?chart_course={% if selected_course %}&course={{ selected_course.pk }}{% endif %}">Все курсы</a>
+                    </li>
+                    {% for course in courses %}
+                        <li>
+                            <a class="dropdown-item{% if chart_course and chart_course.pk == course.pk %} active{% endif %}"
+                               href="?chart_course={{ course.pk }}{% if selected_course %}&course={{ selected_course.pk }}{% endif %}">{{ course.title }}</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        <div class="chart-toggles mb-3">
+            <button type="button" class="chart-toggle is-active" data-index="0" style="--dot:#f59f00">
+                <span class="dot"></span>Попытки
+            </button>
+            <button type="button" class="chart-toggle is-active" data-index="1" style="--dot:#2f9e44">
+                <span class="dot"></span>Решения
+            </button>
+            <button type="button" class="chart-toggle" data-index="2" style="--dot:#4c6ef5">
+                <span class="dot"></span>Средние попытки
+            </button>
+            <button type="button" class="chart-toggle" data-index="3" style="--dot:#7048e8">
+                <span class="dot"></span>Средние решения
+            </button>
         </div>
         <div class="task-chart-wrap">
             <canvas id="task-chart"></canvas>
@@ -107,6 +143,31 @@
     .stats-card { border-color: #d0d7de; border-radius: 6px; }
     .stat-value { font-size: 2.25rem; font-weight: 700; line-height: 1.1; margin-bottom: 2px; }
     .task-chart-wrap { position: relative; height: 300px; }
+    .chart-toggles { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .chart-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        padding: .2rem .7rem;
+        border: 1px solid #d0d7de;
+        border-radius: 999px;
+        background: #fff;
+        color: #6b7280;
+        font-size: .8rem;
+    }
+    .chart-toggle .dot {
+        width: .6rem;
+        height: .6rem;
+        border-radius: 50%;
+        background: var(--dot);
+        opacity: .35;
+    }
+    .chart-toggle.is-active {
+        color: #111827;
+        border-color: var(--dot);
+        background: color-mix(in srgb, var(--dot) 10%, #fff);
+    }
+    .chart-toggle.is-active .dot { opacity: 1; }
 </style>
 {% endblock %}
 
@@ -121,7 +182,7 @@
         return;
     }
     var data = JSON.parse(source.textContent);
-    new Chart(canvas, {
+    var chart = new Chart(canvas, {
         type: 'line',
         data: {
             labels: data.labels,
@@ -129,8 +190,8 @@
                 {
                     label: 'Попытки',
                     data: data.attempts,
-                    borderColor: 'rgba(147, 180, 235, 0.9)',
-                    backgroundColor: 'rgba(147, 180, 235, 0.18)',
+                    borderColor: 'rgba(245, 159, 0, 0.9)',
+                    backgroundColor: 'rgba(245, 159, 0, 0.15)',
                     fill: true,
                     tension: 0.4,
                     borderWidth: 2,
@@ -138,15 +199,41 @@
                     pointHoverRadius: 4
                 },
                 {
-                    label: 'Решено',
+                    label: 'Решения',
                     data: data.solved,
-                    borderColor: 'rgba(90, 134, 218, 0.95)',
+                    borderColor: 'rgba(47, 158, 68, 0.95)',
                     backgroundColor: 'transparent',
                     fill: false,
                     tension: 0.4,
                     borderWidth: 2,
                     pointRadius: 0,
                     pointHoverRadius: 4
+                },
+                {
+                    label: 'Средние попытки',
+                    data: data.attempts_avg,
+                    borderColor: 'rgba(76, 110, 245, 0.9)',
+                    backgroundColor: 'transparent',
+                    fill: false,
+                    tension: 0.4,
+                    borderWidth: 2,
+                    borderDash: [6, 4],
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    hidden: true
+                },
+                {
+                    label: 'Средние решения',
+                    data: data.solved_avg,
+                    borderColor: 'rgba(112, 72, 232, 0.9)',
+                    backgroundColor: 'transparent',
+                    fill: false,
+                    tension: 0.4,
+                    borderWidth: 2,
+                    borderDash: [6, 4],
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    hidden: true
                 }
             ]
         },
@@ -155,15 +242,7 @@
             maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
             plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        color: '#6b7280',
-                        usePointStyle: true,
-                        boxWidth: 6,
-                        boxHeight: 6
-                    }
-                },
+                legend: { display: false },
                 tooltip: {
                     titleColor: '#374151',
                     bodyColor: '#4b5563',
@@ -187,7 +266,7 @@
                 y: {
                     beginAtZero: true,
                     grid: { color: 'rgba(148, 163, 184, 0.15)' },
-                    ticks: { color: '#94a3b8', precision: 0 },
+                    ticks: { color: '#94a3b8' },
                     title: {
                         display: true,
                         text: 'Количество',
@@ -196,6 +275,16 @@
                 }
             }
         }
+    });
+
+    document.querySelectorAll('.chart-toggle').forEach(function (button) {
+        button.addEventListener('click', function () {
+            var index = Number(button.dataset.index);
+            var dataset = chart.data.datasets[index];
+            dataset.hidden = !dataset.hidden;
+            button.classList.toggle('is-active', !dataset.hidden);
+            chart.update();
+        });
     });
 })();
 </script>

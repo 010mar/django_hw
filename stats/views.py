@@ -27,14 +27,22 @@ def _get_visible_student(user, pk):
     return student
 
 
+def _find_course(courses, value):
+    if value.isdigit():
+        return next(
+            (course for course in courses if course.pk == int(value)),
+            None,
+        )
+    return None
+
+
 def _stats_page_context(request, student):
     courses = list(services.student_courses(student))
-    selected_course = None
-    course_id = request.GET.get('course', '')
-    if course_id.isdigit():
-        selected_course = next(
-            (course for course in courses if course.pk == int(course_id)),
-            None,
+    selected_course = _find_course(courses, request.GET.get('course', ''))
+    chart_course = selected_course
+    if 'chart_course' in request.GET:
+        chart_course = _find_course(
+            courses, request.GET.get('chart_course', ''),
         )
     stats = services.student_stats(student, course=selected_course)
     return {
@@ -42,10 +50,11 @@ def _stats_page_context(request, student):
         'stats': stats,
         'heatmap': build_heatmap(stats['heatmap']),
         'task_chart': services.task_results_chart(
-            student, course=selected_course,
+            student, course=chart_course,
         ),
         'courses': courses,
         'selected_course': selected_course,
+        'chart_course': chart_course,
     }
 
 
