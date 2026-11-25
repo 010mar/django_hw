@@ -55,6 +55,56 @@
     </div>
 </div>
 
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="mb-3">Решения по задачам</h5>
+        {% if task_matrix %}
+            <div class="task-matrix-wrap">
+                <table class="task-matrix">
+                    <thead>
+                        <tr>
+                            <th class="metric-col" rowspan="2">Задача</th>
+                            {% for group in task_matrix %}
+                                <th class="topic-col" colspan="{{ group.tasks|length }}">{{ group.title }}</th>
+                            {% endfor %}
+                        </tr>
+                        <tr>
+                            {% for group in task_matrix %}
+                                {% for item in group.tasks %}
+                                    <th class="task-col" title="{{ item.task.title }}">{{ item.label }}</th>
+                                {% endfor %}
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <th class="metric-col">Попытки</th>
+                            {% for group in task_matrix %}
+                                {% for item in group.tasks %}
+                                    <td class="attempts-{{ item.attempt_level }}"
+                                        title="{{ item.task.title }} — попыток: {{ item.attempts }}">{{ item.attempts }}</td>
+                                {% endfor %}
+                            {% endfor %}
+                        </tr>
+                        <tr>
+                            <th class="metric-col">Верно</th>
+                            {% for group in task_matrix %}
+                                {% for item in group.tasks %}
+                                    <td class="correct-{{ item.correct_level }}"
+                                        title="{{ item.task.title }} — верных решений: {{ item.correct }}">{{ item.correct }}</td>
+                                {% endfor %}
+                            {% endfor %}
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="text-muted small mt-2">Оранжевым показаны попытки, зелёным — правильные решения.</div>
+        {% else %}
+            <p class="text-muted mb-0">Пока нет задач для отображения.</p>
+        {% endif %}
+    </div>
+</div>
+
 <div class="card">
     <div class="card-body">
         <h5 class="mb-3">Прогресс по заданиям</h5>
@@ -94,5 +144,31 @@
 <style>
     .stats-card { border-color: #d0d7de; border-radius: 6px; }
     .stat-value { font-size: 2.25rem; font-weight: 700; line-height: 1.1; margin-bottom: 2px; }
+    .task-matrix-wrap { overflow-x: auto; }
+    .task-matrix { border-collapse: separate; border-spacing: 0; font-size: .8rem; }
+    .task-matrix th, .task-matrix td {
+        border: 1px solid #e5e7eb;
+        padding: 3px 6px;
+        min-width: 34px;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+    }
+    .task-matrix thead th { background: #f6f8fa; font-weight: 600; white-space: nowrap; }
+    .task-matrix .metric-col {
+        position: sticky;
+        left: 0;
+        z-index: 2;
+        background: #f6f8fa;
+        text-align: left;
+        white-space: nowrap;
+    }
+    .task-matrix tbody .metric-col { background: #fff; }
+    .task-matrix .attempts-0, .task-matrix .correct-0 { color: #adb5bd; }
+    .task-matrix .attempts-1 { background: #ffe8cc; }
+    .task-matrix .attempts-2 { background: #ffd8a8; }
+    .task-matrix .attempts-3 { background: #ffc078; }
+    .task-matrix .correct-1 { background: #d3f9d8; }
+    .task-matrix .correct-2 { background: #b2f2bb; }
+    .task-matrix .correct-3 { background: #8ce99a; }
 </style>
 {% endblock %}

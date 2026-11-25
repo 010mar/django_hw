@@ -6,7 +6,8 @@ from django.utils import timezone
 
 from assignments.models import Submission
 from assignments.views import _visible_assignments
-from tasks.models import Course
+from tasks.forms import task_number_sort_key
+from tasks.models import Course, Task
 
 
 def _course_condition(course):
@@ -26,6 +27,89 @@ def student_courses(student):
         )
         .distinct()
     )
+
+
+def _course_tasks_condition(courses):
+    return (
+        Q(lesson_entries__lesson__module__course__in=courses)
+        | Q(assignments__lesson__module__course__in=courses)
+        | Q(assignments__class_group__course__in=courses)
+    )
+
+
+def _count_level(count: int) -> int:
+    if count <= 0:
+        return 0
+    if count == 1:
+        return 1
+    if count <= 3:
+        return 2
+    return 3
+
+
+def task_results_by_topic(student, course=None) -> list:
+    submissions = Submission.objects.filter(student=student)
+    if course is not None:
+        submissions = submissions.filter(_course_condition(course))
+        courses = Course.objects.filter(pk=course.pk)
+    else:
+        courses = student_courses(student)
+
+    tasks = (
+        Task.objects
+        .filter(
+            _course_tasks_condition(courses)
+            | Q(pk__in=submissions.values('task_id'))
+        )
+        .select_related('topic')
+        .distinct()
+    )
+
+    counts = {
+        row['task_id']: row
+        for row in submissions
+        .values('task_id')
+        .annotate(
+            attempts=Count('pk'),
+            correct=Count(
+                'pk', filter=Q(status__in=Submission.SOLVED_STATUSES),
+            ),
+        )
+    }
+
+    groups = {}
+    for task in tasks:
+        row = counts.get(task.pk, {})
+        item = {
+            'task': task,
+            'label': task.task_number or str(task.pk),
+            'attempts': row.get('attempts', 0),
+            'correct': row.get('correct', 0),
+        }
+        item['attempt_level'] = _count_level(item['attempts'])
+        item['correct_level'] = _count_level(item['correct'])
+        group = groups.setdefault(
+            task.topic_id,
+            {'topic': task.topic, 'tasks': []},
+        )
+        group['tasks'].append(item)
+
+    result = []
+    for group in groups.values():
+        topic = group['topic']
+        group['title'] = topic.name if topic else 'Без темы'
+        group['order_key'] = (
+            (1, 0, '') if topic is None else (0, topic.order, topic.name)
+        )
+        group['tasks'].sort(
+            key=lambda item: (
+                task_number_sort_key(item['task'].task_number or ''),
+                item['task'].title,
+            )
+        )
+        result.append(group)
+    result.sort(key=lambda group: group['order_key'])
+    return result
 
 
 def solved_counts_by_day(student, course=None) -> dict:

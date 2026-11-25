@@ -7,10 +7,22 @@ from django.utils import timezone
 
 from accounts.models import ParentLink
 from assignments.models import Assignment, ClassGroup, Submission
-from tasks.models import Course, CourseModule, Lesson, Task
+from tasks.models import (
+    Course,
+    CourseModule,
+    Lesson,
+    LessonTask,
+    Task,
+    TaskBank,
+    Topic,
+)
 
 from .heatmap import build_heatmap, level_for
-from .services import activity_streaks, solved_counts_by_day
+from .services import (
+    activity_streaks,
+    solved_counts_by_day,
+    task_results_by_topic,
+)
 from .templatetags.stats_tags import plural_ru
 
 
@@ -195,6 +207,90 @@ class CourseFilterTests(StatsViewsBase):
             ).values()),
             0,
         )
+
+
+class TaskResultsByTopicTests(StatsViewsBase):
+    def setUp(self):
+        super().setUp()
+        self.course = Course.objects.create(
+            title='Курс', author=self.teacher,
+        )
+        module = CourseModule.objects.create(
+            course=self.course, title='Модуль', order=1,
+        )
+        self.lesson = Lesson.objects.create(
+            module=module, title='Урок', author=self.teacher,
+        )
+        bank = TaskBank.objects.create(name='Банк', author=self.teacher)
+        self.topic_a = Topic.objects.create(
+            bank=bank, name='Тема A', order=1,
+        )
+        self.topic_b = Topic.objects.create(
+            bank=bank, name='Тема B', order=2,
+        )
+        self.task_a1 = Task.objects.create(
+            title='A1', author=self.teacher, bank=bank,
+            topic=self.topic_a, task_number='1',
+        )
+        self.task_a2 = Task.objects.create(
+            title='A2', author=self.teacher, bank=bank,
+            topic=self.topic_a, task_number='2',
+        )
+        self.task_b1 = Task.objects.create(
+            title='B1', author=self.teacher, bank=bank,
+            topic=self.topic_b, task_number='3',
+        )
+        for order, task in enumerate(
+            (self.task_a1, self.task_a2, self.task_b1), start=1,
+        ):
+            LessonTask.objects.create(
+                lesson=self.lesson, task=task, order=order,
+            )
+        class_group = ClassGroup.objects.create(
+            title='9А', teacher=self.teacher, course=self.course,
+        )
+        class_group.students.add(self.student)
+        for status in (Submission.Status.INCORRECT, Submission.Status.OK):
+            Submission.objects.create(
+                lesson=self.lesson, task=self.task_a1,
+                student=self.student, status=status,
+            )
+        Submission.objects.create(
+            lesson=self.lesson, task=self.task_b1,
+            student=self.student, status=Submission.Status.WA,
+        )
+
+    def test_groups_tasks_by_topic_in_order(self):
+        groups = task_results_by_topic(self.student, course=self.course)
+        self.assertEqual(
+            [group['title'] for group in groups], ['Тема A', 'Тема B'],
+        )
+        self.assertEqual(
+            [item['label'] for item in groups[0]['tasks']], ['1', '2'],
+        )
+
+    def test_counts_attempts_and_correct(self):
+        groups = task_results_by_topic(self.student, course=self.course)
+        items = {
+            item['task'].pk: item
+            for group in groups for item in group['tasks']
+        }
+        self.assertEqual(items[self.task_a1.pk]['attempts'], 2)
+        self.assertEqual(items[self.task_a1.pk]['correct'], 1)
+        self.assertEqual(items[self.task_a2.pk]['attempts'], 0)
+        self.assertEqual(items[self.task_a2.pk]['correct'], 0)
+        self.assertEqual(items[self.task_b1.pk]['attempts'], 1)
+        self.assertEqual(items[self.task_b1.pk]['correct'], 0)
+
+    def test_page_renders_matrix(self):
+        self.client.force_login(self.student)
+        response = self.client.get(reverse('my_stats'))
+        self.assertEqual(
+            response.context['task_matrix'][0]['title'], 'Тема A',
+        )
+        self.assertContains(response, 'Решения по задачам')
+        self.assertContains(response, 'Тема A')
+        self.assertContains(response, 'Попытки')
 
 
 class ParentChildrenTests(StatsViewsBase):
