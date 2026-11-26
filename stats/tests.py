@@ -103,6 +103,22 @@ class StudentStatsTests(StatsViewsBase):
         response = self.client.get(reverse('student_stats', args=[self.student.pk]))
         self.assertEqual(response.status_code, 200)
 
+    def test_other_teacher_cannot_see_student(self):
+        self.client.force_login(self.other_teacher)
+        response = self.client.get(reverse('student_stats', args=[self.student.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_teacher_sees_student_from_own_class(self):
+        class_group = ClassGroup.objects.create(
+            title='9А', teacher=self.teacher,
+        )
+        class_group.students.add(self.other_student)
+        self.client.force_login(self.teacher)
+        response = self.client.get(
+            reverse('student_stats', args=[self.other_student.pk]),
+        )
+        self.assertEqual(response.status_code, 200)
+
     def test_solved_counts_shown(self):
         self.make_submission(
             self.student, Submission.Status.OK, timezone.now() - timedelta(days=1),

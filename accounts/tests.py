@@ -123,6 +123,30 @@ class AuthFlowTests(TestCase):
         self.assertContains(response, 'Учитель')
 
 
+class LogoutTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='logout_user',
+            email='logout@example.com',
+            password='pass12345',
+        )
+        self.client = Client()
+        self.client.force_login(self.user)
+
+    def test_get_logout_does_not_log_out(self):
+        response = self.client.get(reverse('account_logout'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Выход из аккаунта')
+        self.assertIn('_auth_user_id', self.client.session)
+
+    def test_post_logout_logs_out(self):
+        response = self.client.post(reverse('account_logout'))
+        self.assertRedirects(
+            response, reverse('home'), fetch_redirect_response=False,
+        )
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+
 class EmailVerificationTests(TestCase):
     def setUp(self):
         cache.clear()

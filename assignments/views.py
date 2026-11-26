@@ -511,7 +511,9 @@ def assignment_grade(request, pk):
 
 @teacher_required
 def grade_submission(request, submission_id):
-    submission = get_object_or_404(Submission, pk=submission_id)
+    submission = get_object_or_404(
+        Submission, pk=submission_id, assignment__author=request.user,
+    )
     action = request.POST.get('action')
     if request.method == 'POST' and action in ('accepted', 'rejected'):
         submission.status = Submission.Status.ACCEPTED if action == 'accepted' else Submission.Status.REJECTED

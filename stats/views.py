@@ -12,8 +12,13 @@ from .heatmap import build_heatmap
 
 
 def _can_view_student(user, student) -> bool:
-    if user == student or user.is_teacher:
+    if user == student:
         return True
+    if user.is_teacher:
+        return (
+            student.class_groups.filter(teacher_id=user.pk).exists()
+            or student.direct_assignments.filter(author_id=user.pk).exists()
+        )
     return user.children.filter(child=student).exists()
 
 

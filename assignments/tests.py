@@ -306,6 +306,24 @@ class AssignmentFlowTests(DjangoTestCase):
         self.assertEqual(sub.status, Submission.Status.ACCEPTED)
         self.assertEqual(sub.graded_by, self.teacher)
 
+    def test_other_teacher_cannot_grade_submission(self):
+        sub = Submission.objects.create(
+            assignment=self.assignment, task=self.gap_task,
+            student=self.student, status=Submission.Status.PENDING,
+        )
+        other_teacher = User.objects.create_user(
+            username='other_teacher', password='pass12345',
+            role=User.Role.TEACHER,
+        )
+        self.client.force_login(other_teacher)
+        response = self.client.post(
+            reverse('grade_submission', args=[sub.pk]), {'action': 'accepted'},
+        )
+        self.assertEqual(response.status_code, 404)
+        sub.refresh_from_db()
+        self.assertEqual(sub.status, Submission.Status.PENDING)
+        self.assertIsNone(sub.graded_by)
+
     def test_grade_page_shows_attempt_numbers(self):
         first = Submission.objects.create(
             assignment=self.assignment, task=self.gap_task,
