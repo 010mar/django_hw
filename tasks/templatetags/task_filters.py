@@ -34,7 +34,7 @@ def render_task_body(value, task=None):
         if image is None:
             return ''
         return (
-            f'<img src="{conditional_escape(image.image.url)}" '
+            f'<img src="{conditional_escape(image.image_url)}" '
             'alt="Изображение к условию" class="img-fluid rounded my-2 d-block">'
         )
 

@@ -119,7 +119,7 @@
                             {% for img in inline_images %}
                                 <div class="inline-image-item position-relative border rounded p-1"
                                      data-token="{{ img.token }}">
-                                    <img src="{{ img.image.url }}" alt="Изображение к условию"
+                                    <img src="{{ img.image_url }}" alt="Изображение к условию"
                                          class="rounded"
                                          style="height:80px;width:auto;max-width:120px;object-fit:cover;">
                                     <button type="button"
@@ -155,7 +155,7 @@
                                     <label class="form-check-label" for="remove-attachment-{{ attachment.pk }}">
                                         {{ attachment.filename }}
                                     </label>
-                                    <a href="{{ attachment.file.url }}" class="small ms-2"
+                                    <a href="{{ attachment.file_url }}" class="small ms-2"
                                        target="_blank" rel="noopener">скачать</a>
                                     <span class="text-muted small ms-1">— отметьте, чтобы удалить</span>
                                 </div>

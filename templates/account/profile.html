@@ -11,7 +11,7 @@
                 <h5 class="mb-4">Личные данные</h5>
                 <div class="d-flex align-items-center mb-4">
                     {% if user.avatar %}
-                        <img src="{{ user.avatar.url }}" alt="Аватар"
+                        <img src="{{ user.avatar_url }}" alt="Аватар"
                              class="rounded-circle me-3" width="72" height="72"
                              style="object-fit: cover;">
                     {% else %}

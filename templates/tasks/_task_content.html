@@ -7,7 +7,7 @@
 </div>
 <div class="text-break js-math mb-3">{{ task.body|render_task_body:task }}</div>
 {% if task.image %}
-    <img src="{{ task.image.url }}" alt="Иллюстрация" class="img-fluid mb-3 rounded">
+    <img src="{{ task.image_url }}" alt="Иллюстрация" class="img-fluid mb-3 rounded">
 {% endif %}
 {% if task.type == 'text' %}
     <details class="mb-3">

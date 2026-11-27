@@ -65,7 +65,7 @@
         <h6 class="text-muted">Условие</h6>
         <div class="text-break js-math">{{ task.body|render_task_body:task }}</div>
         {% if task.image %}
-            <img src="{{ task.image.url }}" alt="Иллюстрация" class="img-fluid mt-3 rounded">
+            <img src="{{ task.image_url }}" alt="Иллюстрация" class="img-fluid mt-3 rounded">
         {% endif %}
     </div>
 </div>
@@ -79,7 +79,7 @@
                     <li class="list-group-item px-0 d-flex justify-content-between align-items-center gap-2">
                         <span class="text-break">{{ attachment.filename }}</span>
                         <a class="btn btn-sm btn-outline-secondary flex-shrink-0"
-                           href="{{ attachment.file.url }}" download>Скачать</a>
+                           href="{{ attachment.file_url }}" download>Скачать</a>
                     </li>
                 {% endfor %}
             </ul>

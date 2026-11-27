@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.urls import reverse
 
 
 class User(AbstractUser):
@@ -20,6 +21,12 @@ class User(AbstractUser):
         null=True,
         verbose_name='Аватар',
     )
+
+    @property
+    def avatar_url(self) -> str:
+        if not self.avatar:
+            return ''
+        return reverse('protected_media', args=[self.avatar.name])
 
     @property
     def role_verbose(self) -> str:

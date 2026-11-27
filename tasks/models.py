@@ -210,6 +210,12 @@ class Task(models.Model):
         return self.get_type_display()
 
     @property
+    def image_url(self) -> str:
+        if not self.image:
+            return ''
+        return reverse('protected_media', args=[self.image.name])
+
+    @property
     def difficulty_verbose(self) -> str:
         return self.get_difficulty_display()
 
@@ -341,6 +347,10 @@ class TaskImage(models.Model):
     def marker(self) -> str:
         return f'[[img:{self.token}]]'
 
+    @property
+    def image_url(self) -> str:
+        return reverse('protected_media', args=[self.image.name])
+
 
 @receiver(post_delete, sender=TaskImage)
 def delete_task_image_file(sender, instance, **kwargs):
@@ -382,6 +392,10 @@ class TaskAttachment(models.Model):
     @property
     def filename(self) -> str:
         return self.original_name or self.file.name.rsplit('/', 1)[-1]
+
+    @property
+    def file_url(self) -> str:
+        return reverse('protected_media', args=[self.file.name])
 
 
 @receiver(post_delete, sender=TaskAttachment)

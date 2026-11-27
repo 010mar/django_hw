@@ -21,8 +21,8 @@
                 <div class="row align-items-center">
                     <div class="col-md-8">
                         {% if submission.image %}
-                            <a href="{{ submission.image.url }}" target="_blank">
-                                <img src="{{ submission.image.url }}" alt="Решение" class="img-fluid rounded border">
+                            <a href="{{ submission.image_url }}" target="_blank">
+                                <img src="{{ submission.image_url }}" alt="Решение" class="img-fluid rounded border">
                             </a>
                         {% elif submission.gap_answers %}
                             <ul class="list-group">

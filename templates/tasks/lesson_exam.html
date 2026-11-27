@@ -683,7 +683,7 @@
                         </div>
                         {% if current_task.image %}
                             <div class="mb-4">
-                                <img src="{{ current_task.image.url }}" alt="Иллюстрация">
+                                <img src="{{ current_task.image_url }}" alt="Иллюстрация">
                             </div>
                         {% endif %}
                         {% if current_task.type == 'text' %}
@@ -791,7 +791,7 @@
                             <div class="exam-footer-files">
                                 {% for attachment in current_task.attachments.all %}
                                     <a class="exam-file-link"
-                                       href="{{ attachment.file.url }}" download
+                                       href="{{ attachment.file_url }}" download
                                        title="Скачать {{ attachment.filename }}">
                                         <i class="bi bi-file-earmark-arrow-down"></i>
                                         <span>{{ attachment.filename }}</span>

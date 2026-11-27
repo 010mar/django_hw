@@ -3,6 +3,7 @@ from typing import ClassVar
 
 from django.conf import settings
 from django.db import models
+from django.urls import reverse
 
 from tasks.models import AnswerOption, Course, Lesson, Task
 
@@ -229,6 +230,12 @@ class Submission(models.Model):
 
     def __str__(self):
         return f'{self.student} — {self.task.title}'
+
+    @property
+    def image_url(self) -> str:
+        if not self.image:
+            return ''
+        return reverse('protected_media', args=[self.image.name])
 
     @property
     def is_solved(self):

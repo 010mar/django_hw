@@ -475,7 +475,7 @@ def task_image_upload(request):
     task_image = TaskImage.objects.create(author=request.user, image=upload)
     return JsonResponse({
         'token': str(task_image.token),
-        'url': task_image.image.url,
+        'url': task_image.image_url,
     })
 
 
