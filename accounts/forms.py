@@ -11,7 +11,7 @@ from allauth.account.forms import (
 from django import forms
 from django.utils.text import slugify
 
-from .models import ParentLink, User
+from .models import User
 
 BOOTSTRAP_INPUT_CLASSES = {
     'email': 'form-control',
@@ -121,35 +121,3 @@ class ProfileForm(forms.ModelForm):
                 attrs={'class': 'form-control', 'accept': 'image/*'}
             ),
         }
-
-
-class ParentLinkForm(forms.Form):
-    email = forms.EmailField(
-        label='E-mail ученика',
-        widget=forms.EmailInput(
-            attrs={'class': 'form-control', 'placeholder': 'uchenik@example.com'}
-        ),
-    )
-
-    def __init__(self, *args, parent=None, **kwargs):
-        self.parent = parent
-        super().__init__(*args, **kwargs)
-
-    def clean_email(self):
-        email = self.cleaned_data['email'].lower()
-        child = User.objects.filter(
-            email__iexact=email, role=User.Role.STUDENT
-        ).first()
-        if not child:
-            raise forms.ValidationError('Ученик с такой почтой не найден.')
-        if self.parent and child.pk == self.parent.pk:
-            raise forms.ValidationError('Нельзя привязать самого себя.')
-        if self.parent and ParentLink.objects.filter(
-            parent=self.parent, child=child
-        ).exists():
-            raise forms.ValidationError('Этот ученик уже привязан к профилю.')
-        self.child = child
-        return email
-
-    def save(self):
-        return ParentLink.objects.create(parent=self.parent, child=self.child)

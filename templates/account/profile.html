@@ -60,43 +60,26 @@
             </div>
         </div>
 
-        {% if child_form %}
+        {% if user.is_parent %}
             <div class="card shadow-sm">
                 <div class="card-body p-4">
                     <h5 class="mb-3">Мои дети</h5>
                     {% if children %}
-                        <ul class="list-group list-group-flush mb-3">
+                        <ul class="list-group list-group-flush">
                             {% for link in children %}
-                                <li class="list-group-item d-flex justify-content-between align-items-center px-0 gap-3">
-                                    <div>
-                                        <div class="fw-semibold">
-                                            {{ link.child.get_full_name|default:link.child.username }}
-                                        </div>
-                                        <div class="text-muted small text-break">{{ link.child.email }}</div>
+                                <li class="list-group-item px-0">
+                                    <div class="fw-semibold">
+                                        {{ link.child.get_full_name|default:link.child.username }}
                                     </div>
-                                    <form method="post" action="{% url 'remove_child' link.pk %}">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn btn-sm btn-outline-danger"
-                                                onclick="return confirm('Удалить привязку?')">Удалить</button>
-                                    </form>
+                                    <div class="text-muted small text-break">{{ link.child.email }}</div>
                                 </li>
                             {% endfor %}
                         </ul>
                     {% else %}
-                        <p class="text-muted">Пока нет привязанных учеников.</p>
+                        <p class="text-muted mb-0">Пока нет привязанных учеников.</p>
                     {% endif %}
-                    <form method="post" action="{% url 'add_child' %}" class="row g-2 align-items-end">
-                        {% csrf_token %}
-                        <div class="col">
-                            <label class="form-label" for="{{ child_form.email.id_for_label }}">E-mail ученика</label>
-                            {{ child_form.email }}
-                        </div>
-                        <div class="col-auto">
-                            <button type="submit" class="btn btn-outline-primary">Привязать</button>
-                        </div>
-                    </form>
-                    <p class="text-muted small mt-2 mb-0">
-                        Ученик должен быть зарегистрирован на сайте с ролью «Ученик».
+                    <p class="text-muted small mt-3 mb-0">
+                        Привязку детей назначает администратор сайта.
                     </p>
                 </div>
             </div>

@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 from allauth.account.models import EmailAddress
 from django.core import mail
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
@@ -234,6 +235,93 @@ class ParentLinkTests(TestCase):
         self.assertEqual(parent.children.count(), 1)
         self.assertEqual(child.parent_links.count(), 1)
 
+    def test_rejects_parent_with_wrong_role(self):
+        not_parent = User.objects.create_user(
+            username='not-parent', password='pass12345', role=User.Role.STUDENT,
+        )
+        child = User.objects.create_user(
+            username='child2', password='pass12345', role=User.Role.STUDENT,
+        )
+        with self.assertRaises(ValidationError):
+            ParentLink.objects.create(parent=not_parent, child=child)
+
+    def test_rejects_child_with_wrong_role(self):
+        parent = User.objects.create_user(
+            username='parent3', password='pass12345', role=User.Role.PARENT,
+        )
+        not_child = User.objects.create_user(
+            username='not-child', password='pass12345', role=User.Role.TEACHER,
+        )
+        with self.assertRaises(ValidationError):
+            ParentLink.objects.create(parent=parent, child=not_child)
+
+    def test_rejects_self_link(self):
+        parent = User.objects.create_user(
+            username='parent4', password='pass12345', role=User.Role.PARENT,
+        )
+        with self.assertRaises(ValidationError):
+            ParentLink.objects.create(parent=parent, child=parent)
+
+    def test_admin_can_assign_link(self):
+        parent = User.objects.create_user(
+            username='parent5', password='pass12345', role=User.Role.PARENT,
+        )
+        child = User.objects.create_user(
+            username='child5', password='pass12345', role=User.Role.STUDENT,
+        )
+        admin_user = User.objects.create_superuser(
+            username='admin', email='admin@example.com', password='pass12345',
+        )
+        self.client.force_login(admin_user)
+        response = self.client.post(
+            reverse('admin:accounts_parentlink_add'),
+            {'parent': parent.pk, 'child': child.pk},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            ParentLink.objects.filter(parent=parent, child=child).exists()
+        )
+
+    def test_admin_rejects_wrong_roles(self):
+        not_parent = User.objects.create_user(
+            username='parent6', password='pass12345', role=User.Role.STUDENT,
+        )
+        child = User.objects.create_user(
+            username='child6', password='pass12345', role=User.Role.STUDENT,
+        )
+        admin_user = User.objects.create_superuser(
+            username='admin2', email='admin2@example.com', password='pass12345',
+        )
+        self.client.force_login(admin_user)
+        response = self.client.post(
+            reverse('admin:accounts_parentlink_add'),
+            {'parent': not_parent.pk, 'child': child.pk},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(ParentLink.objects.exists())
+
+    def test_admin_child_inline_only_on_parent_pages(self):
+        parent = User.objects.create_user(
+            username='parent7', password='pass12345', role=User.Role.PARENT,
+        )
+        child = User.objects.create_user(
+            username='child7', password='pass12345', role=User.Role.STUDENT,
+        )
+        admin_user = User.objects.create_superuser(
+            username='admin3', email='admin3@example.com', password='pass12345',
+        )
+        self.client.force_login(admin_user)
+        response = self.client.get(
+            reverse('admin:accounts_user_change', args=[parent.pk]),
+        )
+        models = [formset.opts.model for formset in response.context['inline_admin_formsets']]
+        self.assertIn(ParentLink, models)
+        response = self.client.get(
+            reverse('admin:accounts_user_change', args=[child.pk]),
+        )
+        models = [formset.opts.model for formset in response.context['inline_admin_formsets']]
+        self.assertNotIn(ParentLink, models)
+
 
 class PasswordResetTests(TestCase):
     def setUp(self):
@@ -295,10 +383,6 @@ class PasswordResetTests(TestCase):
 
 class ProfileTests(TestCase):
     def setUp(self):
-        self.teacher = User.objects.create_user(
-            username='teacher1', email='teacher1@example.com',
-            password='pass12345', role=User.Role.TEACHER,
-        )
         self.parent = User.objects.create_user(
             username='parent2', email='parent2@example.com',
             password='pass12345', role=User.Role.PARENT,
@@ -351,31 +435,10 @@ class ProfileTests(TestCase):
         self.assertContains(response, reverse('account_email'))
         self.assertContains(response, reverse('account_change_password'))
 
-    def test_parent_can_link_and_unlink_child(self):
+    def test_parent_cannot_link_children_self_service(self):
         self.client.force_login(self.parent)
-        response = self.client.post(
-            reverse('add_child'), {'email': 'student1@example.com'}
-        )
-        self.assertRedirects(response, reverse('profile'))
-        link = ParentLink.objects.get(parent=self.parent, child=self.student)
-        response = self.client.post(reverse('remove_child', args=[link.pk]))
-        self.assertRedirects(response, reverse('profile'))
-        self.assertFalse(ParentLink.objects.exists())
-
-    def test_non_parent_cannot_link_child(self):
-        self.client.force_login(self.teacher)
-        response = self.client.post(
-            reverse('add_child'), {'email': 'student1@example.com'}
-        )
-        self.assertEqual(response.status_code, 403)
-        self.assertFalse(ParentLink.objects.exists())
-
-    def test_parent_link_rejects_unknown_email(self):
-        self.client.force_login(self.parent)
-        response = self.client.post(
-            reverse('add_child'), {'email': 'nobody@example.com'}, follow=True
-        )
-        self.assertContains(response, 'не найден')
+        response = self.client.get('/profile/children/add/')
+        self.assertEqual(response.status_code, 404)
         self.assertFalse(ParentLink.objects.exists())
 
     def test_profile_shows_children_for_parent(self):
@@ -384,6 +447,8 @@ class ProfileTests(TestCase):
         response = self.client.get(reverse('profile'))
         self.assertContains(response, 'Гриша Петров')
         self.assertContains(response, 'student1@example.com')
+        self.assertContains(response, 'назначает администратор')
+        self.assertNotContains(response, 'Привязать')
 
     def test_email_management_page_is_styled(self):
         self.client.force_login(self.student)
